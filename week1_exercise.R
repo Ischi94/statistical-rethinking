@@ -1,5 +1,5 @@
 library(tidyverse)
-
+devtools::install_github("rmcelreath/rethinking")
 
 # exercise 1 --------------------------------------------------------------
 
@@ -65,5 +65,13 @@ ggplot(post_dist, aes(x = my_value, y = post_prob, colour = type)) +
   scale_colour_manual(values =c("grey60", "grey40",  "grey5")) +
   labs(x = "Index", y = "posterior") +
   theme_light()
+
+# This problem is more open-ended than the others. Feel free to collaborate
+# on the solution. Suppose you want to estimate the Earth’s proportion of
+# water very precisely. Specifically, you want the 99% percentile interval of the
+# posterior distribution of p to be only 0.05 wide. This means the distance between
+# the upper and lower bound of the interval should be 0.05. How many
+# times will you have to toss the globe to do this? I won’t require a precise
+# answer. I’m honestly more interested in your approach.
 
 
