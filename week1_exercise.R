@@ -1,4 +1,6 @@
 library(tidyverse)
+library(rstan)
+
 devtools::install_github("rmcelreath/rethinking")
 
 # exercise 1 --------------------------------------------------------------
