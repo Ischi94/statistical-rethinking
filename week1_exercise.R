@@ -1,7 +1,5 @@
 library(tidyverse)
-library(rstan)
-
-devtools::install_github("rmcelreath/rethinking")
+library(rethinking)
 
 # exercise 1 --------------------------------------------------------------
 
@@ -67,6 +65,10 @@ ggplot(post_dist, aes(x = my_value, y = post_prob, colour = type)) +
   scale_colour_manual(values =c("grey60", "grey40",  "grey5")) +
   labs(x = "Index", y = "posterior") +
   theme_light()
+
+samples <- sample(p_grid, prob = posterior_upd, size = 1e4, replace = TRUE)
+
+PI(samples, prob = 0.5)
 
 # This problem is more open-ended than the others. Feel free to collaborate
 # on the solution. Suppose you want to estimate the Earth’s proportion of
