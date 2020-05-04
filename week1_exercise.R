@@ -79,3 +79,51 @@ PI(samples, prob = 0.5)
 # answer. I’m honestly more interested in your approach.
 
 
+
+# Chapter 2 ---------------------------------------------------------------
+
+# 2M1 
+# Recall the globe tossing model from the chapter. 
+# Compute and plot the grid approximate posterior distribution for each of the 
+# following sets of observations. In each case, assume a uniform prior for p.
+
+# W,W,W
+# W,W,W,L
+# L,W,W,L,W,W,W
+
+# define grid
+p_grid <- seq(from = 0, to = 1, length.out = 20)
+
+# define prior 
+prior <- rep(1, 20)
+
+# make function with uniform prior and grid of size 20
+grid_approx <- function(W, L){
+# compute likelihood at each value in grid
+likelihood <- dbinom(W, size = W+L, prob = p_grid)
+# compute product of likelihood and prior
+unstd_posterior <- likelihood * prior
+# standardise the posterior, so it sums to 1
+posterior <- unstd_posterior / sum(unstd_posterior)
+# plot it
+plot(p_grid, posterior, type = "b")
+}
+
+grid_approx(3, 0)
+grid_approx(3, 1)
+grid_approx(5, 2)
+
+# 2M2
+# Now assume a prior for p that is equal to zero when p<0.5 and is a positive 
+# constant when p≥0.5. Again compute and plot the grid approximate posterior 
+# distribution for each of the sets of observations in the problem just above.
+
+# update prior
+prior <- ifelse(p_grid < 0.5, 0, 1)
+
+grid_approx(3, 0)
+grid_approx(3, 1)
+grid_approx(5, 2)
+
+# 2M4
+
