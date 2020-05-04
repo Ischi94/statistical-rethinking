@@ -125,5 +125,58 @@ grid_approx(3, 0)
 grid_approx(3, 1)
 grid_approx(5, 2)
 
-# 2M4
 
+# Chapter 3 ---------------------------------------------------------------
+
+p_grid <- seq(from = 0, to = 1, length.out = 1000)
+prior <- rep(1, 1000)
+likelihood <- dbinom(6, size = 9, prob = p_grid)
+posterior <- likelihood * prior
+posterior <- posterior / sum(posterior)
+set.seed(100)
+samples <- sample(p_grid, prob = posterior, size = 1e4, replace = TRUE) %>% enframe()
+
+# 3E1
+# How much posterior probability lies below p = 0.2
+samples %>% filter(value < 0.2) %>% summarise(p = n()/1e4)
+
+# 3E2
+# How much posterior probability lies above p = 0.8
+samples %>% filter(value > 0.8) %>% summarise(p = n()/1e4)
+
+# 3E3
+# How much posterior probability lies between p = 0.2 and p = 0.8
+samples %>% filter(value > 0.2 & value < 0.8) %>% summarise(p = n()/1e4)
+
+# 3E4
+# 20% of the posterior probability lies below which value of p?
+samples %>% summarise(quants = quantile(value, probs = 0.2))
+
+# 3E5
+# 20% of the posterior probability lies above which value of p?
+samples %>% summarise(quants = quantile(value, probs = 1 - 0.2))
+
+# 3E6
+# Which values of p contain the narrowest interval equal to 66% of the 
+# posterior probability?
+samples %>% {HPDI(.$value, prob = 0.66)}
+
+# 3E7
+# Which values of p contain 66% of the posterior probability, 
+# assuming equal posterior probability both below and above the interval?
+samples %>% {PI(.$value, prob = 0.66)}
+
+# 3M1
+# Suppose the globe tossing data had turned out to be 8 water in 15 tosses. 
+# Construct the posterior distribution, using grid approximation. 
+# Use the same flat prior as before.
+p_grid <- seq(from = 0, to = 1, length.out = 1000)
+prior <- rep(1, 1000)
+likelihood <- dbinom(8, size = 15, prob = p_grid)
+posterior <- likelihood * prior
+posterior <- posterior / sum(posterior)
+plot(p_grid, posterior, type = "l")
+
+# 3M2
+# Draw 10,000 samples from the grid approximation from above. 
+# Then use the samples to calculate the 90% HPDI for p.
