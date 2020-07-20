@@ -232,29 +232,32 @@ ggplot(m_young_res) +
 # define weight range
 weight_seq <- seq(from = min(young$weight), to = max(young$weight), by = 1)
 
+# we better make a function out of it since we use it more oftne
+tidy_intervals <- function(my_function, my_model, interval_type){
+  
 # calculate 89% intervals for each weight
-intervals <- link(m_young, data = data.frame(weight = weight_seq)) %>% 
+  my_function(my_model, data = data.frame(weight = weight_seq)) %>% 
   as_tibble() %>% 
-  summarise_all(HPDI, prob = 0.89) %>% 
+  summarise_all(interval_type, prob = 0.89) %>% 
   add_column(type = c("lower", "upper")) %>% 
   pivot_longer(cols = -type, names_to = "cols", values_to = "intervals") %>% 
   add_column("weight" = rep(weight_seq, 2)) %>% 
   pivot_wider(names_from = type, values_from = intervals)
+}
 
+# highest posterior density (HPDI)
+intervals <- tidy_intervals(link, m_young, HPDI)
+
+# percentily prediction 
 # calculate prediction intervals
-pred_intervals <- sim(m_young, data = data.frame(weight = weight_seq)) %>% 
-  as_tibble() %>% 
-  summarise_all(PI, prob = 0.89) %>% 
-  add_column(type = c("lower", "upper")) %>% 
-  pivot_longer(cols = -type, names_to = "cols", values_to = "intervals") %>% 
-  add_column("weight" = rep(weight_seq, 2)) %>% 
-  pivot_wider(names_from = type, values_from = intervals)
+pred_intervals <- tidy_intervals(sim, m_young, PI)
 
 # plot it
 ggplot(young) +
   geom_point(aes(x = weight, height)) +
-  geom_abline(intercept = m_young_res["a","mean"], 
-              slope = m_young_res["b","mean"], size = .8) + 
+  geom_abline(intercept = m_young_res %>% filter(parameter == "a") %>% select(mean) %>% pull, 
+              slope = m_young_res %>% filter(parameter == "b") %>% select(mean)%>% pull,
+              size = .8) + 
   geom_ribbon(aes(x = weight, ymin = lower, ymax = upper), 
               alpha=0.6, data = intervals) +
   geom_ribbon(aes(x = weight, ymin = lower, ymax = upper), 
@@ -268,3 +271,62 @@ ggplot(young) +
 # and what you hypothesize would be a better model.
 # --> no linear fit, generalised models would do better
 
+# Suppose a colleague of yours, who works on allometry, glances at the practice 
+# problems just above. Your colleague exclaims, “That’s silly. 
+# Everyone knows that it’s only the logarithm of body weight that scales with height!”
+# Let’s take your colleague’s advice and see what happens.
+# 
+# (a) Model the relationship between height (cm) and the natural logarithm of weight 
+# (log-kg). Use the entire Howell1 data frame, all 544 rows, adults and non-adults. 
+# Fit this model, using quadratic approximation:
+# The function for computing a natural log in R is just log().
+# Can you interpret the resulting estimates?
+# model formula
+formula_log <- alist(
+  height ~ dnorm(mu, sigma),
+  mu <- a + b * log(weight),
+  a ~ dnorm(178, 100),
+  b ~ dlnorm(0, 1),
+  sigma ~ dunif(0, 50))
+
+# model fit
+m_log <- map(formula_log, data = d)
+m_log_res <- precis(m_log) %>% as_tibble() %>% 
+  add_column(parameter = rownames(precis(m_log))) %>% 
+  rename("lower" = '5.5%', "upper" = '94.5%')
+
+# Begin with this plot:
+
+plot(height ~ weight, data = Howell1, col = col.alpha(rangi2, 0.4))
+
+# Then use samples from the quadratic approximate posterior of the model in (a) 
+# to superimpose on the plot: 
+# (1) the predicted mean height as a function of weight, 
+# (2) the 97% HPDI for the mean, and 
+# (3) the 97% HPDI for predicted heights.
+
+# define weight range
+weight_seq <- seq(from = min(d$weight), to = max(d$weight), by = 1)
+
+# calculate 89% intervals for each weight
+intervals <- tidy_intervals(link, m_log, HPDI)
+
+# calculate means
+reg_line <- link(m_log, data = data.frame(weight = weight_seq)) %>% 
+  apply(., 2, mean) %>% 
+  as_tibble() %>% 
+  add_column(weight = weight_seq)
+
+
+# calculate prediction intervals
+pred_intervals <- tidy_intervals(sim, m_log, PI)
+
+# plot it 
+ggplot(d) +
+  geom_point(aes(x = weight, height), alpha = 0.2) +
+  geom_line(aes(x = weight, y = value) , size = .8, data = reg_line) + 
+  geom_ribbon(aes(x = weight, ymin = lower, ymax = upper), 
+              alpha=0.6, data = intervals) +
+  geom_ribbon(aes(x = weight, ymin = lower, ymax = upper), 
+              alpha=0.2, data = pred_intervals) +
+  theme_light()
