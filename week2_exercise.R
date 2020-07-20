@@ -330,3 +330,37 @@ ggplot(d) +
   geom_ribbon(aes(x = weight, ymin = lower, ymax = upper), 
               alpha=0.2, data = pred_intervals) +
   theme_light()
+
+# 4H4
+# plot the prior predictive distribution for the parabolic polynomial regression
+# model by modifying the code that plots the linear regression prior predictive 
+# distribution. Can you modify the prior distributions of a, b1, and b2 so that the
+# prior predictions stay withing the biologically reasonable outcome space?
+
+# standardise weight
+d_stand <- d %>% mutate(weight_s = (weight - mean(weight)) / sd(weight), 
+              weight_s2 = weight_s^2)
+# set seed
+set.seed(123)
+
+n <- 100
+a <- rnorm(n, 178, 20)
+b1 <- rlnorm(n, 0, 1)
+b2 <- rnorm(n, 0, 1)
+
+# simulate prior predictions as specified
+pp_sim <- tibble(a = a, b1 = b1, b2 = b2, n = 1:n)
+
+# use weight range
+parab_poly <- function(a, b1, b2) {
+  a + b1 * d_stand$weight_s + b2 * d_stand$weight_s2
+}
+
+purrr::map_dbl(pp_sim, parab_poly)
+
+ggplot(d_stand) +
+  geom_hline(yintercept = c(0, 272)) +
+  geom_point(aes(weight_s, height), alpha = 0.1) +
+  stat_function(fun = parab_poly, data = pp_sim)
+
+parab_poly(167, 0.492, 2.2)
