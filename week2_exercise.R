@@ -20,7 +20,8 @@ sample_sigma <- rexp(1e4, 1)
 prior_y <- rnorm(1e4, sample_mu, sample_sigma) %>% enframe()
 
 ggplot(prior_y) +
-  geom_density(aes(value), size = 1) + theme_light()
+  geom_density(aes(value), size = 1) + 
+  theme_light()
 
 # 4M2
 # Translate the model just above into a map() formula
@@ -97,7 +98,7 @@ ggplot(adults, aes(weight, height)) +
   geom_point() +
   geom_abline(intercept = 114, slope = 0.892, size = 1, colour = "orange") + # new
   geom_abline(intercept = 110, slope = 0.903, size = 1, colour = "red") + # old
-  geom_smooth(method = "lm") # traditional regression
+  geom_smooth(method = "lm", se = FALSE) # traditional regression
 
 # 4m8
 # We used 15 knots with the cherry blossom data. Increase the number of knots and 
@@ -137,17 +138,133 @@ m4.7 <- alist(D ~ dnorm(mu, sigma),
 m4.7 %>% 
   link() %>% as_tibble() %>% 
   map_dfr(PI, prob = 0.97) %>% 
-  add_column(interval = c("lower", "upper")) %>% 
-  pivot_longer(cols = starts_with("V"), names_to = "col", values_to = "doy") %>% 
-  add_column(year = rep(cherry_blossoms$year, 2))
+  select("lower" = '2%', "upper" = '98%') %>% 
+  add_column(year = cherry_blossoms$year)
 }
 
 
 splines_nr <- cherry_spliner(5, 100)
 
-cherry_blossoms$lower_pi <- splines_nr %>% filter(interval == "lower") %>% pull(doy)
-cherry_blossoms$upper_pi <- splines_nr %>% filter(interval == "upper") %>% pull(doy)
+cherry_blossoms$lower_pi <- splines_nr %>% select(lower) %>% pull()
+cherry_blossoms$upper_pi <- splines_nr %>% select(upper) %>% pull()
 
 ggplot(cherry_blossoms, aes(year, doy)) +
   geom_point() +
   geom_ribbon(aes(ymin = lower_pi, ymax = upper_pi))
+
+# 4H1
+# predict heights for individuals from model output based on weights.
+# provide 89% Intervals for each. 
+
+# data
+d <- Howell1
+
+# model formula
+formula <- alist(
+  height ~ dnorm(mu, sigma),
+  mu <- a + b * weight,
+  a ~ dnorm(178, 20),
+  b ~ dlnorm(0, 1),
+  sigma ~ dunif(0, 50))
+
+# model fit
+m <- map(formula, data = d)
+
+# new data to predict from 
+new_weight <- c(46.95, 43.72, 64.78, 32.59, 54.63)
+
+# predict height using link() 
+pred_height <- link(m, data = data.frame(weight = new_weight))
+
+expected <- pred_height %>% 
+  as_tibble() %>% 
+  summarise_all(mean) %>% 
+  as_vector()
+
+interval <- pred_height %>% 
+  as_tibble() %>% 
+  summarise_all(HPDI, prob = 0.89) %>% 
+  as_vector()
+
+# combine each in a dataframe
+predictions <- tibble(individual = 1:5, weight = new_weight, expected = expected, 
+       lower = interval[c(TRUE, FALSE)], upper = interval[c(FALSE, TRUE)])
+
+# 4H2
+# select out all the rows in the Howell1 data with ages below 18 years of age. 
+# If you do it right, you should end up with a new data frame with 192 rows in it.
+young <- d %>% filter(age < 18)
+
+# (a) Fit a linear regression to these data, using map(). 
+# Present and interpret the estimates. 
+# For every 10 units of increase in weight, 
+# how much taller does the model predict a child gets?
+# model formula
+formula_young <- alist(
+  height ~ dnorm(mu, sigma),
+  mu <- a + b * weight,
+  a ~ dnorm(120, 30),
+  b ~ dlnorm(0, 1),
+  sigma ~ dunif(0, 60))
+
+# model fit
+m_young <- map(formula_young, data = young)
+# results
+m_young_res <- precis(m_young) %>% as_tibble() %>% 
+  add_column(parameter = rownames(precis(m_young))) %>% 
+  rename("lower" = '5.5%', "upper" = '94.5%')
+
+
+# make coefficient plot
+ggplot(m_young_res) +
+  geom_point(aes(x = mean, y = parameter)) +
+  geom_linerange(aes(xmin = lower, xmax = upper, y = parameter)) +
+  labs(x = "value") +
+  theme_light()
+
+# for every 10 units of increase in weight, 
+# the model predicts that a child gets 27 cm taller
+
+# Plot the raw data, with height on the vertical axis and weight on the horizontal axis.
+# Superimpose the MAP regression line and 89% HPDI for the mean. 
+# Also superimpose the 89% HPDI for predicted heights.
+
+# define weight range
+weight_seq <- seq(from = min(young$weight), to = max(young$weight), by = 1)
+
+# calculate 89% intervals for each weight
+intervals <- link(m_young, data = data.frame(weight = weight_seq)) %>% 
+  as_tibble() %>% 
+  summarise_all(HPDI, prob = 0.89) %>% 
+  add_column(type = c("lower", "upper")) %>% 
+  pivot_longer(cols = -type, names_to = "cols", values_to = "intervals") %>% 
+  add_column("weight" = rep(weight_seq, 2)) %>% 
+  pivot_wider(names_from = type, values_from = intervals)
+
+# calculate prediction intervals
+pred_intervals <- sim(m_young, data = data.frame(weight = weight_seq)) %>% 
+  as_tibble() %>% 
+  summarise_all(PI, prob = 0.89) %>% 
+  add_column(type = c("lower", "upper")) %>% 
+  pivot_longer(cols = -type, names_to = "cols", values_to = "intervals") %>% 
+  add_column("weight" = rep(weight_seq, 2)) %>% 
+  pivot_wider(names_from = type, values_from = intervals)
+
+# plot it
+ggplot(young) +
+  geom_point(aes(x = weight, height)) +
+  geom_abline(intercept = m_young_res["a","mean"], 
+              slope = m_young_res["b","mean"], size = .8) + 
+  geom_ribbon(aes(x = weight, ymin = lower, ymax = upper), 
+              alpha=0.6, data = intervals) +
+  geom_ribbon(aes(x = weight, ymin = lower, ymax = upper), 
+              alpha=0.2, data = pred_intervals) +
+  theme_light()
+  
+# What aspects of the model fit concern you? 
+# Describe the kinds of assumptions you would change, if any, to improve the model. 
+# You don’t have to write any new code. 
+# Just explain what the model appears to be doing a bad job of, 
+# and what you hypothesize would be a better model.
+# --> no linear fit, generalised models would do better
+
