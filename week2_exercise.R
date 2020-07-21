@@ -209,6 +209,7 @@ formula_young <- alist(
 
 # model fit
 m_young <- map(formula_young, data = young)
+
 # results
 m_young_res <- precis(m_young) %>% as_tibble() %>% 
   add_column(parameter = rownames(precis(m_young))) %>% 
@@ -232,11 +233,15 @@ ggplot(m_young_res) +
 # define weight range
 weight_seq <- seq(from = min(young$weight), to = max(young$weight), by = 1)
 
-# we better make a function out of it since we use it more oftne
-tidy_intervals <- function(my_function, my_model, interval_type){
+# we better make a function out of it since we use it more often
+tidy_intervals <- function(my_function, my_model, interval_type, 
+                           x_var, x_seq){
+  # preprocess dataframe
+  df <- data.frame(col1 = x_seq)
+  colnames(df) <- x_var
   
-# calculate 89% intervals for each weight
-  my_function(my_model, data = data.frame(weight = weight_seq)) %>% 
+  # calculate 89% intervals for each weight
+  my_function(my_model, data = df) %>% 
   as_tibble() %>% 
   summarise_all(interval_type, prob = 0.89) %>% 
   add_column(type = c("lower", "upper")) %>% 
@@ -246,24 +251,35 @@ tidy_intervals <- function(my_function, my_model, interval_type){
 }
 
 # highest posterior density (HPDI)
-intervals <- tidy_intervals(link, m_young, HPDI)
+intervals <- tidy_intervals(link, m_young, HPDI, x_var = "weight", x_seq = weight_seq)
 
 # percentily prediction 
 # calculate prediction intervals
-pred_intervals <- tidy_intervals(sim, m_young, PI)
+pred_intervals <- tidy_intervals(sim, m_young, PI, 
+                                 x_var = "weight", x_seq = weight_seq)
+
+# likewise, let's make a plotting function for this
+plot_regression <- function(df, x, y, results, 
+                            interv = intervals, pred_interv = pred_intervals){
+  ggplot(df) +
+    geom_point(aes({{x}}, {{y}})) +
+    # geom_abline(intercept = {{results}} %>% filter(parameter == "a") %>%
+    #               select(mean) %>% pull,
+    #             slope = {{results}} %>% filter(parameter == "b") %>%
+    #               select(mean)%>% pull,
+    #             size = .8) +
+    geom_ribbon(aes(x = {{x}}, ymin = lower, ymax = upper),
+                alpha=0.8, data = interv) +
+    geom_ribbon(aes(x = weight, ymin = lower, ymax = upper),
+                alpha=0.2, data = pred_interv) +
+    theme_light()
+}
 
 # plot it
-ggplot(young) +
-  geom_point(aes(x = weight, height)) +
-  geom_abline(intercept = m_young_res %>% filter(parameter == "a") %>% select(mean) %>% pull, 
-              slope = m_young_res %>% filter(parameter == "b") %>% select(mean)%>% pull,
-              size = .8) + 
-  geom_ribbon(aes(x = weight, ymin = lower, ymax = upper), 
-              alpha=0.6, data = intervals) +
-  geom_ribbon(aes(x = weight, ymin = lower, ymax = upper), 
-              alpha=0.2, data = pred_intervals) +
-  theme_light()
+plot_regression(young, weight, height)
+
   
+
 # What aspects of the model fit concern you? 
 # Describe the kinds of assumptions you would change, if any, to improve the model. 
 # You don’t have to write any new code. 
@@ -309,7 +325,8 @@ plot(height ~ weight, data = Howell1, col = col.alpha(rangi2, 0.4))
 weight_seq <- seq(from = min(d$weight), to = max(d$weight), by = 1)
 
 # calculate 89% intervals for each weight
-intervals <- tidy_intervals(link, m_log, HPDI)
+intervals <- tidy_intervals(link, m_log, HPDI, 
+                            x_var = "weight", x_seq = weight_seq)
 
 # calculate means
 reg_line <- link(m_log, data = data.frame(weight = weight_seq)) %>% 
@@ -319,17 +336,13 @@ reg_line <- link(m_log, data = data.frame(weight = weight_seq)) %>%
 
 
 # calculate prediction intervals
-pred_intervals <- tidy_intervals(sim, m_log, PI)
+pred_intervals <- tidy_intervals(sim, m_log, PI, 
+                                 x_var = "weight", x_seq = weight_seq)
+
 
 # plot it 
-ggplot(d) +
-  geom_point(aes(x = weight, height), alpha = 0.2) +
-  geom_line(aes(x = weight, y = value) , size = .8, data = reg_line) + 
-  geom_ribbon(aes(x = weight, ymin = lower, ymax = upper), 
-              alpha=0.6, data = intervals) +
-  geom_ribbon(aes(x = weight, ymin = lower, ymax = upper), 
-              alpha=0.2, data = pred_intervals) +
-  theme_light()
+plot_regression(d, weight, height)
+
 
 # 4H4
 # plot the prior predictive distribution for the parabolic polynomial regression
@@ -376,4 +389,69 @@ ggplot(unique_weight, aes(x = weight_s)) +
 # and march temperature (temp). Note that there are many missing values in both 
 # variables. You may consider a linear model, a polynomial, or a spline on temperature. 
 # how well does temperature rend predict the blossom trend? 
+data("cherry_blossoms")
+
+cherry_blossoms <- cherry_blossoms %>%
+  as_tibble() %>% 
+  select(doy, temp) %>% 
+  drop_na() %>% 
+  mutate(temp_sc = (temp - mean(temp))/ sd(temp))
+
+ggplot(cherry_blossoms) +
+  geom_point(aes(temp_sc, doy))
+
+# linear model
+# define average temp
+xbar <- cherry_blossoms %>% summarise(mean_temp = mean(temp)) %>% pull()
+
+# fit modell
+cherry_linear <- 
+  # define formula
+  alist(doy ~ dnorm(mu, sigma),
+                       mu <- a + b * (temp - xbar), 
+                       a ~ dnorm(115, 30),
+                       b ~ dlnorm(0, 1), 
+                       sigma ~ dunif(0, 50)) %>% 
+  # calculate maximum a posterior
+  map(data = cherry_blossoms)
+
+# make intervals
+# define sequence of temp
+temp_seq <- seq(from = min(cherry_blossoms$temp), 
+                to = max(cherry_blossoms$temp), by = 0.5)
+
+# calculate 89% intervals for each weight
+intervals <- link(cherry_linear, data = data.frame(temp = temp_seq)) %>% 
+  as_tibble() %>%
+  summarise_all(HPDI, prob = 0.89) %>% 
+  add_column(type = c("lower", "upper")) %>% 
+  pivot_longer(cols = -type, names_to = "cols", values_to = "intervals") %>% 
+  add_column("temp" = rep(weight_seq, 2)) %>% 
+  pivot_wider(names_from = type, values_from = intervals)
+
+# calculate means
+reg_line <- link(cherry_linear, data = data.frame(temp = temp_seq)) %>% 
+  apply(., 2, mean) %>% 
+  as_tibble() %>% 
+  add_column(temp = temp_seq)
+
+
+# calculate prediction intervals
+pred_intervals <- sim(cherry_linear, data = data.frame(temp = temp_seq)) %>% 
+  as_tibble() %>%
+  summarise_all(PI, prob = 0.89) %>% 
+  add_column(type = c("lower", "upper")) %>% 
+  pivot_longer(cols = -type, names_to = "cols", values_to = "intervals") %>% 
+  add_column("temp" = rep(weight_seq, 2)) %>% 
+  pivot_wider(names_from = type, values_from = intervals)
+
+# plot it 
+ggplot(cherry_blossoms) +
+  geom_point(aes(temp, doy), alpha = 0.2) +
+  geom_line(aes(x = temp, y = value) , size = .8, data = reg_line) + 
+  geom_ribbon(aes(x = temp, ymin = lower, ymax = upper), 
+              alpha=0.6, data = intervals) +
+  geom_ribbon(aes(x = temp, ymin = lower, ymax = upper), 
+              alpha=0.2, data = pred_intervals) +
+  theme_light()
 
