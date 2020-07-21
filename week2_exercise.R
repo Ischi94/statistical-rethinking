@@ -246,7 +246,7 @@ tidy_intervals <- function(my_function, my_model, interval_type,
   summarise_all(interval_type, prob = 0.89) %>% 
   add_column(type = c("lower", "upper")) %>% 
   pivot_longer(cols = -type, names_to = "cols", values_to = "intervals") %>% 
-  add_column("weight" = rep(weight_seq, 2)) %>% 
+  add_column(x_var = rep(x_seq, 2)) %>% 
   pivot_wider(names_from = type, values_from = intervals)
 }
 
@@ -259,7 +259,7 @@ pred_intervals <- tidy_intervals(sim, m_young, PI,
                                  x_var = "weight", x_seq = weight_seq)
 
 # likewise, let's make a plotting function for this
-plot_regression <- function(df, x, y, results, 
+plot_regression <- function(df, x, y, # results, 
                             interv = intervals, pred_interv = pred_intervals){
   ggplot(df) +
     geom_point(aes({{x}}, {{y}})) +
@@ -268,9 +268,9 @@ plot_regression <- function(df, x, y, results,
     #             slope = {{results}} %>% filter(parameter == "b") %>%
     #               select(mean)%>% pull,
     #             size = .8) +
-    geom_ribbon(aes(x = {{x}}, ymin = lower, ymax = upper),
+    geom_ribbon(aes(x = x_var, ymin = lower, ymax = upper),
                 alpha=0.8, data = interv) +
-    geom_ribbon(aes(x = weight, ymin = lower, ymax = upper),
+    geom_ribbon(aes(x = x_var, ymin = lower, ymax = upper),
                 alpha=0.2, data = pred_interv) +
     theme_light()
 }
@@ -421,7 +421,9 @@ temp_seq <- seq(from = min(cherry_blossoms$temp),
                 to = max(cherry_blossoms$temp), by = 0.5)
 
 # calculate 89% intervals for each weight
-intervals <- link(cherry_linear, data = data.frame(temp = temp_seq)) %>% 
+intervals <- tidy_intervals(link, cherry_linear, HPDI, "temp", temp_seq)
+  
+  link(cherry_linear, data = data.frame(temp = temp_seq)) %>% 
   as_tibble() %>%
   summarise_all(HPDI, prob = 0.89) %>% 
   add_column(type = c("lower", "upper")) %>% 
