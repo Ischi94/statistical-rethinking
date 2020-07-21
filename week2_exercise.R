@@ -339,28 +339,41 @@ ggplot(d) +
 
 # standardise weight
 d_stand <- d %>% mutate(weight_s = (weight - mean(weight)) / sd(weight), 
-              weight_s2 = weight_s^2)
+              weight_s2 = weight_s^2) %>% 
+  as_tibble()
+
 # set seed
 set.seed(123)
 
-n <- 100
+n <- 10
 a <- rnorm(n, 178, 20)
 b1 <- rlnorm(n, 0, 1)
 b2 <- rnorm(n, 0, 1)
 
 # simulate prior predictions as specified
-pp_sim <- tibble(a = a, b1 = b1, b2 = b2, n = 1:n)
+pp_sim <- tibble(a = a, b1 = b1, b2 = b2)
 
-# use weight range
-parab_poly <- function(a, b1, b2) {
-  a + b1 * d_stand$weight_s + b2 * d_stand$weight_s2
+
+# define function based on formula
+parab_poly <- function(x) {
+  for (i in 1:n) {
+  a[i] + b1[i] * x + b2[i] * x^2
+  }
 }
 
-purrr::map_dbl(pp_sim, parab_poly)
+# get unique_weight values
+unique_weight <- d_stand %>% distinct(weight_s, weight_s2)
 
-ggplot(d_stand) +
+# plot it
+ggplot(unique_weight, aes(x = weight_s)) +
   geom_hline(yintercept = c(0, 272)) +
-  geom_point(aes(weight_s, height), alpha = 0.1) +
-  stat_function(fun = parab_poly, data = pp_sim)
+  stat_function(fun = parab_poly)
 
-parab_poly(167, 0.492, 2.2)
+# can't get it to work, need to come back to this exercise. 
+
+# 4H5
+# return to cherry blossom data and model the association between blossom data (doy)
+# and march temperature (temp). Note that there are many missing values in both 
+# variables. You may consider a linear model, a polynomial, or a spline on temperature. 
+# how well does temperature rend predict the blossom trend? 
+
