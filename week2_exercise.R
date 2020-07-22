@@ -418,7 +418,7 @@ cherry_linear <-
                        b ~ dlnorm(0, 1), 
                        sigma ~ dunif(0, 50)) %>% 
   # calculate maximum a posterior
-  map(data = cherry_blossoms)
+  quap(data = cherry_blossoms)
 
 # make intervals
 # define sequence of temp
@@ -441,8 +441,54 @@ intervals <- tidy_intervals(link, cherry_linear, HPDI, "temp", temp_seq)
 pred_intervals <- tidy_intervals(sim, cherry_linear, PI, "temp", temp_seq)
 
   
-  
 # plot it 
 plot_regression(cherry_blossoms, temp, doy)
+
+
+# spline model
+# define knots
+num_knots <- 15
+knot_list <- quantile(cherry_blossoms$temp, probs = seq(0, 1, length.out = num_knots))
+
+# construct basis function
+B <- bs(cherry_blossoms$temp, knots = knot_list[-c(1, num_knots)], 
+        degree = 3, intercept = TRUE)
+
+# fit modell
+cherry_spline <- 
+  # define formula
+  alist(doy ~ dnorm(mu, sigma),
+        mu <- a + B %*% w, 
+        a ~ dnorm(100, 30),
+        b ~ dnorm(0, 10), 
+        sigma ~ dexp(1)) %>% 
+  # calculate maximum a posterior
+  quap(data = list(doy = cherry_blossoms$doy, B = B), 
+       start = list(w = rep(0, ncol(B))))
+
+intervals <- link(cherry_spline, data = cherry_blossoms) %>% 
+  as_tibble() %>% 
+  summarise_all(PI, prob = 0.89) %>% 
+  add_column(type = c("lower", "upper")) %>% 
+  pivot_longer(cols = -type, names_to = "cols", values_to = "intervals") %>% 
+  add_column(temp = rep(quantile(cherry_blossoms$temp, 
+                             probs = seq(0, 1, length.out = 787)), 2)) %>% 
+  pivot_wider(names_from = type, values_from = intervals) %>% 
+  rename(x_var = temp)
+
+# calculate prediction intervals
+pred_intervals <- sim(cherry_spline, data = cherry_blossoms) %>% 
+  as_tibble() %>% 
+  summarise_all(HPDI, prob = 0.89) %>% 
+  add_column(type = c("lower", "upper")) %>% 
+  pivot_longer(cols = -type, names_to = "cols", values_to = "intervals") %>% 
+  add_column(temp = rep(quantile(cherry_blossoms$temp, 
+                                 probs = seq(0, 1, length.out = 787)), 2)) %>% 
+  pivot_wider(names_from = type, values_from = intervals) %>% 
+  rename(x_var = temp)
+
+# plot it 
+plot_regression(cherry_blossoms, temp, doy)
+
 
 
