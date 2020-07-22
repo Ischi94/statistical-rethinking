@@ -355,34 +355,39 @@ d_stand <- d %>% mutate(weight_s = (weight - mean(weight)) / sd(weight),
               weight_s2 = weight_s^2) %>% 
   as_tibble()
 
+# fit model
+m_poly <- alist(height ~ dnorm(mu, sigma), 
+               mu <- a + b1 * weight_s + b2 * weight_s2,
+               a ~ dnorm(125, 30), 
+               b1 ~ dlnorm(0, 1), 
+               b2 ~ dnorm(0, 1), 
+               sigma ~ dunif(0, 50)) %>% 
+  quap(data = d_stand)
+
 # set seed
 set.seed(123)
 
-n <- 10
-a <- rnorm(n, 178, 20)
-b1 <- rlnorm(n, 0, 1)
-b2 <- rnorm(n, 0, 1)
-
-# simulate prior predictions as specified
-pp_sim <- tibble(a = a, b1 = b1, b2 = b2)
-
-
-# define function based on formula
-parab_poly <- function(x) {
-  for (i in 1:n) {
-  a[i] + b1[i] * x + b2[i] * x^2
-  }
-}
-
-# get unique_weight values
-unique_weight <- d_stand %>% distinct(weight_s, weight_s2)
+m_poly_prior <- extract.prior(m_poly)
+m_poly_mu <- link(m_poly, post = m_poly_prior, data = list(weight_s = c(-3, 3), 
+                                                           weight_s2 = c(-3, 3))) %>% 
+  as_tibble() %>% 
+  rename("lower" = V1, "upper" = V2) %>% 
+  add_column(x1 = -2, x2 = 2) %>% 
+  # convert back to natural scale
+  mutate(x1n = x1 * sd(d_stand$weight) + mean(d_stand$weight), 
+         x2n = x2 * sd(d_stand$weight) + mean(d_stand$weight))
 
 # plot it
-ggplot(unique_weight, aes(x = weight_s)) +
+ggplot(d_stand, aes(x = weight_s)) +
   geom_hline(yintercept = c(0, 272)) +
-  stat_function(fun = parab_poly)
+  geom_segment(aes(x = x1n, y = lower, xend = x2n, yend = upper), 
+               alpha = 0.1, data = m_poly_mu) 
 
-# can't get it to work, need to come back to this exercise. 
+
+# seems like the prior for a is to high but thats ok. However, many lines have
+# a negative slope for the prior b1 ~ dnorm(0, 10), 
+# so we need to change the prior to b1 ~ dlnorm(0, 1) to force positive slopes. Better, 
+# but maybe the prior for height is to detailled, set it to a ~ dnorm(125, 30). 
 
 # 4H5
 # return to cherry blossom data and model the association between blossom data (doy)
@@ -423,37 +428,21 @@ temp_seq <- seq(from = min(cherry_blossoms$temp),
 # calculate 89% intervals for each weight
 intervals <- tidy_intervals(link, cherry_linear, HPDI, "temp", temp_seq)
   
-  link(cherry_linear, data = data.frame(temp = temp_seq)) %>% 
-  as_tibble() %>%
-  summarise_all(HPDI, prob = 0.89) %>% 
-  add_column(type = c("lower", "upper")) %>% 
-  pivot_longer(cols = -type, names_to = "cols", values_to = "intervals") %>% 
-  add_column("temp" = rep(weight_seq, 2)) %>% 
-  pivot_wider(names_from = type, values_from = intervals)
 
-# calculate means
-reg_line <- link(cherry_linear, data = data.frame(temp = temp_seq)) %>% 
-  apply(., 2, mean) %>% 
-  as_tibble() %>% 
-  add_column(temp = temp_seq)
+
+# # calculate means
+# reg_line <- link(cherry_linear, data = data.frame(temp = temp_seq)) %>% 
+#   apply(., 2, mean) %>% 
+#   as_tibble() %>% 
+#   add_column(temp = temp_seq)
 
 
 # calculate prediction intervals
-pred_intervals <- sim(cherry_linear, data = data.frame(temp = temp_seq)) %>% 
-  as_tibble() %>%
-  summarise_all(PI, prob = 0.89) %>% 
-  add_column(type = c("lower", "upper")) %>% 
-  pivot_longer(cols = -type, names_to = "cols", values_to = "intervals") %>% 
-  add_column("temp" = rep(weight_seq, 2)) %>% 
-  pivot_wider(names_from = type, values_from = intervals)
+pred_intervals <- tidy_intervals(sim, cherry_linear, PI, "temp", temp_seq)
 
+  
+  
 # plot it 
-ggplot(cherry_blossoms) +
-  geom_point(aes(temp, doy), alpha = 0.2) +
-  geom_line(aes(x = temp, y = value) , size = .8, data = reg_line) + 
-  geom_ribbon(aes(x = temp, ymin = lower, ymax = upper), 
-              alpha=0.6, data = intervals) +
-  geom_ribbon(aes(x = temp, ymin = lower, ymax = upper), 
-              alpha=0.2, data = pred_intervals) +
-  theme_light()
+plot_regression(cherry_blossoms, temp, doy)
+
 
