@@ -460,7 +460,7 @@ cherry_spline <-
   alist(doy ~ dnorm(mu, sigma),
         mu <- a + B %*% w, 
         a ~ dnorm(100, 30),
-        b ~ dnorm(0, 10), 
+        w ~ dnorm(0, 10), 
         sigma ~ dexp(1)) %>% 
   # calculate maximum a posterior
   quap(data = list(doy = cherry_blossoms$doy, B = B), 
@@ -490,5 +490,94 @@ pred_intervals <- sim(cherry_spline, data = cherry_blossoms) %>%
 # plot it 
 plot_regression(cherry_blossoms, temp, doy)
 
+# 4H6
+# simulate the prior predictive distribution for the cherry blossom spline in the 
+# chapter. Adjust the prior on the weights and observe what happens. What do you think
+# the prior on the weights is doing?
+cherry_blossoms <- cherry_blossoms %>%
+  as_tibble() %>% 
+  select(doy, year) %>% 
+  drop_na(doy) 
 
+# knots number
+num_knots <- 15
+# make knots
+knot_list <- quantile(cherry_blossoms$year, probs = seq(0, 1, length.out = num_knots))
 
+# construct basis function
+B <- bs(cherry_blossoms$year, knots = knot_list[-c(1, num_knots)], 
+        degree = 3, intercept = TRUE)
+
+# fit modell
+cherry_spline <- 
+  # define formula
+  alist(doy ~ dnorm(mu, sigma),
+        mu <- a + B %*% w, 
+        a ~ dnorm(100, 30),
+        w ~ dnorm(0, 10), 
+        sigma ~ dexp(1)) %>% 
+  # calculate maximum a posterior
+  quap(data = list(doy = cherry_blossoms$doy, B = B), 
+       start = list(w = rep(0, ncol(B))))
+
+# set seed
+set.seed(123)
+
+cherry_spline_prior <- extract.prior(cherry_spline)
+cherry_spline_prior_dist <- link(cherry_spline, post = cherry_spline_prior, 
+                  data = list(year = cherry_blossoms$year)) %>% 
+  as_tibble() %>% 
+  summarise_all(PI, prob = 0.89) %>% 
+  add_column(type = c("lower", "upper")) %>% 
+  pivot_longer(cols = -type, names_to = "cols", values_to = "intervals") %>% 
+  add_column(year = rep(cherry_blossoms$year, 2)) %>% 
+  pivot_wider(names_from = type, values_from = intervals) 
+
+# plot it
+ggplot(cherry_blossoms) +
+  geom_point(aes(x = year, y = doy)) +
+  geom_ribbon(aes(x = year, ymin = lower, ymax = upper),
+              alpha=0.8, data = cherry_spline_prior_dist) +
+  theme_minimal()
+
+# percentile intervals fange from 150 to 50 for w ~ dnorm(0, 10), increasing the 
+# standard deviation widens the PI. This probably means that w gives weight to each
+# basis function at point B. 
+
+# 4H8
+# the cherry blossom spline in the chapter used an intercept a, but technically it
+# doesn't require one. The first basis function could substitute for the intercept. 
+# try refitting the cherry blossom spline without the intercept. what else about
+# the model do you need to change to make this work?
+# fit modell
+cherry_spline <- 
+  # define formula
+  alist(doy ~ dnorm(mu, sigma),
+        mu <- B %*% w, # removed intercept
+        # a ~ dnorm(100, 30), -> removed intercept
+        w ~ dnorm(100, 10), # change the mean of the weight prior to previous intercept
+        sigma ~ dexp(10)) %>% # increase prior sigma, otherwise vcov will get negative
+  # calculate maximum a posterior
+  quap(data = list(doy = cherry_blossoms$doy, B = B), 
+       start = list(w = rep(0, ncol(B))))
+
+# calculate intervals
+intervals <- link(cherry_spline, data = cherry_blossoms) %>% 
+  as_tibble() %>% 
+  summarise_all(PI, prob = 0.89) %>% 
+  add_column(type = c("lower", "upper")) %>% 
+  pivot_longer(cols = -type, names_to = "cols", values_to = "intervals") %>% 
+  add_column(x_var = rep(cherry_blossoms$year, 2)) %>% 
+  pivot_wider(names_from = type, values_from = intervals) 
+
+# calculate prediction intervals
+pred_intervals <- sim(cherry_spline, data = cherry_blossoms) %>% 
+  as_tibble() %>% 
+  summarise_all(HPDI, prob = 0.89) %>% 
+  add_column(type = c("lower", "upper")) %>% 
+  pivot_longer(cols = -type, names_to = "cols", values_to = "intervals") %>% 
+  add_column(x_var = rep(cherry_blossoms$year, 2)) %>% 
+  pivot_wider(names_from = type, values_from = intervals) 
+
+# plot it 
+plot_regression(cherry_blossoms, year, doy)
