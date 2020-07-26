@@ -139,3 +139,49 @@ Option 3:
 ```{r 2M1 option 3, fig.dim=c(7,4)}
 grid_approx(w = 5, l = 2) # 5 water, 2 land
 ```
+
+## Question 2M2
+
+**Now assume a prior for p that is equal to zero when p<0.5 and is a positive constant when p≥0.5. Again compute and plot the grid approximate posterior distribution for each of the sets of observations in the problem just above.**
+
+All we have to do is to update the prior outside of the tibble in our 'grid_approx()' function:
+
+```{r question 2M2}
+grid_approx <- function(w, l){
+tibble(
+  # define grid
+  p.grid = seq(from = 0, to = 1, length.out = 20), 
+  ) %>% 
+  # define prior
+  mutate(prior = if_else(p.grid <= 0.5, 0, 1)) %>% 
+  # compute likelihood at each value in grid for 
+  mutate(likelihood = dbinom(w, size = w + l, prob = p.grid)) %>% 
+  # compute product of likelihood and prior
+  mutate(unstd.likelihood = likelihood * prior) %>% 
+  # standardise the posterior so it sums to 1
+  mutate(posterior = unstd.likelihood / sum(unstd.likelihood)) %>% 
+  # directly pipe that to a ggplot
+  ggplot() +
+  geom_line(aes(p.grid, posterior)) +
+  labs(y = "posterior probability", x = "probability of water") +
+  theme_minimal()
+}
+```
+
+Now we can apply the function to our three options again. 
+Option 1:
+```{r 2M2 option 1, fig.dim=c(7,4)}
+grid_approx(w = 3, l = 0) # 3 water, 0 land
+```
+
+Option 2:
+```{r 2M2 option 2, fig.dim=c(7,4)}
+grid_approx(w = 3, l = 1) # 3 water, 1 land
+```
+
+Option 3:
+```{r 2M2 option 3, fig.dim=c(7,4)}
+grid_approx(w = 5, l = 2) # 5 water, 2 land
+```
+
+
