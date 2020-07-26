@@ -1,6 +1,38 @@
 library(tidyverse)
 library(rethinking)
 
+# Recall the globe tossing model from the chapter. 
+# Compute and plot the grid approximate posterior distribution for each of the 
+# following sets of observations. In each case, assume a uniform prior for p.
+  
+# W,W,W
+# W,W,W,L
+# L,W,W,L,W,W,W
+
+# 2M1
+grid_approx <- function(w, l){
+tibble(
+  # define grid
+  p.grid = seq(from = 0, to = 1, length.out = 20), 
+  # define prior
+  prior = rep(1, 20)
+  ) %>% 
+  # compute likelihood at each value in grid for 
+  mutate(likelihood = dbinom(w, size = w + l, prob = p.grid)) %>% 
+  # compute product of likelihood and prior
+  mutate(unstd.likelihood = likelihood * prior) %>% 
+  # standardise the posterior so it sums to 1
+  mutate(posterior = unstd.likelihood / sum(unstd.likelihood)) %>% 
+  # directly pipe that to a ggplot
+  ggplot() +
+  geom_line(aes(p.grid, posterior)) +
+  labs(y = "posterior probability", x = "probability of water") +
+  theme_minimal()
+}
+
+
+grid_approx(3, 1)
+
 # exercise 1 --------------------------------------------------------------
 
 # Suppose the globe tossing data had turned out to be 8 water in 15 tosses.
