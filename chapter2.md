@@ -15,8 +15,39 @@ output:
 
 # Introduction 
 
-This is the first part of a series where I work through the practice questions of the second edition of Richard McElreaths [Statistical Rethinking](https://xcelab.net/rm/statistical-rethinking/). Each post covers a new chapter. There are already some awesome sources for this book online like [Jeffrey Girard](https://jmgirard.com/statistical-rethinking-ch2/) working through the exercises of the first edition, or [Solomon Kurz](https://bookdown.org/ajkurz/Statistical_Rethinking_recoded/) leading through each example of the book with the *brms* and the *tidyverse* packages. However, so far I couldn't find a source providing solutions for the practice questions of the second edition in a tidy(-verse) way. My aim here is therefore to provide solutions for each practice question of the second edition, using the *tidyverse* and the *rethinking* packages. The first part of the series will cover chapter 2. 
+This is the first part of a series where I work through the practice questions of the second edition of Richard McElreaths [Statistical Rethinking](https://xcelab.net/rm/statistical-rethinking/). Each post covers a new chapter. There are already some awesome sources for this book online like [Jeffrey Girard](https://jmgirard.com/statistical-rethinking-ch2/) working through the exercises of the first edition, or [Solomon Kurz](https://bookdown.org/ajkurz/Statistical_Rethinking_recoded/) leading through each example of the book with the *brms* and the *tidyverse* packages. You can even watch the [lectures of McElreath](https://www.youtube.com/playlist?list=PLDcUM9US4XdNM4Edgs7weiyIguLSToZRI) on Youtube and work through the [homework and solutions](https://github.com/rmcelreath/statrethinking_winter2019/tree/master/homework).
+However, so far I couldn't find a source providing solutions for the practice questions of the second edition, or the homework practices, in a tidy(-verse) way. My aim here is therefore to provide solutions for each homework and practice question of the second edition, using the *tidyverse* and the *rethinking* packages. The first part of the series will cover chapter 2, which corresponds to week 1 of the lectures and homework. 
 
+# Homework
+
+## Question 1
+
+**Suppose the globe tossing data had turned out to be 8 water in 15 tosses. Construct the posterior distribution, using grid approximation. Use the same flat prior as before.**
+
+We can do all of this in one pipe:
+
+
+```r
+tibble(
+  # define grid
+  p.grid = seq(from = 0, to = 1, length.out = 20), 
+  # define prior, in this case flat
+  prior = rep(1, 20)
+  ) %>% 
+  # compute likelihood at each value in grid for 8 water in 15 tosses 
+  mutate(likelihood = dbinom(8, size = 15, prob = p.grid)) %>% 
+  # compute product of likelihood and prior
+  mutate(unstd.likelihood = likelihood * prior) %>% 
+  # standardise the posterior so it sums to 1
+  mutate(posterior = unstd.likelihood / sum(unstd.likelihood)) %>% 
+  # directly pipe that to a ggplot
+  ggplot() +
+  geom_line(aes(p.grid, posterior)) +
+  labs(y = "posterior probability", x = "probability of water") +
+  theme_minimal()
+```
+
+![](chapter2_files/figure-html/homework 1-1.png)<!-- -->
 
 
 # Easy practices
@@ -199,3 +230,5 @@ grid_approx(w = 5, l = 2) # 5 water, 2 land
 ```
 
 ![](chapter2_files/figure-html/2M2 option 3-1.png)<!-- -->
+
+
