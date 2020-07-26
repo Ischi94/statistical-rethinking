@@ -49,7 +49,7 @@ samples <- tibble(# define grid
   select(values = p.grid)
 ```
 
-## 3E1
+## Question 3E1
 
 **How much posterior probability lies below p = 0.2?**
 
@@ -72,7 +72,7 @@ samples %>%
 
 So obviously not much. To be precise, 0.1% of the posterior probability lies below p = 0.2, using our seed.
 
-## 3E2
+## Question 3E2
 
 **How much posterior probability lies above p = 0.8?**
 
@@ -95,7 +95,7 @@ samples %>%
 
 A bit more, 9.1 %
 
-## 3E3
+## Question 3E3
 
 **How much posterior probability lies between p = 0.2 and p = 0.8?**
 

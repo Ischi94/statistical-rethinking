@@ -1571,8 +1571,8 @@ samples &lt;- tibble(# define grid
   # draw samples
   sample_n(size = 1000, weight = posterior, replace = TRUE) %&gt;% 
   select(values = p.grid)</code></pre>
-<div id="e1" class="section level2" number="3.1">
-<h2 number="3.1"><span class="header-section-number">3.1</span> 3E1</h2>
+<div id="question-3e1" class="section level2" number="3.1">
+<h2 number="3.1"><span class="header-section-number">3.1</span> Question 3E1</h2>
 <p><strong>How much posterior probability lies below p = 0.2?</strong></p>
 <p>First we need to select all samples below p = 0.2, and then sum these up and finally divide by the total number of values.</p>
 <pre class="r"><code>samples %&gt;% 
@@ -1585,8 +1585,8 @@ samples &lt;- tibble(# define grid
 ## 1 0.001    0.1</code></pre>
 <p>So obviously not much. To be precise, 0.1% of the posterior probability lies below p = 0.2, using our seed.</p>
 </div>
-<div id="e2" class="section level2" number="3.2">
-<h2 number="3.2"><span class="header-section-number">3.2</span> 3E2</h2>
+<div id="question-3e2" class="section level2" number="3.2">
+<h2 number="3.2"><span class="header-section-number">3.2</span> Question 3E2</h2>
 <p><strong>How much posterior probability lies above p = 0.8?</strong></p>
 <p>Same procedure:</p>
 <pre class="r"><code>samples %&gt;% 
@@ -1599,8 +1599,8 @@ samples &lt;- tibble(# define grid
 ## 1 0.091    9.1</code></pre>
 <p>A bit more, 9.1 %</p>
 </div>
-<div id="e3" class="section level2" number="3.3">
-<h2 number="3.3"><span class="header-section-number">3.3</span> 3E3</h2>
+<div id="question-3e3" class="section level2" number="3.3">
+<h2 number="3.3"><span class="header-section-number">3.3</span> Question 3E3</h2>
 <p><strong>How much posterior probability lies between p = 0.2 and p = 0.8?</strong></p>
 <p>Modify the <code>select()</code> function.</p>
 <pre class="r"><code>samples %&gt;% 
