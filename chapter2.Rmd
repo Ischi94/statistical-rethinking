@@ -318,4 +318,6 @@ Option 3:
 grid_approx(w = 5, l = 2) # 5 water, 2 land
 ```
 
+## Question 2M3 to 2H4 
 
+Questions 2M3 to 2H4 are rather phylosophical and can be solved by applying the equations given in the chapter. No code is needed to solve the questions and each question is the same as in the first edition, why I refer to the [solutions from Jeffrey Girard](https://jmgirard.com/statistical-rethinking-ch2/) here. 

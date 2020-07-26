@@ -161,6 +161,7 @@ map_dfr(n_list, int_width) %>%
 ```
 
 ![](chapter2_files/figure-html/homework 3 simulation-1.png)<!-- -->
+It seems that more than 2000, but less than 3000 globe tosses are sufficient to produce interval that precise. 
 
 # Easy practices
 
@@ -343,4 +344,6 @@ grid_approx(w = 5, l = 2) # 5 water, 2 land
 
 ![](chapter2_files/figure-html/2M2 option 3-1.png)<!-- -->
 
+## Question 2M3 to 2H4 
 
+Questions 2M3 to 2H4 can be solved by thinking and applying the equations given in the chapter. No code is needed to solve the questions and each question is the same as in the first edition, why I refer to the [solutions from Jeffrey Girard](https://jmgirard.com/statistical-rethinking-ch2/) here. 
