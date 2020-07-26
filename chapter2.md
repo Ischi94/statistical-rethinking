@@ -95,8 +95,72 @@ grid_comp %>%
 
 ![](chapter2_files/figure-html/homework 2-1.png)<!-- -->
 
+## Question 3
+
+**. This problem is more open-ended than the others. Feel free to collaborate on the solution. Suppose you want to estimate the Earth’s proportion of water very precisely. Specifically, you want the 99% percentile interval of the posterior distribution of p to be only 0.05 wide. This means the distance between the upper and lower bound of the interval should be 0.05. How many times will you have to toss the globe to do this? I won’t require a precise answer. I’m honestly more interested in your approach.**
+
+As mentioned, this is going to be tricky. We need to simulate sample sizes, and then iteratively apply a function that calculates the 99% percentile interval to these sample sizes. Let's define the function: 
 
 
+```r
+int_width <- function(n) {
+  # dependant on our sample size n, we draw the summed up number of water from a 
+  # binomial distribution
+  w <- rbinom(1, size = n, prob = 0.7)
+  
+  # now we need to apply our standard procedure to get the posterior based on grid
+  # approximation
+  tibble(
+    # define grid
+    p.grid = seq(from = 0, to = 1, length.out = 1000
+    ),
+    # define prior
+    prior = rep(1, 1000)) %>%
+    # compute likelihood at each value in grid for
+    mutate(
+      likelihood = dbinom(w, size = n, prob = p.grid),
+      # compute product of likelihood and prior
+      unstd.likelihood = likelihood * prior,
+      # standardise the posterior so it sums to 1
+      posterior = unstd.likelihood / sum(unstd.likelihood)
+    ) %>%
+    select(posterior, p.grid) %>%
+    # draw samples
+    sample_n(size = 1000, weight = posterior, replace = TRUE) %>%
+    # get 99% percentile interval
+    summarise(per.int = PI(samples = p.grid, prob = 0.99)) %>%
+    # get the total width
+    summarise(width = diff(per.int)) %>% 
+    pull()
+}
+```
+
+Now we can apply the function to our sample sizes. I use sample sizes up to 3000, and run 100 simulation at each sample size. 
+
+
+```r
+# define sample sizes
+n_list <- c(20, 50, 100, 200, 400, 800, 1000, 2000, 3000) %>%
+  # repeat each sample size 100 times
+  rep(., each = 100)
+
+# we use map_dfr to apply the int_width function to n_list
+map_dfr(n_list, int_width) %>% 
+  # some data wrangling for plotting
+  add_column(n.list = n_list) %>% 
+  rename("width" = "100%") %>% 
+  # pipe it to ggplot
+  ggplot() +
+  # reference line and text
+  geom_hline(yintercept = 0.05, color = "coral") +
+  annotate("text", x = 200, y = 0.075, label = "aim width", colour = "coral") +
+  # simulations
+  geom_point(aes(x = n.list, y = width), alpha = 0.05) +
+  labs(x = "sample size", y = "interval width") +
+  theme_minimal()
+```
+
+![](chapter2_files/figure-html/homework 3 simulation-1.png)<!-- -->
 
 # Easy practices
 
