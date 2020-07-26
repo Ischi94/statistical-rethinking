@@ -38,17 +38,62 @@ tibble(
   prior = rep(1, 20)
   ) %>% 
   # compute likelihood at each value in grid for 8 water in 15 tosses 
-  mutate(likelihood = dbinom(8, size = 15, prob = p.grid)) %>% 
-  # compute product of likelihood and prior
-  mutate(unstd.likelihood = likelihood * prior) %>% 
-  # standardise the posterior so it sums to 1
-  mutate(posterior = unstd.likelihood / sum(unstd.likelihood)) %>% 
+  mutate(likelihood = dbinom(8, size = 15, prob = p.grid),
+         # compute product of likelihood and prior
+         unstd.likelihood = likelihood * prior,
+         # standardise the posterior so it sums to 1
+         posterior = unstd.likelihood / sum(unstd.likelihood)) %>% 
   # directly pipe that to a ggplot
   ggplot() +
   geom_line(aes(p.grid, posterior)) +
   labs(y = "posterior probability", x = "probability of water") +
   theme_minimal()
 ```
+
+## Question 2
+
+**Start over in 1, but now use a prior that is zero below p = 0:5 and a constant above p = 0:5. This corresponds to prior information that a majority of the Earth’s surface is water. What difference does the better prior make? If it helps, compare posterior distributions (using both priors) to the true value p = 0:7.**
+
+Same approach, but with additional colums. First we calculate old and new posteriors and then transform it to longer format for plotting. 
+
+```{r homework 2, fig.dim=c(7,4)}
+grid_comp <- tibble(
+  # define grid
+  p.grid = seq(from = 0, to = 1, length.out = 20), 
+  # define flat prior used in question 1
+  prior.old = rep(1, 20)
+) %>% 
+  # new prior with majority water
+  mutate(prior.new = if_else(p.grid <= 0.5, 0, 1), 
+         # compute likelihood at each value in grid for 8 water in 15 tosses 
+         likelihood = dbinom(8, size = 15, prob = p.grid), 
+         # compute product of likelihood and prior
+         unstd.likelihood.old = likelihood * prior.old, 
+         unstd.likelihood.new = likelihood * prior.new, 
+         # standardise the posterior so it sums to 1
+         posterior.old = unstd.likelihood.old / sum(unstd.likelihood.old),
+         posterior.new = unstd.likelihood.new / sum(unstd.likelihood.new)) 
+
+# data wrangling for plotting
+grid_comp %>% 
+  # select colums needed
+  select(p.grid, posterior.old, posterior.new) %>% 
+  # transform it to longer format
+  pivot_longer(cols = c(posterior.old, posterior.new),
+               names_to = "type", values_to = "posterior") %>% 
+  # pipe it to ggplot
+  ggplot(aes(x = p.grid, y = posterior, colour = type)) +
+  # add true value
+  geom_vline(xintercept = 0.7, colour = "coral") +
+  # label line
+  annotate("text", x = 0.78, y = 0.2, label = "true value", colour = "coral") +
+  geom_line(size = 2) +
+  scale_colour_manual(values =c("grey30", "grey70")) +
+  labs(y = "posterior probability", x = "probability of water") +
+  theme_light()
+```
+
+
 
 
 # Easy practices
@@ -139,11 +184,11 @@ tibble(
   prior = rep(1, 20)
   ) %>% 
   # compute likelihood at each value in grid for 
-  mutate(likelihood = dbinom(w, size = w + l, prob = p.grid)) %>% 
-  # compute product of likelihood and prior
-  mutate(unstd.likelihood = likelihood * prior) %>% 
-  # standardise the posterior so it sums to 1
-  mutate(posterior = unstd.likelihood / sum(unstd.likelihood)) %>% 
+    mutate(likelihood = dbinom(w, size = w + l, prob = p.grid),
+           # compute product of likelihood and prior
+           unstd.likelihood = likelihood * prior,
+           # standardise the posterior so it sums to 1
+           posterior = unstd.likelihood / sum(unstd.likelihood)) %>% 
   # directly pipe that to a ggplot
   ggplot() +
   geom_line(aes(p.grid, posterior)) +
@@ -181,13 +226,13 @@ tibble(
   p.grid = seq(from = 0, to = 1, length.out = 20), 
   ) %>% 
   # define prior
-  mutate(prior = if_else(p.grid <= 0.5, 0, 1)) %>% 
-  # compute likelihood at each value in grid for 
-  mutate(likelihood = dbinom(w, size = w + l, prob = p.grid)) %>% 
-  # compute product of likelihood and prior
-  mutate(unstd.likelihood = likelihood * prior) %>% 
-  # standardise the posterior so it sums to 1
-  mutate(posterior = unstd.likelihood / sum(unstd.likelihood)) %>% 
+    mutate(prior = if_else(p.grid <= 0.5, 0, 1),
+           # compute likelihood at each value in grid for
+           likelihood = dbinom(w, size = w + l, prob = p.grid),
+           # compute product of likelihood and prior
+           unstd.likelihood = likelihood * prior,
+           # standardise the posterior so it sums to 1
+           posterior = unstd.likelihood / sum(unstd.likelihood)) %>% 
   # directly pipe that to a ggplot
   ggplot() +
   geom_line(aes(p.grid, posterior)) +
