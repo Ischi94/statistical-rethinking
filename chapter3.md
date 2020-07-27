@@ -116,4 +116,85 @@ samples %>%
 ## 1 0.908   90.8
 ```
 
-Well, the rest lies between. 
+Well, the rest (90.8%) lies between. 
+
+## Question 3E4
+
+**20% of the posterior probability lies below which value of p?**
+
+We can use the `quantile()` function within `summarise()` to get the answer (see page 54):
+
+
+```r
+samples %>% 
+  summarise(quants = quantile(values, probs = 0.2))
+```
+
+```
+## # A tibble: 1 x 1
+##   quants
+##    <dbl>
+## 1  0.516
+```
+
+20% of the posterior probability lies below p = 0.52.
+
+
+## Question 3E5
+**20% of the posterior probability lies above which value of p?**
+
+Same procedure, just subtract the probability from 1:
+
+
+```r
+samples %>% 
+  summarise(quants = quantile(values, probs = 1 - 0.2))
+```
+
+```
+## # A tibble: 1 x 1
+##   quants
+##    <dbl>
+## 1  0.743
+```
+
+20% of the posterior probability lies above p = 0.74.
+
+## Question 3E6
+
+**Which values of p contain the narrowest interval equal to 66% of the posterior probability?**
+
+To get the narrowest interval, we need to find the highest posterior density interval with the `HPDI()` function (see page 57):
+
+
+```r
+samples %>% 
+  HPDI(prob = 0.66)
+```
+
+```
+##     |0.66     0.66| 
+## 0.5135135 0.7697698
+```
+
+The narrowest interval equal to 66% of the posterior probability lies between p = 0.51 and p = 0.77.
+
+## Question 3E7
+**Which values of p contain 66% of the posterior probability, assuming equal posterior probability both below and above the interval?**
+
+To get the interval that has equal probability mass in each tail, we need to find the percentile interval using the `PI()` function (see page 56). Unfortunately, we need to use curly brackets to tell the function which values to use in a pipe:
+
+
+```r
+samples %>% 
+  {PI(.$values, prob = 0.66)}
+```
+
+```
+##       17%       83% 
+## 0.4961562 0.7569269
+```
+
+The answer is p = 0.5 and p = 0.76.
+
+# Medium practices

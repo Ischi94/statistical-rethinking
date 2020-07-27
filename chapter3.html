@@ -1611,8 +1611,55 @@ samples &lt;- tibble(# define grid
 ##       p p_perc
 ##   &lt;dbl&gt;  &lt;dbl&gt;
 ## 1 0.908   90.8</code></pre>
-<p>Well, the rest lies between.</p>
+<p>Well, the rest (90.8%) lies between.</p>
 </div>
+<div id="question-3e4" class="section level2" number="3.4">
+<h2 number="3.4"><span class="header-section-number">3.4</span> Question 3E4</h2>
+<p><strong>20% of the posterior probability lies below which value of p?</strong></p>
+<p>We can use the <code>quantile()</code> function within <code>summarise()</code> to get the answer (see page 54):</p>
+<pre class="r"><code>samples %&gt;% 
+  summarise(quants = quantile(values, probs = 0.2))</code></pre>
+<pre><code>## # A tibble: 1 x 1
+##   quants
+##    &lt;dbl&gt;
+## 1  0.516</code></pre>
+<p>20% of the posterior probability lies below p = 0.52.</p>
+</div>
+<div id="question-3e5" class="section level2" number="3.5">
+<h2 number="3.5"><span class="header-section-number">3.5</span> Question 3E5</h2>
+<p><strong>20% of the posterior probability lies above which value of p?</strong></p>
+<p>Same procedure, just subtract the probability from 1:</p>
+<pre class="r"><code>samples %&gt;% 
+  summarise(quants = quantile(values, probs = 1 - 0.2))</code></pre>
+<pre><code>## # A tibble: 1 x 1
+##   quants
+##    &lt;dbl&gt;
+## 1  0.743</code></pre>
+<p>20% of the posterior probability lies above p = 0.74.</p>
+</div>
+<div id="question-3e6" class="section level2" number="3.6">
+<h2 number="3.6"><span class="header-section-number">3.6</span> Question 3E6</h2>
+<p><strong>Which values of p contain the narrowest interval equal to 66% of the posterior probability?</strong></p>
+<p>To get the narrowest interval, we need to find the highest posterior density interval with the <code>HPDI()</code> function (see page 57):</p>
+<pre class="r"><code>samples %&gt;% 
+  HPDI(prob = 0.66)</code></pre>
+<pre><code>##     |0.66     0.66| 
+## 0.5135135 0.7697698</code></pre>
+<p>The narrowest interval equal to 66% of the posterior probability lies between p = 0.51 and p = 0.77.</p>
+</div>
+<div id="question-3e7" class="section level2" number="3.7">
+<h2 number="3.7"><span class="header-section-number">3.7</span> Question 3E7</h2>
+<p><strong>Which values of p contain 66% of the posterior probability, assuming equal posterior probability both below and above the interval?</strong></p>
+<p>To get the interval that has equal probability mass in each tail, we need to find the percentile interval using the <code>PI()</code> function (see page 56). Unfortunately, we need to use curly brackets to tell the function which values to use in a pipe:</p>
+<pre class="r"><code>samples %&gt;% 
+  {PI(.$values, prob = 0.66)}</code></pre>
+<pre><code>##       17%       83% 
+## 0.4961562 0.7569269</code></pre>
+<p>The answer is p = 0.5 and p = 0.76.</p>
+</div>
+</div>
+<div id="medium-practices" class="section level1" number="4">
+<h1 number="4"><span class="header-section-number">4</span> Medium practices</h1>
 </div>
 
 
