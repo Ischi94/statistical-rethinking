@@ -12,7 +12,7 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, fig.dim=c(7,4))
 library(tidyverse)
 library(rethinking)
 ```
@@ -103,7 +103,7 @@ Well, the rest (90.8%) lies between.
 
 We can use the `quantile()` function within `summarise()` to get the answer (see page 54):
 
-```{r E34}
+```{r 3E4}
 samples %>% 
   summarise(quants = quantile(values, probs = 0.2))
 ```
@@ -116,7 +116,7 @@ samples %>%
 
 Same procedure, just subtract the probability from 1:
 
-```{r E35}
+```{r 3E5}
 samples %>% 
   summarise(quants = quantile(values, probs = 1 - 0.2))
 ```
@@ -129,7 +129,7 @@ samples %>%
 
 To get the narrowest interval, we need to find the highest posterior density interval with the `HPDI()` function (see page 57):
 
-```{r E36}
+```{r 3E6}
 samples %>% 
   HPDI(prob = 0.66)
 ```
@@ -141,7 +141,7 @@ The narrowest interval equal to 66% of the posterior probability lies between p 
 
 To get the interval that has equal probability mass in each tail, we need to find the percentile interval using the `PI()` function (see page 56). Unfortunately, we need to use curly brackets to tell the function which values to use in a pipe:
 
-```{r E37}
+```{r 3E7}
 samples %>% 
   {PI(.$values, prob = 0.66)}
 ```
@@ -149,3 +149,258 @@ samples %>%
 The answer is p = 0.5 and p = 0.76.
 
 # Medium practices
+
+## Question 3M1
+
+**Suppose the globe tossing data had turned out to be 8 water in 15 tosses. Construct the posterior distribution, using grid approximation. Use the same flat prior as before.**
+
+We can do all of this in one pipe:
+
+```{r 3M1}
+post_dist <- tibble(
+  # define grid
+  p.grid = seq(from = 0, to = 1, length.out = 20), 
+  # define prior, in this case flat
+  prior = rep(1, 20)
+  ) %>% 
+  # compute likelihood at each value in grid for 8 water in 15 tosses 
+  mutate(likelihood = dbinom(8, size = 15, prob = p.grid),
+         # compute product of likelihood and prior
+         unstd.likelihood = likelihood * prior,
+         # standardise the posterior so it sums to 1
+         posterior = unstd.likelihood / sum(unstd.likelihood)) 
+
+# make a ggplot
+ggplot(post_dist) +
+  geom_line(aes(p.grid, posterior)) +
+  labs(y = "posterior probability", x = "probability of water") +
+  theme_minimal()
+```
+
+## Question 3M2
+**Draw 10,000 samples from the grid approximation from above. Then use the samples to calculate the 90% HPDI for p.**
+
+```{r 3M2}
+samples <- post_dist %>% 
+  sample_n(size = 1e4, weight = posterior, replace = TRUE) 
+  
+HPDI(samples$p.grid, prob = 0.9)
+```
+
+The 90% HPDI is within [0.32, 0.68].  
+We can plot this and shade the highest posterior density interval:
+
+```{r 3M2 plot}
+samples %>%
+  mutate(hpdi.int = ifelse(
+    p.grid < HPDI(p.grid, prob = 0.9)[1] |
+      p.grid > HPDI(p.grid, prob = 0.9)[2],
+    NA,
+    p.grid
+  )) %>% 
+  ggplot() +
+  geom_line(aes(x = p.grid, y = posterior)) +
+  geom_ribbon(aes(x = hpdi.int, ymin = 0, ymax = posterior), 
+              alpha = 0.75, fill = "coral") +
+  labs(x = "proportion water", y = "density") +
+  theme_minimal()
+```
+
+## Question 3M3
+
+**Construct a posterior predictive check for this model and data. This means simulate the distribution of samples, averaging over the posterior uncertainty in p. What is the probability of observing 8 water in 15 tosses?**
+
+To simulate the distribution of samples, we need to use the `rbinom()` function and provide the appropriate probability distribution (see page 65).
+
+```{r 3M3 part 1}
+w_eight <- rbinom(1e4, size = 15, prob = samples$p.grid) %>%
+  enframe(name = "n_row", value = "trials")
+```
+
+We can plot the distribution of simulated sample observations from 15 tosses of the globe. 
+
+```{r 3m3 part 2}
+ggplot(w_eight) +
+  geom_histogram(aes(x = trials), binwidth = .5) +
+  scale_x_continuous(breaks = seq(0,15,1)) +
+  labs(x = "dummy water count", y = "frequency") +
+  theme_minimal()
+```
+
+The we can calcultate the probability of observing 8 water in 15 tosses.
+
+```{r 3M3 part 3}
+w_eight %>% 
+  filter(trials == 8) %>% 
+  summarise(p_eight = n()/1e4)
+```
+
+The probability is around 15%. From the histogram, we can see that this is the most likely outcome.
+
+## Question 3M4
+
+**Using the posterior distribution constructed from the new (8/15) data, now calculate the probability of observing 6 water in 9 tosses.**
+
+We can apply the same procedure as in 3M3, simply updating the number of tosses and observed waters.
+
+```{r 3M4}
+rbinom(1e4, size = 9, prob = samples$p.grid) %>%
+  enframe(name = "n_row", value = "trials") %>%
+  filter(trials == 6) %>%
+  summarise(p_six = n() / 1e4)
+```
+
+The probability of observing 6 water in 9 tosses is around 18%
+
+
+## Question 3M5
+
+**Start over at 3M1, but now use a prior that is zero below p=0.5 and a constant above p=0.5. This corresponds to prior information that a majority of the Earth’s surface is water. Repeat each problem above and compare the inferences. What difference does the better prior make? If it helps, compare inferences (using both priors) to the true value p = 0.7.**
+
+Let's first make a `tibble()` with both the old and the new prior: 
+
+```{r 3M5 part 1}
+comparison <- tibble(
+  # define grid
+  p.grid = seq(from = 0, to = 1, length.out = 20), 
+  # define flat prior used in question 1
+  prior.old = rep(1, 20)
+) %>% 
+  # new prior with majority water
+  mutate(prior.new = if_else(p.grid <= 0.5, 0, 1), 
+         # compute likelihood at each value in grid for 8 water in 15 tosses 
+         likelihood = dbinom(8, size = 15, prob = p.grid), 
+         # compute product of likelihood and prior
+         unstd.likelihood.old = likelihood * prior.old, 
+         unstd.likelihood.new = likelihood * prior.new, 
+         # standardise the posterior so it sums to 1
+         posterior.old = unstd.likelihood.old / sum(unstd.likelihood.old),
+         posterior.new = unstd.likelihood.new / sum(unstd.likelihood.new)) 
+```
+
+So now let's compare posterior distributions as in 3M1:
+
+```{r 3M5 part 2}
+ggplot(comparison) +
+  geom_line(aes(p.grid, posterior.old), colour = "skyblue") +
+  annotate("text", x = 0.3, y = 0.075, label = "old prior", colour = "skyblue") +
+  annotate("text", x = 0.81, y = 0.075, label = "new prior", colour = "coral") +
+  geom_line(aes(p.grid, posterior.new), colour = "coral") +
+  labs(y = "posterior probability", x = "probability of water") +
+  theme_minimal()
+```
+
+We can already see that the new prior better captures the true water proportion of 0.7 way better than the old flat prior. But let us provide some number for this comparison. First, we need to draw samples again and then we can compare intervals as in 3M2:
+
+```{r 3M5 part 3}
+samples <- comparison %>% 
+  sample_n(size = 1e4, weight = posterior.new, replace = TRUE) 
+  
+HPDI(samples$p.grid, prob = 0.9)
+```
+
+Our highest posterior density interval using the new prior is within [0.53, 0.74] and hence way narrower than our previous one using the old prior [0.32 0.68]. Now we can simulate the distribution of samples as in 3M3 and plot it:
+
+```{r 3m5 part 4}
+w_eight <- rbinom(1e4, size = 15, prob = samples$p.grid) %>%
+  enframe(name = "n_row", value = "trials")
+
+ggplot(w_eight) +
+  geom_histogram(aes(x = trials), binwidth = .5) +
+  scale_x_continuous(breaks = seq(0,15,1)) +
+  labs(x = "dummy water count", y = "frequency") +
+  theme_minimal()
+```
+
+And calculate the probability of observing 8 water in 15 tosses.
+
+```{r 3m5 part 5}
+w_eight %>% 
+  filter(trials == 8) %>% 
+  summarise(p_eight = n()/1e4)
+```
+
+The probability of observing 8 water in 15 tosses has increased slightly compared to the old prior. 
+Is it the same for 6 out of 9 as in 3M4?
+
+```{r 3M5 part 6}
+rbinom(1e4, size = 9, prob = samples$p.grid) %>%
+  enframe(name = "n_row", value = "trials") %>%
+  filter(trials == 6) %>%
+  summarise(p_six = n() / 1e4)
+```
+
+Here we see quite a strong increase. 
+
+## Question 3M6
+
+**Suppose you want to estimate the Earth's proportion of water very precisely. Specifically, you want the 99% percentile interval of the posterior distribution of p to be only 0.05 wide. This means the distance between the upper and lower bound of the interval should be 0.05. How many times will you have to toss the globe to do this?**
+
+This is going to be tricky. We need to simulate sample sizes, and then iteratively apply a function that calculates the 99% percentile interval to these sample sizes. Let's define the function: 
+
+```{r 3M6 part 1}
+int_width <- function(n) {
+  # dependant on our sample size n, we draw the summed up number of water from a 
+  # binomial distribution
+  w <- rbinom(1, size = n, prob = 0.7)
+  
+  # now we need to apply our standard procedure to get the posterior based on grid
+  # approximation
+  tibble(
+    # define grid
+    p.grid = seq(from = 0, to = 1, length.out = 1000
+    ),
+    # define prior
+    prior = rep(1, 1000)) %>%
+    # compute likelihood at each value in grid for
+    mutate(
+      likelihood = dbinom(w, size = n, prob = p.grid),
+      # compute product of likelihood and prior
+      unstd.likelihood = likelihood * prior,
+      # standardise the posterior so it sums to 1
+      posterior = unstd.likelihood / sum(unstd.likelihood)
+    ) %>%
+    select(posterior, p.grid) %>%
+    # draw samples
+    sample_n(size = 1000, weight = posterior, replace = TRUE) %>%
+    # get 99% percentile interval
+    summarise(per.int = PI(samples = p.grid, prob = 0.99)) %>%
+    # get the total width
+    summarise(width = diff(per.int)) %>% 
+    pull()
+}
+```
+
+Now we can apply the function to our sample sizes. I use sample sizes up to 3000, and run 100 simulation at each sample size. 
+
+```{r 3M6 part 2}
+# define sample sizes
+n_list <- c(20, 50, 100, 200, 400, 800, 1000, 2000, 3000) %>%
+  # repeat each sample size 100 times
+  rep(., each = 100)
+
+# we use map_dfr to apply the int_width function to n_list
+map_dfr(n_list, int_width) %>% 
+  # some data wrangling for plotting
+  add_column(n.list = n_list) %>% 
+  rename("width" = "100%") %>% 
+  # pipe it to ggplot
+  ggplot() +
+  # reference line and text
+  geom_hline(yintercept = 0.05, color = "coral") +
+  annotate("text", x = 200, y = 0.075, label = "aim width", colour = "coral") +
+  # simulations
+  geom_point(aes(x = n.list, y = width), alpha = 0.05) +
+  labs(x = "sample size", y = "interval width") +
+  theme_minimal()
+```
+
+It seems that more than 2000, but less than 3000 globe tosses are sufficient to produce an interval that precise. 
+
+
+--------------------------------------------------------------------------------
+  
+  
+```{r session info}
+sessionInfo()
+```
