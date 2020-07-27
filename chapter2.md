@@ -346,4 +346,59 @@ grid_approx(w = 5, l = 2) # 5 water, 2 land
 
 ## Question 2M3 to 2H4 
 
-Questions 2M3 to 2H4 can be solved by thinking and applying the equations given in the chapter. No code is needed to solve the questions and each question is the same as in the first edition, why I refer to the [solutions from Jeffrey Girard](https://jmgirard.com/statistical-rethinking-ch2/) here. 
+Questions 2M3 to 2H4 are rather phylosophical and can be solved by applying the equations given in the chapter. No code is needed to solve the questions and each question is the same as in the first edition, why I refer to the [solutions from Jeffrey Girard](https://jmgirard.com/statistical-rethinking-ch2/) here. 
+  
+   
+   
+--------------------------------------------------------------------------------
+  
+  
+
+```r
+sessionInfo()
+```
+
+```
+## R version 4.0.0 (2020-04-24)
+## Platform: x86_64-w64-mingw32/x64 (64-bit)
+## Running under: Windows 10 x64 (build 18363)
+## 
+## Matrix products: default
+## 
+## locale:
+## [1] LC_COLLATE=German_Germany.1252  LC_CTYPE=German_Germany.1252   
+## [3] LC_MONETARY=German_Germany.1252 LC_NUMERIC=C                   
+## [5] LC_TIME=German_Germany.1252    
+## 
+## attached base packages:
+## [1] parallel  stats     graphics  grDevices utils     datasets  methods  
+## [8] base     
+## 
+## other attached packages:
+##  [1] rethinking_2.01      dagitty_0.2-2        rstan_2.19.3        
+##  [4] StanHeaders_2.21.0-5 forcats_0.5.0        stringr_1.4.0       
+##  [7] dplyr_1.0.0          purrr_0.3.4          readr_1.3.1         
+## [10] tidyr_1.1.0          tibble_3.0.1         ggplot2_3.3.2       
+## [13] tidyverse_1.3.0     
+## 
+## loaded via a namespace (and not attached):
+##  [1] httr_1.4.1         jsonlite_1.7.0     modelr_0.1.8       RcppParallel_5.0.2
+##  [5] assertthat_0.2.1   stats4_4.0.0       blob_1.2.1         cellranger_1.1.0  
+##  [9] yaml_2.2.1         pillar_1.4.4       backports_1.1.8    lattice_0.20-41   
+## [13] glue_1.4.1         digest_0.6.25      rvest_0.3.5        colorspace_1.4-1  
+## [17] htmltools_0.5.0    pkgconfig_2.0.3    broom_0.5.6        haven_2.3.1       
+## [21] mvtnorm_1.1-1      scales_1.1.1       processx_3.4.2     farver_2.0.3      
+## [25] generics_0.0.2     ellipsis_0.3.1     withr_2.2.0        cli_2.0.2         
+## [29] magrittr_1.5       crayon_1.3.4       readxl_1.3.1       evaluate_0.14     
+## [33] ps_1.3.3           fs_1.4.2           fansi_0.4.1        nlme_3.1-147      
+## [37] MASS_7.3-51.5      xml2_1.3.2         pkgbuild_1.0.8     tools_4.0.0       
+## [41] loo_2.2.0          prettyunits_1.1.1  hms_0.5.3          lifecycle_0.2.0   
+## [45] matrixStats_0.56.0 V8_3.2.0           munsell_0.5.0      reprex_0.3.0      
+## [49] callr_3.4.3        compiler_4.0.0     rlang_0.4.6        grid_4.0.0        
+## [53] rstudioapi_0.11    labeling_0.3       rmarkdown_2.3      boot_1.3-24       
+## [57] gtable_0.3.0       inline_0.3.15      DBI_1.1.0          curl_4.3          
+## [61] R6_2.4.1           gridExtra_2.3      lubridate_1.7.9    knitr_1.29        
+## [65] shape_1.4.4        stringi_1.4.6      Rcpp_1.0.4.6       vctrs_0.3.1       
+## [69] dbplyr_1.4.4       tidyselect_1.1.0   xfun_0.15          coda_0.19-3
+```
+
