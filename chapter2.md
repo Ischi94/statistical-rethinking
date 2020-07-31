@@ -97,7 +97,7 @@ grid_comp %>%
 
 ## Question 3
 
-**. This problem is more open-ended than the others. Feel free to collaborate on the solution. Suppose you want to estimate the Earth’s proportion of water very precisely. Specifically, you want the 99% percentile interval of the posterior distribution of p to be only 0.05 wide. This means the distance between the upper and lower bound of the interval should be 0.05. How many times will you have to toss the globe to do this? I won’t require a precise answer. I’m honestly more interested in your approach.**
+**This problem is more open-ended than the others. Feel free to collaborate on the solution. Suppose you want to estimate the Earth’s proportion of water very precisely. Specifically, you want the 99% percentile interval of the posterior distribution of p to be only 0.05 wide. This means the distance between the upper and lower bound of the interval should be 0.05. How many times will you have to toss the globe to do this? I won’t require a precise answer. I’m honestly more interested in your approach.**
 
 As mentioned, this is going to be tricky. We need to simulate sample sizes, and then iteratively apply a function that calculates the 99% percentile interval to these sample sizes. Let's define the function: 
 
@@ -163,13 +163,15 @@ ggplot(sim_width) +
 ```
 
 ![](chapter2_files/figure-html/homework 3 simulation-1.png)<!-- -->
+  
+  
 It seems that more than 2000, but less than 3000 globe tosses are sufficient to produce interval that precise. 
 
 # Easy practices
 
 ## Question 2E1
 
-**Which of the expressions below correspond to the statement: the probability of rain on Monday?**
+**Which of the expressions below correspond to the statement: "the probability of rain on Monday?"**
 
 1. Pr(rain)
 2. Pr(rain|Monday)
@@ -186,7 +188,7 @@ It is quite obvious that 2 is the correct answer here, but 4 is correct as well.
 
 ## Question 2E2
 
-**Which of the following statements corresponds to the expression: Pr(Monday|rain)?**
+**Which of the following statements corresponds to the expression: "Pr(Monday|rain)?"**
 
 1. The probability of rain on Monday.
 2. The probability of rain, given that it is Monday.
@@ -203,7 +205,7 @@ The correct answer is 3.
 
 ## Question 2E3
 
-**Which of the expressions below correspond to the statement: *the probability that it is Monday, given that it is raining?* **
+**Which of the expressions below correspond to the statement: "the probability that it is Monday, given that it is raining?"**
 
 Pr(Monday|rain)
 Pr(rain|Monday)
