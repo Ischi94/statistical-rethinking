@@ -141,12 +141,14 @@ n_list <- c(20, 50, 100, 200, 400, 800, 1000, 2000, 3000) %>%
   rep(., each = 100)
 
 # we use map_dfr to apply the int_width function to n_list
-map_dfr(n_list, int_width) %>% 
+sim_width <- map_dfr(n_list, int_width) %>% 
   # some data wrangling for plotting
   add_column(n.list = n_list) %>% 
-  rename("width" = "100%") %>% 
-  # pipe it to ggplot
-  ggplot() +
+  rename("width" = "100%") 
+
+
+# pipe it to ggplot
+ggplot(sim_width) +
   # reference line and text
   geom_hline(yintercept = 0.05, color = "coral") +
   annotate("text", x = 200, y = 0.075, label = "aim width", colour = "coral") +
