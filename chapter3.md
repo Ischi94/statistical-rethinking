@@ -509,8 +509,221 @@ map_dfr(n_list, int_width) %>%
 
 ![](chapter3_files/figure-html/3M6 part 2-1.png)<!-- -->
 
-It seems that more than 2000, but less than 3000 globe tosses are sufficient to produce interval that precise. 
+It seems that more than 2000, but less than 3000 globe tosses are sufficient to produce an interval that precise. 
 
+# Hard practices
+
+The Hard problems here all use the data below. These data indicate the gender (male = 1, female = 0) of officially reported first and second born children in 100 two-child families. 
+
+
+```r
+data(homeworkch3)
+birth1
+```
+
+```
+##   [1] 1 0 0 0 1 1 0 1 0 1 0 0 1 1 0 1 1 0 0 0 1 0 0 0 1 0 0 0 0 1 1 1 0 1 0 1 1
+##  [38] 1 0 1 0 1 1 0 1 0 0 1 1 0 1 0 0 0 0 0 0 0 1 1 0 1 0 0 1 0 0 0 1 0 0 1 1 1
+##  [75] 1 0 1 0 1 1 1 1 1 0 0 1 0 1 1 0 1 0 1 1 1 0 1 1 1 1
+```
+
+```r
+birth2
+```
+
+```
+##   [1] 0 1 0 1 0 1 1 1 0 0 1 1 1 1 1 0 0 1 1 1 0 0 1 1 1 0 1 1 1 0 1 1 1 0 1 0 0
+##  [38] 1 1 1 1 0 0 1 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 0 1 1 0 1 1 0 1 1 1 0 0 0
+##  [75] 0 0 0 1 0 0 0 1 1 0 0 1 0 0 1 1 0 0 0 1 1 1 0 0 0 0
+```
+
+```r
+# combine birth data
+allbirth <- c(birth1, birth2)
+```
+
+## Question 3H1
+
+**Using grid approximation, compute the posterior distribution for the probability of a birth being a boy. Assume a uniform prior probability. Which parameter value maximizes the posterior probability?**
+
+We can use the grid approximation approach given on page 56:
+
+
+```r
+post_dist <- tibble(
+  # define grid
+  p.grid = seq(from = 0, to = 1, length.out = 1000),
+  # define uniform prior
+  prior = rep(1, 1000)) %>%
+  # compute likelihood at each value in grid for
+  mutate(
+    likelihood = dbinom(sum(allbirth), size = length(allbirth), prob = p.grid),
+    # compute product of likelihood and prior
+    unstd.likelihood = likelihood * prior,
+    # standardise the posterior so it sums to 1
+    posterior = unstd.likelihood / sum(unstd.likelihood)) 
+
+ggplot(post_dist) +
+  geom_line(aes(p.grid, posterior)) +
+  labs(x = "probability of boy", y = "frequency") +
+  theme_minimal()
+```
+
+![](chapter3_files/figure-html/3H1 part 1-1.png)<!-- -->
+
+Instead of the `which.max()` function, we can use `filter()` within a pipe.
+
+
+```r
+post_dist %>% 
+  filter(posterior == max(posterior))
+```
+
+```
+## # A tibble: 1 x 5
+##   p.grid prior likelihood unstd.likelihood posterior
+##    <dbl> <dbl>      <dbl>            <dbl>     <dbl>
+## 1  0.555     1     0.0567           0.0567    0.0114
+```
+
+The parameter value that maximizes the posterior probability is p = 0.555.
+
+## Question 3H2
+
+**Using the `sample()` function, draw 10000 random parameter values from the posterior distribution you calculated above. Use these samples to estimate the 50%, 89% and 97% highest posterior density intervals.**
+
+We can use the `sample_n()` function from the *dplyr* package for sampling from the posterior distribution. Then we can use `summarise()` to calculate multiple highest posterior density intervals. 
+
+
+```r
+samples <- post_dist %>% 
+    select(posterior, p.grid) %>%
+    # draw samples
+    sample_n(size = 10000, weight = posterior, replace = TRUE)
+
+samples %>% 
+    # get 99% percentile interval
+    summarise(HPDI.50 = HPDI(samples = p.grid, prob = 0.5), 
+              HPDI.89 = HPDI(samples = p.grid, prob = 0.89), 
+              HPDI.97 = HPDI(samples = p.grid, prob = 0.97)) %>% 
+  add_column(interval = c("lower", "upper"))
+```
+
+```
+## # A tibble: 2 x 4
+##   HPDI.50 HPDI.89 HPDI.97 interval
+##     <dbl>   <dbl>   <dbl> <chr>   
+## 1   0.526   0.501   0.475 lower   
+## 2   0.573   0.613   0.627 upper
+```
+
+## Question 3H3
+
+**Use rbinom() to simulate 10.000 replicates of 200 births. You should end up with 10000 numbers, each one a count of boys out of 200 births. Compare the distribution of predicted numbers of boys to the actual count in the data (111 boys out of 200 births). There are many good ways to visualize the simulations, but the dens() command (part of the rethinking package) is probably the easiest way in this case. Does it look like the model fits the data well? That is, does the distribution of predictions include the actual observation as a central, likely outcome?**
+
+We can use the approach detailed on page 66 to conduct this simulation. Instead of `dens()`, we can use the `geom_density` within *ggplot* and add the actual result to the posterior predictive distribution using `geom_vline()`.
+
+
+```r
+birth_sim <- rbinom(1e4, 200, prob = samples$p.grid) %>% enframe()
+
+ggplot(birth_sim) +
+  geom_density(aes(x = value), size = 1.3) +
+  geom_vline(xintercept = sum(allbirth), colour = "coral", size = 2) +
+  theme_minimal()
+```
+
+![](chapter3_files/figure-html/3H3-1.png)<!-- -->
+
+Indeed, it does look like the model fits the data well. The actual result plots quite central in the predictions. 
+
+## Question 3H4
+
+**Now compare 10.000 counts of boys from 100 simulated first borns only to the number of boys in the first births, birth1. How does the model look in this light?**
+
+For this, we need to update our posterior distribution to birth1:
+
+
+```r
+post_dist <- tibble(
+  # define grid
+  p.grid = seq(from = 0, to = 1, length.out = 1000),
+  # define uniform prior
+  prior = rep(1, 1000)) %>%
+  # compute likelihood at each value in grid for
+  mutate(
+    likelihood = dbinom(sum(birth1), size = length(birth1), prob = p.grid),
+    # compute product of likelihood and prior
+    unstd.likelihood = likelihood * prior,
+    # standardise the posterior so it sums to 1
+    posterior = unstd.likelihood / sum(unstd.likelihood))
+```
+
+We can visualize the results and compare the predictions to the actual value the same way as before:
+
+
+```r
+# calculate samples
+samples <- post_dist %>%
+  select(posterior, p.grid) %>%
+  # draw samples
+  sample_n(size = 1e4, weight = posterior, replace = TRUE) %>%
+  # simulate 100 birth
+  mutate(birth.sim = rbinom(1e4, 100, prob = p.grid))
+  
+# plot it
+ggplot(samples) +
+  geom_density(aes(x = birth.sim), size = 1.3) +
+  geom_vline(xintercept = sum(birth1), colour = "coral", size = 2) +
+  theme_minimal()
+```
+
+![](chapter3_files/figure-html/3H4 part 2-1.png)<!-- -->
+Again, the actual result (51 births) plots quite central in the predictions, indicating a good model fit. 
+
+## Question 3H5
+
+**The model assumes that sex of first and second births are independent. To check this assumption, focus now on second births that followed female first borns. Compare 10.000 simulated counts of boys to only those second births that followed girls. To do this correctly, you need to count the number of first borns who were girls and simulate that many births, 10-000 times. Compare the counts of boys in your simulations to the actual observed count of boys following girls. How does the model look in this light? Any guesses what is going on in these data?**
+
+We first need to count the number of female first borns and simulate that many births, 10000 times:
+
+
+```r
+# female first borns
+first_female <- 100 - sum(birth1)
+
+# same approach as in 3H3, samples is still fitted with 100 first borns
+birth_sim <- rbinom(1e4, first_female, prob = samples$p.grid) %>% enframe()
+```
+
+Then we need the actual observed count of boys following girls:
+
+```r
+female_then_male <- 
+  # make tibble
+  tibble(firstborn = birth1, secondborn = birth2) %>% 
+  # select firstborn females
+  filter(firstborn == 0) %>% 
+  # calculate count of boys following girls
+  summarise(female.then.male = sum(secondborn)) %>% 
+  pull()
+```
+
+Now we can plot the probability distribution of simulated counts of first born boys and compare it to the actual observed count of boys following girls. 
+
+
+```r
+# plot it
+ggplot(birth_sim) +
+  geom_density(aes(x = value), size = 1.3) +
+  geom_vline(xintercept = female_then_male, colour = "coral", size = 2) +
+  labs(x = "probability of first born male") +
+  theme_minimal()
+```
+
+![](chapter3_files/figure-html/3H5 part 3-1.png)<!-- -->
+
+We can clearly see that the actual value falls outside of our predictions. The assumption for our model that first and second births are independent leads to a poor fit. It seems like there is dependancy between first and second births. 
 
 --------------------------------------------------------------------------------
   
