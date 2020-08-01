@@ -93,11 +93,11 @@ tibble(individual = 1:5, weight = new_weight, expected = expected,
 
 | individual | weight | expected |    lower|    upper|
 |:----------:|:------:|:--------:|--------:|--------:|
-|     1      | 46.95  | 135.4945 | 134.9303| 136.2007|
-|     2      | 43.72  | 129.8047 | 129.1428| 130.4608|
-|     3      | 64.78  | 166.9032 | 165.9362| 167.7696|
-|     4      | 32.59  | 110.1985 | 109.3295| 111.1617|
-|     5      | 54.63  | 149.0233 | 148.3833| 149.7175|
+|     1      | 46.95  | 135.4944 | 134.8623| 136.1539|
+|     2      | 43.72  | 129.7956 | 129.1653| 130.5251|
+|     3      | 64.78  | 166.9527 | 166.0004| 167.8746|
+|     4      | 32.59  | 110.1584 | 109.1964| 111.1321|
+|     5      | 54.63  | 149.0446 | 148.3473| 149.7302|
 
 ## Question 2
 
@@ -143,9 +143,10 @@ precis(m_log) %>% as_tibble() %>%
 
 |parameter |    mean    |        sd|      lower|      upper|
 |:---------|:----------:|---------:|----------:|----------:|
-|a         | -22.881197 | 1.3343293| -25.013713| -20.748681|
-|b         | 46.819590  | 0.3823355|  46.208544|  47.430636|
-|sigma     |  5.137303  | 0.1559006|   4.888144|   5.386463|
+|a         | -22.874333 | 1.3342912| -25.006788| -20.741878|
+|b         | 46.817794  | 0.3823241|  46.206767|  47.428822|
+|sigma     |  5.137088  | 0.1558847|   4.887954|   5.386222|
+
 Instead of trying to read these estimates, we can just visualise our model. Let's calculate the predicted mean height as a function of weight, the 97% PI for the mean, and the 97% PI for predicted heights as explained on page 108.  
   
 As we will repeat these steps throughout the exercises, we can set up a function for the interval calculation:
@@ -210,7 +211,7 @@ ggplot(d) +
 ```
 
 ![](chapter4_files/figure-html/question 2 part 6-1.png)<!-- -->
-
+  
 This looks like a decent fit. Let's make a function of the ggplot, so we can call it later on:
 
 

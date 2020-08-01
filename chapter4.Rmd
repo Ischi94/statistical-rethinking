@@ -123,6 +123,7 @@ precis(m_log) %>% as_tibble() %>%
   select(parameter, everything()) %>% 
   knitr::kable(align = "lcrrr")
 ```  
+
 Instead of trying to read these estimates, we can just visualise our model. Let's calculate the predicted mean height as a function of weight, the 97% PI for the mean, and the 97% PI for predicted heights as explained on page 108.  
   
 As we will repeat these steps throughout the exercises, we can set up a function for the interval calculation:
@@ -181,8 +182,9 @@ ggplot(d) +
     geom_ribbon(aes(x = x_var, ymin = lower, ymax = upper),
                 alpha=0.2, data = pred_intervals) +
     theme_light()
-```  
 
+```  
+  
 This looks like a decent fit. Let's make a function of the ggplot, so we can call it later on:
 
 ```{r question 2 part 7}
