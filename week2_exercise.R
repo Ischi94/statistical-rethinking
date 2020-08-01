@@ -162,7 +162,7 @@ d <- Howell1
 # model formula
 formula <- alist(
   height ~ dnorm(mu, sigma),
-  mu <- a + b * weight,
+  mu <- a + b * (weight - mean(weight)),
   a ~ dnorm(178, 20),
   b ~ dlnorm(0, 1),
   sigma ~ dunif(0, 50))
