@@ -45,7 +45,7 @@ d <- Howell1
 new_weight <- c(46.95, 43.72, 64.78, 32.59, 54.63)
 ```
 
-For the model, we use the same structur and priors as given on page 102:
+For the model, we use the same structur and priors as given on page 102. Further, we use all data (both juveniles and adults) and use quadratic approximation for the posterior. 
 
 
 ```r
@@ -56,11 +56,11 @@ m <- alist(
   a ~ dnorm(178, 20),
   b ~ dlnorm(0, 1),
   sigma ~ dunif(0, 50)) %>% 
-  # model fit
-  map(data = d)
+  # model fit using quadratic approximation
+  quap(data = d)
 ```
 
-Now we can calculate the posterior distribution of heights for each individual weight value in the table using the `link()` function, as explained on page 105. From these posterior distributions, we can calculate the mean and the 89% percentile interval. 
+Now we can calculate the posterior distribution of heights for each individual weight value in the table using the `link()` function, as explained on page 105. From these posterior distributions, we can calculate the mean and the 89% percentile interval using `summarise_all()`. 
 
 
 ```r
@@ -93,9 +93,142 @@ tibble(individual = 1:5, weight = new_weight, expected = expected,
 
 | individual | weight | expected |    lower|    upper|
 |:----------:|:------:|:--------:|--------:|--------:|
-|     1      | 46.95  | 135.4876 | 134.9288| 136.1790|
-|     2      | 43.72  | 129.7929 | 129.1542| 130.4785|
-|     3      | 64.78  | 166.9232 | 166.0108| 167.8885|
-|     4      | 32.59  | 110.1698 | 109.1935| 111.0188|
-|     5      | 54.63  | 149.0280 | 148.2945| 149.6619|
+|     1      | 46.95  | 135.4945 | 134.9303| 136.2007|
+|     2      | 43.72  | 129.8047 | 129.1428| 130.4608|
+|     3      | 64.78  | 166.9032 | 165.9362| 167.7696|
+|     4      | 32.59  | 110.1985 | 109.3295| 111.1617|
+|     5      | 54.63  | 149.0233 | 148.3833| 149.7175|
 
+## Question 2
+
+**Model the relationship between height (cm) and the natural logarithm of weight (log-kg). Use the entire `Howell1` data frame, all 544 rows, adults and non-adults. Fit this model, using quadratic approximation. Use any model type from chapter 4 that you think useful: an ordinary linear regression, a polynomial or a spline. Plot the posterior predictions against the raw data.**
+
+First, let's take a look at the data:
+
+
+```r
+d %>% 
+  mutate(log.weight = log(weight)) %>% 
+  ggplot() +
+  geom_point(aes(log.weight, height), alpha = 0.5) +
+  theme_minimal()
+```
+
+![](chapter4_files/figure-html/question 2 part 1-1.png)<!-- -->
+
+It actually looks like a decent linear relationship, so a simple linear regression should be sufficient. All we need to change from the previous model is to log-transform the weight.
+
+
+```r
+m_log <- alist(
+  height ~ dnorm(mu, sigma),
+  mu <- a + b * log(weight),
+  a ~ dnorm(178, 20),
+  b ~ dlnorm(0, 1),
+  sigma ~ dunif(0, 50)) %>% 
+  quap(data = d)
+```
+
+Let's glimpse at the results:
+
+```r
+precis(m_log) %>% as_tibble() %>% 
+  add_column(parameter = rownames(precis(m_log))) %>% 
+  rename("lower" = '5.5%', "upper" = '94.5%') %>% 
+  select(parameter, everything()) %>% 
+  knitr::kable(align = "lcrrr")
+```
+
+
+
+|parameter |    mean    |        sd|      lower|      upper|
+|:---------|:----------:|---------:|----------:|----------:|
+|a         | -22.881197 | 1.3343293| -25.013713| -20.748681|
+|b         | 46.819590  | 0.3823355|  46.208544|  47.430636|
+|sigma     |  5.137303  | 0.1559006|   4.888144|   5.386463|
+Instead of trying to read these estimates, we can just visualise our model. Let's calculate the predicted mean height as a function of weight, the 97% PI for the mean, and the 97% PI for predicted heights as explained on page 108.  
+  
+As we will repeat these steps throughout the exercises, we can set up a function for the interval calculation:
+
+
+```r
+# we better make a function out of it since we use it more often
+tidy_intervals <- function(my_function, my_model, interval_type, 
+                           x_var, x_seq){
+  # preprocess dataframe
+  df <- data.frame(col1 = x_seq)
+  colnames(df) <- x_var
+  
+  # calculate 89% intervals for each weight
+  # either link or sim
+  my_function(my_model, data = df) %>% 
+  as_tibble() %>% 
+  #  either PI or HPDI
+  summarise_all(interval_type, prob = 0.89) %>% 
+  add_column(type = c("lower", "upper")) %>% 
+  pivot_longer(cols = -type, names_to = "cols", values_to = "intervals") %>% 
+  add_column(x_var = rep(x_seq, 2)) %>% 
+  pivot_wider(names_from = type, values_from = intervals)
+}
+```
+
+Now let's use this function to calculate the intervals:
+
+
+```r
+# define weight range
+weight_seq <- seq(from = min(d$weight), to = max(d$weight), by = 1)
+
+# calculate 89% intervals for each weight
+intervals <- tidy_intervals(link, m_log, HPDI, 
+                            x_var = "weight", x_seq = weight_seq)
+
+# calculate means
+reg_line <- link(m_log, data = data.frame(weight = weight_seq)) %>%
+  as_tibble() %>%
+  summarise_all(mean) %>%
+  pivot_longer(cols = everything()) %>% 
+  add_column(weight = weight_seq)
+    
+
+# calculate prediction intervals
+pred_intervals <- tidy_intervals(sim, m_log, PI, 
+                                 x_var = "weight", x_seq = weight_seq)
+```
+
+Now we can plot the raw data, the posterior mean from, the distribution of mu (which corresponds to the 89% HPDI of the mean), and the region within which the model expects to find 89% of actual heights in the population.
+
+
+```r
+ggplot(d) +
+    geom_point(aes(weight, height), alpha = 0.5) +
+    geom_ribbon(aes(x = x_var, ymin = lower, ymax = upper),
+                alpha=0.8, data = intervals) +
+    geom_ribbon(aes(x = x_var, ymin = lower, ymax = upper),
+                alpha=0.2, data = pred_intervals) +
+    theme_light()
+```
+
+![](chapter4_files/figure-html/question 2 part 6-1.png)<!-- -->
+
+This looks like a decent fit. Let's make a function of the ggplot, so we can call it later on:
+
+
+```r
+plot_regression <- function(df, x, y, # results, 
+                            interv = intervals, pred_interv = pred_intervals){
+  ggplot(df) +
+    geom_point(aes({{x}}, {{y}}), alpha = 0.5) +
+    geom_ribbon(aes(x = x_var, ymin = lower, ymax = upper),
+                alpha=0.8, data = interv) +
+    geom_ribbon(aes(x = x_var, ymin = lower, ymax = upper),
+                alpha=0.2, data = pred_interv) +
+    theme_light()
+}
+```
+
+
+
+
+ 
+ 
