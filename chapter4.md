@@ -93,11 +93,11 @@ tibble(individual = 1:5, weight = new_weight, expected = expected,
 
 | individual | weight | expected |    lower|    upper|
 |:----------:|:------:|:--------:|--------:|--------:|
-|     1      | 46.95  | 135.4724 | 134.8499| 136.0807|
-|     2      | 43.72  | 129.7755 | 129.1960| 130.5147|
-|     3      | 64.78  | 166.9195 | 165.9695| 167.8406|
-|     4      | 32.59  | 110.1453 | 109.2154| 111.1033|
-|     5      | 54.63  | 149.0177 | 148.3569| 149.6684|
+|     1      | 46.95  | 135.4674 | 134.8367| 136.1374|
+|     2      | 43.72  | 129.7681 | 129.1220| 130.5012|
+|     3      | 64.78  | 166.9279 | 166.0306| 167.9298|
+|     4      | 32.59  | 110.1296 | 109.0477| 111.0026|
+|     5      | 54.63  | 149.0185 | 148.3576| 149.7455|
 
 ## Question 2
 
@@ -141,11 +141,11 @@ precis(m_log) %>% as_tibble() %>%
 
 
 
-|parameter |   mean    |        sd|      lower|      upper|
-|:---------|:---------:|---------:|----------:|----------:|
-|a         | -22.87558 | 1.3342858| -25.008027| -20.743134|
-|b         | 46.81815  | 0.3823226|  46.207123|  47.429173|
-|sigma     |  5.13708  | 0.1558840|   4.887947|   5.386212|
+|parameter |    mean    |        sd|      lower|      upper|
+|:---------|:----------:|---------:|----------:|----------:|
+|a         | -22.873562 | 1.3342944| -25.006022| -20.741102|
+|b         | 46.817570  | 0.3823250|  46.206541|  47.428599|
+|sigma     |  5.137093  | 0.1558852|   4.887959|   5.386228|
 
 Instead of trying to read these estimates, we can just visualise our model. Let's calculate the predicted mean height as a function of weight, the 97% PI for the mean, and the 97% PI for predicted heights as explained on page 108.  
   
@@ -289,8 +289,9 @@ m_poly_mu <- link(m_poly, post = m_poly_prior,
 ```r
 # plot it
 ggplot(m_poly_mu, aes(x = weight_s, y = height)) +
-  geom_hline(yintercept = c(0, 272)) +
-  geom_line(aes(group = name))
+  geom_hline(yintercept = c(0, 272), colour = "coral") +
+  geom_line(aes(group = name)) +
+  theme_light()
 ```
 
 ![](chapter4_files/figure-html/question 3 part 4-1.png)<!-- -->
@@ -307,9 +308,61 @@ All the easy questions don't require new R code and are already covered by [Jeff
 ## Question 4M1
   
 **For the model definition below, simulate observed y values from the prior (not the posterior).**  
-
+  
 $y_{i} ∼ Normal(μ,σ)$  
 $μ ∼ Normal(0,10)$  
 $σ ∼ Exponential(1)$  
   
+We can simply sample from each prior distribution:  
 
+
+```r
+# sample mu
+sample_mu <- rnorm(1e4, 0, 10)
+
+# sample sigma
+sample_sigma <- rexp(1e4, 1)
+
+# sample y
+prior_y <- rnorm(1e4, sample_mu, sample_sigma) %>% 
+  enframe()
+
+# plot
+ggplot(prior_y) +
+  geom_density(aes(value), size = 1) + 
+  theme_light()
+```
+
+![](chapter4_files/figure-html/question 4M1-1.png)<!-- -->
+
+
+## Question 4M2  
+  
+**Translate the model just above into a `map()` formula**
+  
+
+```r
+map_frm <- alist(y ~ dnorm(mu, sigma), 
+                 mu ~ dnorm(0, 10), 
+                 sigma ~ dexp(1)) 
+```
+
+## Question 4M3  
+
+**Translate the `map()` model formula below into a mathematical model definition.**  
+  
+
+```r
+flist <- alist(
+  y ~ dnorm(mu, sigma),
+  mu <- a + b*x,
+  a ~ dnorm(0, 50),
+  b ~ dunif(0, 10),
+  sigma ~ dunif(0, 50))
+```
+
+$y_{1} ∼ Normal(μ,σ)$  
+$μ ∼ α + βx_{1}$  
+$α ∼ Normal(0, 50)$   
+$β = Uniform(0, 10)$  
+$σ ∼ Uniform(0, 50)$

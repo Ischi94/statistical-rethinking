@@ -279,6 +279,8 @@ $y_{i} ∼ Normal(μ,σ)$
 $μ ∼ Normal(0,10)$  
 $σ ∼ Exponential(1)$  
   
+We can simply sample from each prior distribution:  
+
 ```{r question 4M1}
 # sample mu
 sample_mu <- rnorm(1e4, 0, 10)
@@ -287,7 +289,8 @@ sample_mu <- rnorm(1e4, 0, 10)
 sample_sigma <- rexp(1e4, 1)
 
 # sample y
-prior_y <- rnorm(1e4, sample_mu, sample_sigma) %>% enframe()
+prior_y <- rnorm(1e4, sample_mu, sample_sigma) %>% 
+  enframe()
 
 # plot
 ggplot(prior_y) +
@@ -296,5 +299,31 @@ ggplot(prior_y) +
 ```
 
 
+## Question 4M2  
   
+**Translate the model just above into a `map()` formula**
+  
+```{r question 4M2}
+map_frm <- alist(y ~ dnorm(mu, sigma), 
+                 mu ~ dnorm(0, 10), 
+                 sigma ~ dexp(1)) 
+```
 
+## Question 4M3  
+
+**Translate the `map()` model formula below into a mathematical model definition.**  
+  
+```{r question 4M3}
+flist <- alist(
+  y ~ dnorm(mu, sigma),
+  mu <- a + b*x,
+  a ~ dnorm(0, 50),
+  b ~ dunif(0, 10),
+  sigma ~ dunif(0, 50))
+```
+  
+$y_{1} ∼ Normal(μ,σ)$  
+$μ ∼ α + βx_{1}$  
+$α ∼ Normal(0, 50)$   
+$β = Uniform(0, 10)$  
+$σ ∼ Uniform(0, 50)$
