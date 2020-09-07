@@ -93,11 +93,11 @@ tibble(individual = 1:5, weight = new_weight, expected = expected,
 
 | individual | weight | expected |    lower|    upper|
 |:----------:|:------:|:--------:|--------:|--------:|
-|     1      | 46.95  | 135.4944 | 134.8623| 136.1539|
-|     2      | 43.72  | 129.7956 | 129.1653| 130.5251|
-|     3      | 64.78  | 166.9527 | 166.0004| 167.8746|
-|     4      | 32.59  | 110.1584 | 109.1964| 111.1321|
-|     5      | 54.63  | 149.0446 | 148.3473| 149.7302|
+|     1      | 46.95  | 135.4724 | 134.8499| 136.0807|
+|     2      | 43.72  | 129.7755 | 129.1960| 130.5147|
+|     3      | 64.78  | 166.9195 | 165.9695| 167.8406|
+|     4      | 32.59  | 110.1453 | 109.2154| 111.1033|
+|     5      | 54.63  | 149.0177 | 148.3569| 149.6684|
 
 ## Question 2
 
@@ -141,11 +141,11 @@ precis(m_log) %>% as_tibble() %>%
 
 
 
-|parameter |    mean    |        sd|      lower|      upper|
-|:---------|:----------:|---------:|----------:|----------:|
-|a         | -22.874333 | 1.3342912| -25.006788| -20.741878|
-|b         | 46.817794  | 0.3823241|  46.206767|  47.428822|
-|sigma     |  5.137088  | 0.1558847|   4.887954|   5.386222|
+|parameter |   mean    |        sd|      lower|      upper|
+|:---------|:---------:|---------:|----------:|----------:|
+|a         | -22.87558 | 1.3342858| -25.008027| -20.743134|
+|b         | 46.81815  | 0.3823226|  46.207123|  47.429173|
+|sigma     |  5.13708  | 0.1558840|   4.887947|   5.386212|
 
 Instead of trying to read these estimates, we can just visualise our model. Let's calculate the predicted mean height as a function of weight, the 97% PI for the mean, and the 97% PI for predicted heights as explained on page 108.  
   
@@ -228,8 +228,88 @@ plot_regression <- function(df, x, y, # results,
 }
 ```
 
+## Question 3  
+  
+**Plot the prior predictive distribution for the polynomial regression model in Chapter 4. You can modify the prior predictive distribution. 20 or 30 parabolas from the prior should suffice to show where the prior probability resides. Can you modify the prior distributions of a, b1, and b2 so that the prior predictions stay within the biologically reasonable outcome space? That is to say: Do not try to fit the data by hand. But do try to keep the curves consistent with what you know about height and weight, before seeing these exact data.**  
+  
+Let us first recap how the polynomial regression model in Chapter 4 was built: The first thing was to standardise the predictor variables, in our case the `weight` variable. Additionally, we calculate the square of the standardised weight. 
+
+
+```r
+# standardise weight
+d_stand <- d %>% mutate(weight_s = (weight - mean(weight)) / sd(weight), 
+              weight_s2 = weight_s^2) %>% 
+  as_tibble()
+```
+
+And here's the notation of the model with the priors used in the chapter:
+
+
+```r
+# fit model
+m_poly <- alist(height ~ dnorm(mu, sigma), 
+               mu <- a + b1 * weight_s + b2 * weight_s2,
+               a ~ dnorm(178, 20), 
+               b1 ~ dlnorm(0, 1), 
+               b2 ~ dnorm(0, 1), 
+               sigma ~ dunif(0, 50)) %>% 
+  quap(data = d_stand)
+```
+
+For this quap, we can sample from the prior distribution using the `extract.prior()` function. We then pass these samples from the prior to the link function for the weight space we are interested in. After transforming the weight back to natural scale, we can take a look at the prior probabilities. 
+
+
+```r
+# set seed
+set.seed(123)
+
+# get 30 samples for each parameter (a, b1, b2, sigma) 
+m_poly_prior <- extract.prior(m_poly, n = 30)
+
+# now pass the samples from the prior distribution to the link function 
+m_poly_mu <- link(m_poly, post = m_poly_prior, 
+     data = list(weight_s = seq(from = min(d_stand$weight_s),
+                                to = max(d_stand$weight_s), 
+                                length.out = 50), 
+                 weight_s2 = seq(from = min(d_stand$weight_s2),
+                                 to = max(d_stand$weight_s2), 
+                                 length.out = 50))) %>% 
+  as_tibble() %>% 
+  pivot_longer(cols = everything(), names_to = "name", values_to = "height") %>% 
+  add_column(weight_s = rep(seq(from = min(d_stand$weight_s),
+                              to = max(d_stand$weight_s), 
+                              length.out = 50), 30)) %>% 
+  mutate(weight = weight_s * sd(d_stand$weight) + mean(d_stand$weight), 
+         name = rep(1:30, each = 50), 
+         name = as.factor(name))
+```
 
 
 
- 
- 
+```r
+# plot it
+ggplot(m_poly_mu, aes(x = weight_s, y = height)) +
+  geom_hline(yintercept = c(0, 272)) +
+  geom_line(aes(group = name))
+```
+
+![](chapter4_files/figure-html/question 3 part 4-1.png)<!-- -->
+
+Unfortunately, I get straight lines and no parabolas. I couldn't figure out why this is. To compare my results with those from McElreath himself, follow [this link](https://github.com/rmcelreath/statrethinking_winter2019/blob/master/homework/week02_solutions.pdf).  
+  
+  
+# Easy practices  
+  
+All the easy questions don't require new R code and are already covered by [Jeffrey Girard](https://jmgirard.com/statistical-rethinking-ch4/). 
+
+# Medium practices 
+  
+## Question 4M1
+  
+**For the model definition below, simulate observed y values from the prior (not the posterior).**  
+
+$y_{i} ∼ Normal(μ,σ)$  
+$μ ∼ Normal(0,10)$  
+$σ ∼ Exponential(1)$  
+  
+
