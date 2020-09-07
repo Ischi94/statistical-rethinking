@@ -257,8 +257,9 @@ m_poly_mu <- link(m_poly, post = m_poly_prior,
 ```{r question 3 part 4}
 # plot it
 ggplot(m_poly_mu, aes(x = weight_s, y = height)) +
-  geom_hline(yintercept = c(0, 272)) +
-  geom_line(aes(group = name))
+  geom_hline(yintercept = c(0, 272), colour = "coral") +
+  geom_line(aes(group = name)) +
+  theme_light()
 ```
 
 Unfortunately, I get straight lines and no parabolas. I couldn't figure out why this is. To compare my results with those from McElreath himself, follow [this link](https://github.com/rmcelreath/statrethinking_winter2019/blob/master/homework/week02_solutions.pdf).  
@@ -273,9 +274,27 @@ All the easy questions don't require new R code and are already covered by [Jeff
 ## Question 4M1
   
 **For the model definition below, simulate observed y values from the prior (not the posterior).**  
-
+  
 $y_{i} ∼ Normal(μ,σ)$  
 $μ ∼ Normal(0,10)$  
 $σ ∼ Exponential(1)$  
+  
+```{r question 4M1}
+# sample mu
+sample_mu <- rnorm(1e4, 0, 10)
+
+# sample sigma
+sample_sigma <- rexp(1e4, 1)
+
+# sample y
+prior_y <- rnorm(1e4, sample_mu, sample_sigma) %>% enframe()
+
+# plot
+ggplot(prior_y) +
+  geom_density(aes(value), size = 1) + 
+  theme_light()
+```
+
+
   
 
