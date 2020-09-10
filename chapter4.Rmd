@@ -393,4 +393,16 @@ $α ∼ Normal(120, 20)$
 
 $β = LogNormal(2, 0.5)$  
   
-$σ ∼ Uniform(0, 20)$
+$σ ∼ Uniform(0, 20)$  
+  
+## Question 4M6  
+  
+**Now suppose I tell you that the variance among heights for students of the same age is never more than 64 cm. How does this lead you to revise your priors?**
+
+The variance is the square of σ. If the variance is never more than 64 cm, then sigma is never higher than 8 cm. We can update our prior:  
+  
+$σ ∼ Uniform(0, 8)$  
+  
+Such a low standard deviation of height has implication for our intercept prior alpha. We are now more certain that the intercept is around 120cm and can narrow the spread a bit:  
+  
+$α ∼ Normal(120, 10)$ 
