@@ -323,7 +323,74 @@ flist <- alist(
 ```
   
 $y_{1} ∼ Normal(μ,σ)$  
-$μ ∼ α + βx_{1}$  
+$μ_{1} ∼ α + βx_{1}$  
 $α ∼ Normal(0, 50)$   
 $β = Uniform(0, 10)$  
 $σ ∼ Uniform(0, 50)$
+  
+  
+## Question 4M4  
+  
+**A sample of students is measured for height each year for 3 years. After the third year, you want to fit a linear regression predicting height using year as a predictor. Write down the mathematical model definition for this regression, using any variable names and priors you choose. Be prepared to defend you choice of priors.**  
+  
+We can use a simple linear regression approach for this.  
+First the likelihood, assuming that height is normally distributed:  
+$h_{1} ∼ Normal(μ,σ)$  
+  
+The linear model:  
+$μ_{1} ∼ α + βx_{1}$  
+  
+The prior for the intercept. It says nothing about the age of the students, so I use a weak prior for the intercept, covering elementary school to adults as shown in the plot below:  
+$α ∼ Normal(150, 20)$  
+  
+  
+```{r question 4M4 part 1}
+tibble(height = rnorm(10000, 150, 20)) %>% 
+  ggplot() +
+  geom_density(aes(height)) +
+  theme_minimal()
+```
+  
+Likewise, the prior for the growth rate needs to adjust for fast growing juveniles and for smaller growing older students. We can't use a normal distribution because students don't shrink (to my knowledge). A uniform distribution forces only positive growth rates.  
+$β = Uniform(0, 7)$  
+
+```{r question 4M4 part 2}
+tibble(growth = runif(10000, 0, 7)) %>% 
+  ggplot() +
+  geom_density(aes(growth)) +
+  labs(x = "Growth rate in cm/year") +
+  theme_minimal()
+```  
+  
+Now we just need to add a prior for sigma, the standard deviation of the height. I chosse a weak prior, which is within the reasonable height space (the first plot). A sigma above 40 would lead to height values outside of this range (second plot):  
+$σ ∼ Uniform(0, 30)$
+  
+```{r question 4M4 part 3, fig.show="hold", out.width="50%"}
+tibble(height = rnorm(10000, 150, 30)) %>% 
+  ggplot() +
+  geom_density(aes(height)) +
+  labs(x = "Height in cm", title = "sigma = 30") +
+  theme_minimal()
+
+tibble(height = rnorm(10000, 150, 40)) %>% 
+  ggplot() +
+  geom_density(aes(height)) +
+  labs(x = "Height in cm", title = "sigma = 40") +
+  theme_minimal()
+```  
+  
+## Question 4M5  
+  
+**Now suppose I tell you that the average height in the first year was 120 cm and that every student got taller each year. Does this information lead you to change your choice of priors? How?**
+
+An average height of 120cm tells us that the students are children. We can keep our likelihood and linear model, but need to adjust the prior for alpha, beta, and sigma slightly. For alpha, we can use the new mean of 120. For beta (the growth rate), we can use a log normal distribution to force positive values and make them slightly bigger as before, as children tend to grow faster. For sigma, we can reduce it slightly as the spread is probably lower within children. 
+  
+$h_{1} ∼ Normal(μ,σ)$  
+  
+$μ_{1} ∼ α + βx_{1}$  
+  
+$α ∼ Normal(120, 20)$  
+
+$β = LogNormal(2, 0.5)$  
+  
+$σ ∼ Uniform(0, 20)$

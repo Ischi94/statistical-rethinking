@@ -93,11 +93,11 @@ tibble(individual = 1:5, weight = new_weight, expected = expected,
 
 | individual | weight | expected |    lower|    upper|
 |:----------:|:------:|:--------:|--------:|--------:|
-|     1      | 46.95  | 135.4674 | 134.8367| 136.1374|
-|     2      | 43.72  | 129.7681 | 129.1220| 130.5012|
-|     3      | 64.78  | 166.9279 | 166.0306| 167.9298|
-|     4      | 32.59  | 110.1296 | 109.0477| 111.0026|
-|     5      | 54.63  | 149.0185 | 148.3576| 149.7455|
+|     1      | 46.95  | 135.5123 | 134.8773| 136.2137|
+|     2      | 43.72  | 129.8192 | 129.0650| 130.4878|
+|     3      | 64.78  | 166.9389 | 166.0810| 167.9576|
+|     4      | 32.59  | 110.2018 | 109.1985| 111.1761|
+|     5      | 54.63  | 149.0488 | 148.3791| 149.7403|
 
 ## Question 2
 
@@ -143,9 +143,9 @@ precis(m_log) %>% as_tibble() %>%
 
 |parameter |    mean    |        sd|      lower|      upper|
 |:---------|:----------:|---------:|----------:|----------:|
-|a         | -22.873562 | 1.3342944| -25.006022| -20.741102|
-|b         | 46.817570  | 0.3823250|  46.206541|  47.428599|
-|sigma     |  5.137093  | 0.1558852|   4.887959|   5.386228|
+|a         | -22.883056 | 1.3343385| -25.015587| -20.750526|
+|b         | 46.819974  | 0.3823385|  46.208923|  47.431025|
+|sigma     |  5.137358  | 0.1559046|   4.888192|   5.386524|
 
 Instead of trying to read these estimates, we can just visualise our model. Let's calculate the predicted mean height as a function of weight, the 97% PI for the mean, and the 97% PI for predicted heights as explained on page 108.  
   
@@ -360,9 +360,85 @@ flist <- alist(
   b ~ dunif(0, 10),
   sigma ~ dunif(0, 50))
 ```
-
+  
 $y_{1} ∼ Normal(μ,σ)$  
-$μ ∼ α + βx_{1}$  
+$μ_{1} ∼ α + βx_{1}$  
 $α ∼ Normal(0, 50)$   
 $β = Uniform(0, 10)$  
 $σ ∼ Uniform(0, 50)$
+  
+  
+## Question 4M4  
+  
+**A sample of students is measured for height each year for 3 years. After the third year, you want to fit a linear regression predicting height using year as a predictor. Write down the mathematical model definition for this regression, using any variable names and priors you choose. Be prepared to defend you choice of priors.**  
+  
+We can use a simple linear regression approach for this.  
+First the likelihood, assuming that height is normally distributed:  
+$h_{1} ∼ Normal(μ,σ)$  
+  
+The linear model:  
+$μ_{1} ∼ α + βx_{1}$  
+  
+The prior for the intercept. It says nothing about the age of the students, so I use a weak prior for the intercept, covering elementary school to adults as shown in the plot below:  
+$α ∼ Normal(150, 20)$  
+  
+  
+
+```r
+tibble(height = rnorm(10000, 150, 20)) %>% 
+  ggplot() +
+  geom_density(aes(height)) +
+  theme_minimal()
+```
+
+![](chapter4_files/figure-html/question 4M4 part 1-1.png)<!-- -->
+  
+Likewise, the prior for the growth rate needs to adjust for fast growing juveniles and for smaller growing older students. We can't use a normal distribution because students don't shrink (to my knowledge). A uniform distribution forces only positive growth rates.  
+$β = Uniform(0, 7)$  
+
+
+```r
+tibble(growth = runif(10000, 0, 7)) %>% 
+  ggplot() +
+  geom_density(aes(growth)) +
+  labs(x = "Growth rate in cm/year") +
+  theme_minimal()
+```
+
+![](chapter4_files/figure-html/question 4M4 part 2-1.png)<!-- -->
+  
+Now we just need to add a prior for sigma, the standard deviation of the height. I chosse a weak prior, which is within the reasonable height space (the first plot). A sigma above 40 would lead to height values outside of this range (second plot):  
+$σ ∼ Uniform(0, 30)$
+  
+
+```r
+tibble(height = rnorm(10000, 150, 30)) %>% 
+  ggplot() +
+  geom_density(aes(height)) +
+  labs(x = "Height in cm", title = "sigma = 30") +
+  theme_minimal()
+
+tibble(height = rnorm(10000, 150, 40)) %>% 
+  ggplot() +
+  geom_density(aes(height)) +
+  labs(x = "Height in cm", title = "sigma = 40") +
+  theme_minimal()
+```
+
+<img src="chapter4_files/figure-html/question 4M4 part 3-1.png" width="50%" /><img src="chapter4_files/figure-html/question 4M4 part 3-2.png" width="50%" />
+  
+## Question 4M5  
+  
+**Now suppose I tell you that the average height in the first year was 120 cm and that every student got taller each year. Does this information lead you to change your choice of priors? How?**
+
+An average height of 120cm tells us that the students are children. We can keep our likelihood and linear model, but need to adjust the prior for alpha, beta, and sigma slightly. For alpha, we can use the new mean of 120. For beta (the growth rate), we can use a log normal distribution to force positive values and make them slightly bigger as before, as children tend to grow faster. For sigma, we can reduce it slightly as the spread is probably reduced with children. 
+  
+$h_{1} ∼ Normal(μ,σ)$  
+  
+$μ_{1} ∼ α + βx_{1}$  
+  
+$α ∼ Normal(150, 20)$  
+
+$β = LogNormal(2, 0.5)$  
+  
+$σ ∼ Uniform(0, 20)$
