@@ -93,11 +93,11 @@ tibble(individual = 1:5, weight = new_weight, expected = expected,
 
 | individual | weight | expected |    lower|    upper|
 |:----------:|:------:|:--------:|--------:|--------:|
-|     1      | 46.95  | 135.5123 | 134.8773| 136.2137|
-|     2      | 43.72  | 129.8192 | 129.0650| 130.4878|
-|     3      | 64.78  | 166.9389 | 166.0810| 167.9576|
-|     4      | 32.59  | 110.2018 | 109.1985| 111.1761|
-|     5      | 54.63  | 149.0488 | 148.3791| 149.7403|
+|     1      | 46.95  | 135.4870 | 134.8442| 136.0922|
+|     2      | 43.72  | 129.7882 | 129.0921| 130.3839|
+|     3      | 64.78  | 166.9449 | 166.0924| 167.9470|
+|     4      | 32.59  | 110.1513 | 109.1084| 111.0176|
+|     5      | 54.63  | 149.0370 | 148.3046| 149.6756|
 
 ## Question 2
 
@@ -143,9 +143,9 @@ precis(m_log) %>% as_tibble() %>%
 
 |parameter |    mean    |        sd|      lower|      upper|
 |:---------|:----------:|---------:|----------:|----------:|
-|a         | -22.883056 | 1.3343385| -25.015587| -20.750526|
-|b         | 46.819974  | 0.3823385|  46.208923|  47.431025|
-|sigma     |  5.137358  | 0.1559046|   4.888192|   5.386524|
+|a         | -22.874197 | 1.3342907| -25.006652| -20.741743|
+|b         | 46.817750  | 0.3823239|  46.206723|  47.428778|
+|sigma     |  5.137085  | 0.1558845|   4.887951|   5.386218|
 
 Instead of trying to read these estimates, we can just visualise our model. Let's calculate the predicted mean height as a function of weight, the 97% PI for the mean, and the 97% PI for predicted heights as explained on page 108.  
   
@@ -172,8 +172,21 @@ tidy_intervals <- function(my_function, my_model, interval_type,
   pivot_wider(names_from = type, values_from = intervals)
 }
 ```
+  
+And for the mean:  
+  
 
-Now let's use this function to calculate the intervals:
+```r
+tidy_mean <- function(my_model, data){
+  link(my_model, data) %>%
+    as_tibble() %>%
+    summarise_all(mean) %>%
+    pivot_longer(cols = everything()) %>% 
+    add_column(x_var = data[[1]])
+}
+```
+
+Now let's use these functions to calculate the intervals:
 
 
 ```r
@@ -184,13 +197,9 @@ weight_seq <- seq(from = min(d$weight), to = max(d$weight), by = 1)
 intervals <- tidy_intervals(link, m_log, HPDI, 
                             x_var = "weight", x_seq = weight_seq)
 
-# calculate means
-reg_line <- link(m_log, data = data.frame(weight = weight_seq)) %>%
-  as_tibble() %>%
-  summarise_all(mean) %>%
-  pivot_longer(cols = everything()) %>% 
-  add_column(weight = weight_seq)
-    
+# calculate mean
+reg_line <- tidy_mean(m_log, data = data.frame(weight = weight_seq))
+
 
 # calculate prediction intervals
 pred_intervals <- tidy_intervals(sim, m_log, PI, 
@@ -202,15 +211,16 @@ Now we can plot the raw data, the posterior mean from, the distribution of mu (w
 
 ```r
 ggplot(d) +
-    geom_point(aes(weight, height), alpha = 0.5) +
-    geom_ribbon(aes(x = x_var, ymin = lower, ymax = upper),
+  geom_point(aes(weight, height), alpha = 0.5) +
+  geom_ribbon(aes(x = x_var, ymin = lower, ymax = upper),
                 alpha=0.8, data = intervals) +
-    geom_ribbon(aes(x = x_var, ymin = lower, ymax = upper),
+  geom_ribbon(aes(x = x_var, ymin = lower, ymax = upper),
                 alpha=0.2, data = pred_intervals) +
-    theme_light()
+  geom_line(aes(x = x_var, y = value), data = reg_line, colour = "coral") +
+  theme_light()
 ```
 
-![](chapter4_files/figure-html/question 2 part 6-1.png)<!-- -->
+![](chapter4_files/figure-html/question 2 part 7-1.png)<!-- -->
   
 This looks like a decent fit. Let's make a function of the ggplot, so we can call it later on:
 
@@ -224,6 +234,7 @@ plot_regression <- function(df, x, y, # results,
                 alpha=0.8, data = interv) +
     geom_ribbon(aes(x = x_var, ymin = lower, ymax = upper),
                 alpha=0.2, data = pred_interv) +
+    geom_line(aes(x = x_var, y = value), data = reg_line, colour = "coral") +
     theme_light()
 }
 ```
@@ -431,14 +442,129 @@ tibble(height = rnorm(10000, 150, 40)) %>%
   
 **Now suppose I tell you that the average height in the first year was 120 cm and that every student got taller each year. Does this information lead you to change your choice of priors? How?**
 
-An average height of 120cm tells us that the students are children. We can keep our likelihood and linear model, but need to adjust the prior for alpha, beta, and sigma slightly. For alpha, we can use the new mean of 120. For beta (the growth rate), we can use a log normal distribution to force positive values and make them slightly bigger as before, as children tend to grow faster. For sigma, we can reduce it slightly as the spread is probably reduced with children. 
+An average height of 120cm tells us that the students are children. We can keep our likelihood and linear model, but need to adjust the prior for alpha, beta, and sigma slightly. For alpha, we can use the new mean of 120. For beta (the growth rate), we can use a log normal distribution to force positive values and make them slightly bigger as before, as children tend to grow faster. For sigma, we can reduce it slightly as the spread is probably lower within children. 
   
 $h_{1} ∼ Normal(μ,σ)$  
   
 $μ_{1} ∼ α + βx_{1}$  
   
-$α ∼ Normal(150, 20)$  
+$α ∼ Normal(120, 20)$  
 
 $β = LogNormal(2, 0.5)$  
   
-$σ ∼ Uniform(0, 20)$
+$σ ∼ Uniform(0, 20)$  
+  
+## Question 4M6  
+  
+**Now suppose I tell you that the variance among heights for students of the same age is never more than 64 cm. How does this lead you to revise your priors?**
+
+The variance is the square of σ. If the variance is never more than 64 cm, then sigma is never higher than 8 cm. We can update our prior:  
+  
+$σ ∼ Uniform(0, 8)$  
+  
+Such a low standard deviation of height has implication for our intercept prior alpha. We are now more certain that the intercept is around 120cm and can narrow the spread a bit:  
+  
+$α ∼ Normal(120, 10)$  
+  
+## Question 4M7  
+  
+**Refit model `m4.3` from the chapter but omit the mean weight `xbar`. Compare the new model’s posterior to that of the original model. In particular, look at the covariance among the parameters. What is difference?**
+  
+First, let us take a look at the old model `m4.3`.  
+
+
+```r
+# only adults
+adults <- Howell1 %>% filter(age >= 18)
+
+# mean weight
+xbar <- adults %>% 
+  summarise(my_mean = mean(weight)) %>% 
+  pull()
+
+# fit model
+m4.3 <- alist(height ~ dnorm(mu, sigma), # likelihood
+                 mu <- a + b * (weight - xbar), # linear model
+                 a ~ dnorm(178, 20), # alpha
+                 b ~ dlnorm(0, 1), # beta
+                 sigma ~ dunif(0, 50)) %>% # sigma
+  quap(., data = adults) # quadratic approximation
+```
+  
+Now do the same but without `xbar`.
+  
+
+```r
+m4.3new <- alist(height ~ dnorm(mu, sigma), # likelihood
+                 mu <- a + b*weight, # linear model
+                 a ~ dnorm(178, 20), # alpha
+                 b ~ dlnorm(0, 1), # beta
+                 sigma ~ dunif(0, 50)) %>% # sigma
+  quap(., data = adults) # quadratic approximation
+```
+  
+We shall look at the covariance of each model.  
+  
+
+```r
+m4.3new %>% vcov() %>% round(digits = 3) # lots of covariation
+```
+
+```
+##            a      b sigma
+## a      3.612 -0.079 0.010
+## b     -0.079  0.002 0.000
+## sigma  0.010  0.000 0.037
+```
+
+```r
+m4.3 %>% vcov() %>% round(digits = 3) # low covariation 
+```
+
+```
+##           a     b sigma
+## a     0.073 0.000 0.000
+## b     0.000 0.002 0.000
+## sigma 0.000 0.000 0.037
+```
+
+So we seem to increase the covariation by not centering. Let's dig deeper by looking at summaries of the posterior distribution for each parameter:  
+  
+
+```r
+m4.3new %>% extract.samples() %>% as_tibble() %>% 
+  summarise(alpha = mean(a), beta = mean(b), sigma = mean(sigma))
+```
+
+```
+## # A tibble: 1 x 3
+##   alpha  beta sigma
+##   <dbl> <dbl> <dbl>
+## 1  115. 0.890  5.08
+```
+
+```r
+m4.3 %>% extract.samples() %>% as_tibble() %>% 
+  summarise(alpha = mean(a), beta = mean(b), sigma = mean(sigma))
+```
+
+```
+## # A tibble: 1 x 3
+##   alpha  beta sigma
+##   <dbl> <dbl> <dbl>
+## 1  155. 0.904  5.07
+```
+
+While beta and sigma are the same, alpha is drastically lower in the new model without centering. But what does this mean? Before alpha was the average height for when $x − x$ was 0 (when the weight is equal to the average weight). In the new model, alpha is the average height for observation with weight equal 0. As there are no people with a weight of zero, this alpha is harder to interpret.  
+But does this actually change the way our model works? We can test this by comparing the posterior predictions by appling our prediction functions to the data:  
+  
+
+
+
+```r
+m4.3.plot
+m4.3new.plot
+```
+
+<img src="chapter4_files/figure-html/question 4M7 part 6-1.png" width="50%" /><img src="chapter4_files/figure-html/question 4M7 part 6-2.png" width="50%" />
+

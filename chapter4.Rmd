@@ -472,9 +472,9 @@ m4.3 %>% extract.samples() %>% as_tibble() %>%
 ```
 
 While beta and sigma are the same, alpha is drastically lower in the new model without centering. But what does this mean? Before alpha was the average height for when $x − x$ was 0 (when the weight is equal to the average weight). In the new model, alpha is the average height for observation with weight equal 0. As there are no people with a weight of zero, this alpha is harder to interpret.  
-But does this actually change the way our model works? We can test this by comparing the posterior predictions:  
+But does this actually change the way our model works? We can test this by comparing the posterior predictions by appling our prediction functions to the data:  
   
-```{r question 4M7 part 5}
+```{r question 4M7 part 5, include=FALSE}
 # define weight range
 weight_seq <- seq(from = min(adults$weight), to = max(adults$weight), by = 1)
 
@@ -483,21 +483,7 @@ intervals <- tidy_intervals(link, m4.3, HPDI,
                             x_var = "weight", x_seq = weight_seq)
 
 # calculate means
-reg_line <- link(m4.3, data = data.frame(weight = weight_seq)) %>%
-  as_tibble() %>%
-  summarise_all(mean) %>%
-  pivot_longer(cols = everything()) %>% 
-  add_column(weight = weight_seq)
-    
-tidy_mean <- function(my_model, x_var, x_seq){
-  link(my_model, data = data.frame(x_var = x_seq)) %>%
-  as_tibble() %>%
-  summarise_all(mean) %>%
-  pivot_longer(cols = everything()) %>% 
-  add_column(x_var = x_seq)
-}
-
-tidy_mean(m4.3, x_var = "weight", x_seq = weight_seq)
+reg_line <- tidy_mean(m4.3, data = data.frame(weight = weight_seq))
 
 # calculate prediction intervals
 pred_intervals <- tidy_intervals(sim, m4.3, PI, 
@@ -505,5 +491,28 @@ pred_intervals <- tidy_intervals(sim, m4.3, PI,
 
 m4.3.plot <- plot_regression(adults, weight, height) +
   labs(title = "Centered model (m4.3)")
+
+# the same for m4.3new
+
+# calculate 89% intervals for each weight
+intervals <- tidy_intervals(link, m4.3new, HPDI, 
+                            x_var = "weight", x_seq = weight_seq)
+
+# calculate means
+reg_line <- tidy_mean(m4.3new, data = data.frame(weight = weight_seq))
+
+# calculate prediction intervals
+pred_intervals <- tidy_intervals(sim, m4.3new, PI, 
+                                 x_var = "weight", x_seq = weight_seq)
+
+m4.3new.plot <- plot_regression(adults, weight, height) +
+  labs(title = "Uncentered model (m4.3new)")
 ```
+
+```{r question 4M7 part 6, fig.show="hold", out.width="50%"}
+m4.3.plot
+m4.3new.plot
+```  
+  
+Short answer: No, it does not. We get the same prediction intervals.
 
