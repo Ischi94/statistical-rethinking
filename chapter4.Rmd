@@ -147,11 +147,23 @@ tidy_intervals <- function(my_function, my_model, interval_type,
   add_column(x_var = rep(x_seq, 2)) %>% 
   pivot_wider(names_from = type, values_from = intervals)
 }
+```  
+  
+And for the mean:  
+  
+```{r question 2 part 5}
+tidy_mean <- function(my_model, data){
+  link(my_model, data) %>%
+    as_tibble() %>%
+    summarise_all(mean) %>%
+    pivot_longer(cols = everything()) %>% 
+    add_column(x_var = data[[1]])
+}
 ```
 
-Now let's use this function to calculate the intervals:
+Now let's use these functions to calculate the intervals:
 
-```{r question 2 part 5}
+```{r question 2 part 6}
 # define weight range
 weight_seq <- seq(from = min(d$weight), to = max(d$weight), by = 1)
 
@@ -159,13 +171,9 @@ weight_seq <- seq(from = min(d$weight), to = max(d$weight), by = 1)
 intervals <- tidy_intervals(link, m_log, HPDI, 
                             x_var = "weight", x_seq = weight_seq)
 
-# calculate means
-reg_line <- link(m_log, data = data.frame(weight = weight_seq)) %>%
-  as_tibble() %>%
-  summarise_all(mean) %>%
-  pivot_longer(cols = everything()) %>% 
-  add_column(weight = weight_seq)
-    
+# calculate mean
+reg_line <- tidy_mean(m_log, data = data.frame(weight = weight_seq))
+
 
 # calculate prediction intervals
 pred_intervals <- tidy_intervals(sim, m_log, PI, 
@@ -174,20 +182,21 @@ pred_intervals <- tidy_intervals(sim, m_log, PI,
 
 Now we can plot the raw data, the posterior mean from, the distribution of mu (which corresponds to the 89% HPDI of the mean), and the region within which the model expects to find 89% of actual heights in the population.
 
-```{r question 2 part 6}
+```{r question 2 part 7}
 ggplot(d) +
-    geom_point(aes(weight, height), alpha = 0.5) +
-    geom_ribbon(aes(x = x_var, ymin = lower, ymax = upper),
+  geom_point(aes(weight, height), alpha = 0.5) +
+  geom_ribbon(aes(x = x_var, ymin = lower, ymax = upper),
                 alpha=0.8, data = intervals) +
-    geom_ribbon(aes(x = x_var, ymin = lower, ymax = upper),
+  geom_ribbon(aes(x = x_var, ymin = lower, ymax = upper),
                 alpha=0.2, data = pred_intervals) +
-    theme_light()
+  geom_line(aes(x = x_var, y = value), data = reg_line, colour = "coral") +
+  theme_light()
 
 ```  
   
 This looks like a decent fit. Let's make a function of the ggplot, so we can call it later on:
 
-```{r question 2 part 7}
+```{r question 2 part 8}
 plot_regression <- function(df, x, y, # results, 
                             interv = intervals, pred_interv = pred_intervals){
   ggplot(df) +
@@ -196,6 +205,7 @@ plot_regression <- function(df, x, y, # results,
                 alpha=0.8, data = interv) +
     geom_ribbon(aes(x = x_var, ymin = lower, ymax = upper),
                 alpha=0.2, data = pred_interv) +
+    geom_line(aes(x = x_var, y = value), data = reg_line, colour = "coral") +
     theme_light()
 }
 ```
@@ -405,4 +415,95 @@ $σ ∼ Uniform(0, 8)$
   
 Such a low standard deviation of height has implication for our intercept prior alpha. We are now more certain that the intercept is around 120cm and can narrow the spread a bit:  
   
-$α ∼ Normal(120, 10)$ 
+$α ∼ Normal(120, 10)$  
+  
+## Question 4M7  
+  
+**Refit model `m4.3` from the chapter but omit the mean weight `xbar`. Compare the new model’s posterior to that of the original model. In particular, look at the covariance among the parameters. What is difference?**
+  
+First, let us take a look at the old model `m4.3`.  
+
+```{r question 4M7 part 1}
+# only adults
+adults <- Howell1 %>% filter(age >= 18)
+
+# mean weight
+xbar <- adults %>% 
+  summarise(my_mean = mean(weight)) %>% 
+  pull()
+
+# fit model
+m4.3 <- alist(height ~ dnorm(mu, sigma), # likelihood
+                 mu <- a + b * (weight - xbar), # linear model
+                 a ~ dnorm(178, 20), # alpha
+                 b ~ dlnorm(0, 1), # beta
+                 sigma ~ dunif(0, 50)) %>% # sigma
+  quap(., data = adults) # quadratic approximation
+
+```  
+  
+Now do the same but without `xbar`.
+  
+```{r question 4M7 part 2}
+m4.3new <- alist(height ~ dnorm(mu, sigma), # likelihood
+                 mu <- a + b*weight, # linear model
+                 a ~ dnorm(178, 20), # alpha
+                 b ~ dlnorm(0, 1), # beta
+                 sigma ~ dunif(0, 50)) %>% # sigma
+  quap(., data = adults) # quadratic approximation
+
+```  
+  
+We shall look at the covariance of each model.  
+  
+```{r question 4M7 part 3}
+m4.3new %>% vcov() %>% round(digits = 3) # lots of covariation
+m4.3 %>% vcov() %>% round(digits = 3) # low covariation 
+```
+
+So we seem to increase the covariation by not centering. Let's dig deeper by looking at summaries of the posterior distribution for each parameter:  
+  
+```{r question 4M7 part 4}
+m4.3new %>% extract.samples() %>% as_tibble() %>% 
+  summarise(alpha = mean(a), beta = mean(b), sigma = mean(sigma))
+
+m4.3 %>% extract.samples() %>% as_tibble() %>% 
+  summarise(alpha = mean(a), beta = mean(b), sigma = mean(sigma))
+```
+
+While beta and sigma are the same, alpha is drastically lower in the new model without centering. But what does this mean? Before alpha was the average height for when $x − x$ was 0 (when the weight is equal to the average weight). In the new model, alpha is the average height for observation with weight equal 0. As there are no people with a weight of zero, this alpha is harder to interpret.  
+But does this actually change the way our model works? We can test this by comparing the posterior predictions:  
+  
+```{r question 4M7 part 5}
+# define weight range
+weight_seq <- seq(from = min(adults$weight), to = max(adults$weight), by = 1)
+
+# calculate 89% intervals for each weight
+intervals <- tidy_intervals(link, m4.3, HPDI, 
+                            x_var = "weight", x_seq = weight_seq)
+
+# calculate means
+reg_line <- link(m4.3, data = data.frame(weight = weight_seq)) %>%
+  as_tibble() %>%
+  summarise_all(mean) %>%
+  pivot_longer(cols = everything()) %>% 
+  add_column(weight = weight_seq)
+    
+tidy_mean <- function(my_model, x_var, x_seq){
+  link(my_model, data = data.frame(x_var = x_seq)) %>%
+  as_tibble() %>%
+  summarise_all(mean) %>%
+  pivot_longer(cols = everything()) %>% 
+  add_column(x_var = x_seq)
+}
+
+tidy_mean(m4.3, x_var = "weight", x_seq = weight_seq)
+
+# calculate prediction intervals
+pred_intervals <- tidy_intervals(sim, m4.3, PI, 
+                                 x_var = "weight", x_seq = weight_seq)
+
+m4.3.plot <- plot_regression(adults, weight, height) +
+  labs(title = "Centered model (m4.3)")
+```
+
