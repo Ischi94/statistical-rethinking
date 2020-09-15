@@ -49,10 +49,13 @@ For the model, we use the same structur and priors as given on page 102. Further
 
 
 ```r
+# define the average weight
+xbar <- d %>% summarise(xbar = mean(weight)) %>% pull
+
 # model formula
 m <- alist(
   height ~ dnorm(mu, sigma),
-  mu <- a + b * (weight - mean(weight)),
+  mu <- a + b * (weight - xbar),
   a ~ dnorm(178, 20),
   b ~ dlnorm(0, 1),
   sigma ~ dunif(0, 50)) %>% 
@@ -84,22 +87,22 @@ Now we just have to add the predicted values to the table:
 
 
 ```r
-table1 <- tibble(individual = 1:5, weight = new_weight, expected = expected, 
+table_height <- tibble(individual = 1:5, weight = new_weight, expected = expected, 
        lower = interval[c(TRUE, FALSE)], upper = interval[c(FALSE, TRUE)]) %>% 
   knitr::kable(align = "cccrr")
 
-table1
+table_height
 ```
 
 
 
 | individual | weight | expected |    lower|    upper|
 |:----------:|:------:|:--------:|--------:|--------:|
-|     1      | 46.95  | 135.4874 | 134.8411| 136.0906|
-|     2      | 43.72  | 129.7934 | 129.1717| 130.4746|
-|     3      | 64.78  | 166.9194 | 165.9695| 167.8875|
-|     4      | 32.59  | 110.1726 | 109.2341| 111.0758|
-|     5      | 54.63  | 149.0263 | 148.3964| 149.7410|
+|     1      | 46.95  | 158.2569 | 157.5033| 159.1066|
+|     2      | 43.72  | 152.5620 | 151.7743| 153.2600|
+|     3      | 64.78  | 189.6934 | 188.3258| 191.1202|
+|     4      | 32.59  | 132.9384 | 132.3141| 133.6188|
+|     5      | 54.63  | 171.7977 | 170.8638| 172.9561|
 
 ## Question 2
 
@@ -145,9 +148,9 @@ precis(m_log) %>% as_tibble() %>%
 
 |parameter |    mean    |        sd|      lower|      upper|
 |:---------|:----------:|---------:|----------:|----------:|
-|a         | -22.872951 | 1.3342982| -25.005417| -20.740485|
-|b         | 46.817403  | 0.3823260|  46.206372|  47.428433|
-|sigma     |  5.137101  | 0.1558858|   4.887965|   5.386236|
+|a         | -22.874191 | 1.3342774| -25.006624| -20.741758|
+|b         | 46.817760  | 0.3823201|  46.206739|  47.428782|
+|sigma     |  5.137034  | 0.1558806|   4.887906|   5.386161|
 
 Instead of trying to read these estimates, we can just visualise our model. Let's calculate the predicted mean height as a function of weight, the 97% PI for the mean, and the 97% PI for predicted heights as explained on page 108.  
   
@@ -737,26 +740,120 @@ tibble(individual = 1:5, weight = new_weight, expected = expected,
 |     4      | 32.59  | 140.2357 | 139.8477| 140.5806|
 |     5      | 54.63  | 164.4161 | 163.9305| 164.9549|
   
-And now we can compare our results to the predictions from the regular model, which we named `table1`. 
+And now we can compare our results to the predictions from the regular model, which we named `table_height`. 
 
 
 ```r
-table1
+table_height
 ```
 
 
 
 | individual | weight | expected |    lower|    upper|
 |:----------:|:------:|:--------:|--------:|--------:|
-|     1      | 46.95  | 135.4874 | 134.8411| 136.0906|
-|     2      | 43.72  | 129.7934 | 129.1717| 130.4746|
-|     3      | 64.78  | 166.9194 | 165.9695| 167.8875|
-|     4      | 32.59  | 110.1726 | 109.2341| 111.0758|
-|     5      | 54.63  | 149.0263 | 148.3964| 149.7410|
+|     1      | 46.95  | 158.2569 | 157.5033| 159.1066|
+|     2      | 43.72  | 152.5620 | 151.7743| 153.2600|
+|     3      | 64.78  | 189.6934 | 188.3258| 191.1202|
+|     4      | 32.59  | 132.9384 | 132.3141| 133.6188|
+|     5      | 54.63  | 171.7977 | 170.8638| 172.9561|
   
-And we can see that it actually makes a big difference. Our logarithmic model generally predicts that people are larger compared to the old model. This is particularly visible for low weights.  
+And we can see that it actually makes a big difference, especially for those with a large weight (*individual 3*), or with a particularly low weight (*individual 4*).  
   
-## Question 4H2
+## Question 4H2  
+  
+**Select out all the rows in the Howell1 data with ages below 18 years of age. If you do it right, you should end up with a new data frame with 192 rows in it.**  
+  
+
+```r
+young <- d %>% filter(age < 18)
+
+# double-check
+str(young)
+```
+
+```
+## 'data.frame':	192 obs. of  4 variables:
+##  $ height: num  121.9 105.4 86.4 129.5 109.2 ...
+##  $ weight: num  19.6 13.9 10.5 23.6 16 ...
+##  $ age   : num  12 8 6.5 13 7 17 16 11 17 8 ...
+##  $ male  : int  1 0 0 1 0 1 0 1 0 1 ...
+```
+  
+### Part 1  
+  
+**Fit a linear regression to these data, using `quap()`. Present and interprete the estimates. For every 10 units of increase in weight, how much taller does the model predict a child gets?**  
+  
+We can use the same priors as before, but should decrease the prior on alpha to account for lower overall height in our (non-adult) data set. It is important to center the weight values for interpretation. 
+  
+
+```r
+# again, get mean weight for centering
+xbar <- young %>% summarise(xbar = mean(weight)) %>% pull
+
+m_young <- alist(
+  height ~ dnorm(mu, sigma),
+  mu <- a + b * (weight - xbar),
+  a ~ dnorm(120, 30),
+  b ~ dlnorm(0, 1),
+  sigma ~ dunif(0, 60)) %>% 
+  quap(data = young)
+
+# results
+m_young_res <- precis(m_young) %>% 
+  as_tibble() %>% 
+  add_column(parameter = rownames(precis(m_young)), .before = "mean") %>% 
+  rename("lower" = '5.5%', "upper" = '94.5%')
+
+knitr::kable(m_young_res)
+```
+
+
+
+|parameter |       mean|        sd|      lower|      upper|
+|:---------|----------:|---------:|----------:|----------:|
+|a         | 108.323692| 0.6087739| 107.350754| 109.296630|
+|b         |   2.716657| 0.0683153|   2.607476|   2.825838|
+|sigma     |   8.437153| 0.4305620|   7.749032|   9.125275|
+  
+b can be interpreted as the slope in our regression, where with 1 unit change, height increases by 2.72. Hence, for every 10 units of increase in weight the model predicts that a child gets 27.2 cm taller.  
+  
+### Part 2  
+  
+**Plot the raw data, with height on the vertical axis and weight on the horizontal axis. Superimpose the `quap` regression line and 89% HPDI for the mean. Also superimpose the 89% HPDI for predicted heights.**  
+  
+And this is the reasion why we build our functions for this. We don't need to do it manually all over again:  
+  
+
+```r
+# define weight range
+weight_seq <- seq(from = min(young$weight), to = max(young$weight), by = 1)
+
+# calculate 89% intervals for each weight
+intervals <- tidy_intervals(link, m_young, HPDI, 
+                            x_var = "weight", x_seq = weight_seq)
+
+# calculate means
+reg_line <- tidy_mean(m_young, data = data.frame(weight = weight_seq))
+
+# calculate prediction intervals
+pred_intervals <- tidy_intervals(sim, m_young, PI, 
+                                 x_var = "weight", x_seq = weight_seq)
+
+plot_regression(young, weight, height) +
+  labs(title = "Linear model (m_young)")
+```
+
+![](chapter4_files/figure-html/question 4H2 part 3-1.png)<!-- -->
+  
+### Part 3  
+  
+**What aspects of the model fit concern you? Describe the kinds of assumptions you would change, if any, to improve the model. You don’t have to write any new code. Just explain what the model appears to be doing a bad job of, and what you hypothesize would be a better model.**  
+  
+The model clearly fails to estimate height at both low (<10) and high (>30) weights. By just eyeballing the data, it seems that a linear relationship assumption is not realistic. To improve the model, we can either transform one of the parameters, or use a polynomial regression. 
+
+
+
+
 
 
 

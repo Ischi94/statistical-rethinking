@@ -51,10 +51,13 @@ new_weight <- c(46.95, 43.72, 64.78, 32.59, 54.63)
 For the model, we use the same structur and priors as given on page 102. Further, we use all data (both juveniles and adults) and use quadratic approximation for the posterior. 
 
 ```{r question 1 part 3}
+# define the average weight
+xbar <- d %>% summarise(xbar = mean(weight)) %>% pull
+
 # model formula
 m <- alist(
   height ~ dnorm(mu, sigma),
-  mu <- a + b * (weight - mean(weight)),
+  mu <- a + b * (weight - xbar),
   a ~ dnorm(178, 20),
   b ~ dlnorm(0, 1),
   sigma ~ dunif(0, 50)) %>% 
@@ -84,11 +87,11 @@ interval <- pred_height %>%
 Now we just have to add the predicted values to the table:
 
 ```{r question 1 part 5}
-table1 <- tibble(individual = 1:5, weight = new_weight, expected = expected, 
+table_height <- tibble(individual = 1:5, weight = new_weight, expected = expected, 
        lower = interval[c(TRUE, FALSE)], upper = interval[c(FALSE, TRUE)]) %>% 
   knitr::kable(align = "cccrr")
 
-table1
+table_height
 ```
 
 ## Question 2
@@ -664,15 +667,89 @@ tibble(individual = 1:5, weight = new_weight, expected = expected,
   knitr::kable(align = "cccrr")
 ```  
   
-And now we can compare our results to the predictions from the regular model, which we named `table1`. 
+And now we can compare our results to the predictions from the regular model, which we named `table_height`. 
 
 ```{r question 4H1 part 5}
-table1
+table_height
 ```  
   
-And we can see that it actually makes a big difference. Our logarithmic model generally predicts that people are larger compared to the old model. This is particularly visible for low weights.  
+And we can see that it actually makes a big difference, especially for those with a large weight (*individual 3*), or with a particularly low weight (*individual 4*).  
   
-## Question 4H2
+## Question 4H2  
+  
+**Select out all the rows in the Howell1 data with ages below 18 years of age. If you do it right, you should end up with a new data frame with 192 rows in it.**  
+  
+```{r question 4H2 part 1}
+young <- d %>% filter(age < 18)
+
+# double-check
+str(young)
+``` 
+  
+### Part 1  
+  
+**Fit a linear regression to these data, using `quap()`. Present and interprete the estimates. For every 10 units of increase in weight, how much taller does the model predict a child gets?**  
+  
+We can use the same priors as before, but should decrease the prior on alpha to account for lower overall height in our (non-adult) data set. It is important to center the weight values for interpretation. 
+  
+```{r question 4H2 part 2, warning=FALSE}
+# again, get mean weight for centering
+xbar <- young %>% summarise(xbar = mean(weight)) %>% pull
+
+m_young <- alist(
+  height ~ dnorm(mu, sigma),
+  mu <- a + b * (weight - xbar),
+  a ~ dnorm(120, 30),
+  b ~ dlnorm(0, 1),
+  sigma ~ dunif(0, 60)) %>% 
+  quap(data = young)
+
+# results
+m_young_res <- precis(m_young) %>% 
+  as_tibble() %>% 
+  add_column(parameter = rownames(precis(m_young)), .before = "mean") %>% 
+  rename("lower" = '5.5%', "upper" = '94.5%')
+
+knitr::kable(m_young_res)
+```  
+  
+b can be interpreted as the slope in our regression, where with 1 unit change, height increases by 2.72. Hence, for every 10 units of increase in weight the model predicts that a child gets 27.2 cm taller.  
+  
+### Part 2  
+  
+**Plot the raw data, with height on the vertical axis and weight on the horizontal axis. Superimpose the `quap` regression line and 89% HPDI for the mean. Also superimpose the 89% HPDI for predicted heights.**  
+  
+And this is the reasion why we build our functions for this. We don't need to do it manually all over again:  
+  
+```{r question 4H2 part 3}
+# define weight range
+weight_seq <- seq(from = min(young$weight), to = max(young$weight), by = 1)
+
+# calculate 89% intervals for each weight
+intervals <- tidy_intervals(link, m_young, HPDI, 
+                            x_var = "weight", x_seq = weight_seq)
+
+# calculate means
+reg_line <- tidy_mean(m_young, data = data.frame(weight = weight_seq))
+
+# calculate prediction intervals
+pred_intervals <- tidy_intervals(sim, m_young, PI, 
+                                 x_var = "weight", x_seq = weight_seq)
+
+plot_regression(young, weight, height) +
+  labs(title = "Linear model (m_young)")
+
+```  
+  
+### Part 3  
+  
+**What aspects of the model fit concern you? Describe the kinds of assumptions you would change, if any, to improve the model. You don’t have to write any new code. Just explain what the model appears to be doing a bad job of, and what you hypothesize would be a better model.**  
+  
+The model clearly fails to estimate height at both low (<10) and high (>30) weights. By just eyeballing the data, it seems that a linear relationship assumption is not realistic. To improve the model, we can either transform one of the parameters, or use a polynomial regression. 
+
+
+
+
 
 
 
