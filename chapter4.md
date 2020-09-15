@@ -93,11 +93,11 @@ tibble(individual = 1:5, weight = new_weight, expected = expected,
 
 | individual | weight | expected |    lower|    upper|
 |:----------:|:------:|:--------:|--------:|--------:|
-|     1      | 46.95  | 135.4870 | 134.8442| 136.0922|
-|     2      | 43.72  | 129.7882 | 129.0921| 130.3839|
-|     3      | 64.78  | 166.9449 | 166.0924| 167.9470|
-|     4      | 32.59  | 110.1513 | 109.1084| 111.0176|
-|     5      | 54.63  | 149.0370 | 148.3046| 149.6756|
+|     1      | 46.95  | 135.4946 | 134.9231| 136.1978|
+|     2      | 43.72  | 129.7973 | 129.1256| 130.4468|
+|     3      | 64.78  | 166.9444 | 165.9469| 167.8525|
+|     4      | 32.59  | 110.1654 | 109.2556| 111.1243|
+|     5      | 54.63  | 149.0411 | 148.4054| 149.8012|
 
 ## Question 2
 
@@ -141,11 +141,11 @@ precis(m_log) %>% as_tibble() %>%
 
 
 
-|parameter |    mean    |        sd|      lower|      upper|
-|:---------|:----------:|---------:|----------:|----------:|
-|a         | -22.874197 | 1.3342907| -25.006652| -20.741743|
-|b         | 46.817750  | 0.3823239|  46.206723|  47.428778|
-|sigma     |  5.137085  | 0.1558845|   4.887951|   5.386218|
+|parameter |    mean    |        sd|      lower|     upper|
+|:---------|:----------:|---------:|----------:|---------:|
+|a         | -22.874502 | 1.3344011| -25.007132| -20.74187|
+|b         | 46.817769  | 0.3823558|  46.206691|  47.42885|
+|sigma     |  5.137514  | 0.1559171|   4.888329|   5.38670|
 
 Instead of trying to read these estimates, we can just visualise our model. Let's calculate the predicted mean height as a function of weight, the 97% PI for the mean, and the 97% PI for predicted heights as explained on page 108.  
   
@@ -567,4 +567,99 @@ m4.3new.plot
 ```
 
 <img src="chapter4_files/figure-html/question 4M7 part 6-1.png" width="50%" /><img src="chapter4_files/figure-html/question 4M7 part 6-2.png" width="50%" />
+  
+Short answer: No, it does not. We get the same prediction intervals.  
+  
+## Question 4M8  
+  
+**In the chapter, we used 15 knots with the cherry blossom spline. Increase the number of knots and observe what happens to the resulting spline. Then adjust also the width of the prior on the weights - change the standard deviation of the prior and watch what happens. What do you think the combination of knot number and the prior on the weights controls?**  
+  
+First of all, set up the model environment by importing the `cherry_blossoms` data and loading the `splines` package:  
+  
+
+```r
+data("cherry_blossoms")
+
+# remove na's
+cherry_blossoms <- cherry_blossoms %>%
+  as_tibble() %>%  
+  drop_na()
+
+# define nr of knots
+library(splines)
+```
+  
+Instead of typing out the code all the time whenever we change the number of knots or the prior on the weights as needed, we make a function dependant on these two parameters and just call the function each time. All we change within the function is the number of knots and the prior on weights, everything else stays as it is. I already process and plot the output of the splines regression in the function.  
+  
+
+```r
+# make function for it, dependant on number of knots and the prior on weights
+cherry_spliner <- function(nr_knots, vl_sigma){
+
+# get knot points
+knot_list <- cherry_blossoms$year %>% 
+  quantile(probs = seq(0, 1, length.out = nr_knots)) %>% 
+  discard(~ . %in% c(851, 1980))
+
+# construct basis functions
+B <- cherry_blossoms$year %>% bs(knots = knot_list, degree = 3, intercept = TRUE) 
+
+# run bspline regression
+m4.7 <- alist(D ~ dnorm(mu, sigma), 
+              mu <- a + B %*% w, 
+              a ~ dnorm(100, 10), 
+              w ~ dnorm(0, my_sigma), 
+              sigma ~ dexp(1)) %>% 
+  quap(., data = list(D = cherry_blossoms$doy, B = B, my_sigma = vl_sigma), 
+                      start = list(w = rep(0, ncol(B))))
+
+# get 97% posterior interval for mean
+post_int <- m4.7 %>% 
+  link() %>% as_tibble() %>% 
+  map_dfr(PI, prob = 0.97) %>% 
+  select("lower_pi" = '2%', "upper_pi" = '98%') %>% 
+  add_column(year = cherry_blossoms$year) %>% 
+  # add doy
+  left_join(cherry_blossoms, by = "year")
+
+# plot it and add nr_knots and vl_sigma to plot title
+ggplot(post_int, aes(year, doy)) +
+  geom_point(colour = "steelblue4", alpha = 0.8) +
+  geom_ribbon(aes(ymin = lower_pi, ymax = upper_pi), alpha = 0.9) +
+  labs(y = "Day in year", x = "year", 
+       title = paste(nr_knots, " knots, prior on weights ~ N(0,", vl_sigma, ")")) +
+  theme_minimal()
+}
+```
+  
+Now we can increase the number of knots. We start with the normal model with 15 knots and sigma = 10.  
+  
+
+```r
+cherry_spliner(nr_knots = 15, vl_sigma = 10) 
+
+cherry_spliner(nr_knots = 20, vl_sigma = 10)
+
+cherry_spliner(nr_knots = 30, vl_sigma = 10)
+```
+
+<img src="chapter4_files/figure-html/question 4M8 part 3-1.png" width="50%" /><img src="chapter4_files/figure-html/question 4M8 part 3-2.png" width="50%" /><img src="chapter4_files/figure-html/question 4M8 part 3-3.png" width="50%" />
+
+The more knots we have, the *wigglier* our trend line gets, as we capture more signal.  
+  
+  
+Now we can play around with the prior on weights. First, we decrease it significantly to 1, and then increase it to 100, while keeping the number of knots equal. 
+  
+
+```r
+cherry_spliner(nr_knots = 15, vl_sigma = 1) 
+
+cherry_spliner(nr_knots = 15, vl_sigma = 10)
+
+cherry_spliner(nr_knots = 15, vl_sigma = 100)
+```
+
+<img src="chapter4_files/figure-html/question 4M8 part 4-1.png" width="50%" /><img src="chapter4_files/figure-html/question 4M8 part 4-2.png" width="50%" /><img src="chapter4_files/figure-html/question 4M8 part 4-3.png" width="50%" />
+
+
 

@@ -514,5 +514,91 @@ m4.3.plot
 m4.3new.plot
 ```  
   
-Short answer: No, it does not. We get the same prediction intervals.
+Short answer: No, it does not. We get the same prediction intervals.  
+  
+## Question 4M8  
+  
+**In the chapter, we used 15 knots with the cherry blossom spline. Increase the number of knots and observe what happens to the resulting spline. Then adjust also the width of the prior on the weights - change the standard deviation of the prior and watch what happens. What do you think the combination of knot number and the prior on the weights controls?**  
+  
+First of all, set up the model environment by importing the `cherry_blossoms` data and loading the `splines` package:  
+  
+```{r question 4M8 part 1}
+data("cherry_blossoms")
+
+# remove na's
+cherry_blossoms <- cherry_blossoms %>%
+  as_tibble() %>%  
+  drop_na()
+
+# define nr of knots
+library(splines)
+```  
+  
+Instead of typing out the code all the time whenever we change the number of knots or the prior on the weights as needed, we make a function dependant on these two parameters and just call the function each time. All we change within the function is the number of knots and the prior on weights, everything else stays as it is. I already process and plot the output of the splines regression in the function.  
+  
+```{r question 4M8 part 2}
+# make function for it, dependant on number of knots and the prior on weights
+cherry_spliner <- function(nr_knots, vl_sigma){
+
+# get knot points
+knot_list <- cherry_blossoms$year %>% 
+  quantile(probs = seq(0, 1, length.out = nr_knots)) %>% 
+  discard(~ . %in% c(851, 1980))
+
+# construct basis functions
+B <- cherry_blossoms$year %>% bs(knots = knot_list, degree = 3, intercept = TRUE) 
+
+# run bspline regression
+m4.7 <- alist(D ~ dnorm(mu, sigma), 
+              mu <- a + B %*% w, 
+              a ~ dnorm(100, 10), 
+              w ~ dnorm(0, my_sigma), 
+              sigma ~ dexp(1)) %>% 
+  quap(., data = list(D = cherry_blossoms$doy, B = B, my_sigma = vl_sigma), 
+                      start = list(w = rep(0, ncol(B))))
+
+# get 97% posterior interval for mean
+post_int <- m4.7 %>% 
+  link() %>% as_tibble() %>% 
+  map_dfr(PI, prob = 0.97) %>% 
+  select("lower_pi" = '2%', "upper_pi" = '98%') %>% 
+  add_column(year = cherry_blossoms$year) %>% 
+  # add doy
+  left_join(cherry_blossoms, by = "year")
+
+# plot it and add nr_knots and vl_sigma to plot title
+ggplot(post_int, aes(year, doy)) +
+  geom_point(colour = "steelblue4", alpha = 0.8) +
+  geom_ribbon(aes(ymin = lower_pi, ymax = upper_pi), alpha = 0.9) +
+  labs(y = "Day in year", x = "year", 
+       title = paste(nr_knots, " knots, prior on weights ~ N(0,", vl_sigma, ")")) +
+  theme_minimal()
+}
+
+```  
+  
+Now we can increase the number of knots. We start with the normal model with 15 knots and sigma = 10.  
+  
+```{r question 4M8 part 3, fig.show="hold", out.width="50%", message=FALSE}
+cherry_spliner(nr_knots = 15, vl_sigma = 10) 
+
+cherry_spliner(nr_knots = 20, vl_sigma = 10)
+
+cherry_spliner(nr_knots = 30, vl_sigma = 10)
+```
+
+The more knots we have, the *wigglier* our trend line gets, as we capture more signal.  
+  
+  
+Now we can play around with the prior on weights. First, we decrease it significantly to 1, and then increase it to 100, while keeping the number of knots equal. 
+  
+```{r question 4M8 part 4, fig.show="hold", out.width="50%", message=FALSE}
+cherry_spliner(nr_knots = 15, vl_sigma = 1) 
+
+cherry_spliner(nr_knots = 15, vl_sigma = 10)
+
+cherry_spliner(nr_knots = 15, vl_sigma = 100)
+```
+
+So by increasing the prior or weights, we render our trend line more *wigglier*  as well. This makes sense as the weights will be closer to 0 and hence wiggle around closer to the mean line if the standard deviation is small. If the weights become larger, we allow the curve to have more peaks. 
 
