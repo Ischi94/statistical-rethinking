@@ -84,9 +84,11 @@ interval <- pred_height %>%
 Now we just have to add the predicted values to the table:
 
 ```{r question 1 part 5}
-tibble(individual = 1:5, weight = new_weight, expected = expected, 
+table1 <- tibble(individual = 1:5, weight = new_weight, expected = expected, 
        lower = interval[c(TRUE, FALSE)], upper = interval[c(FALSE, TRUE)]) %>% 
   knitr::kable(align = "cccrr")
+
+table1
 ```
 
 ## Question 2
@@ -600,5 +602,77 @@ cherry_spliner(nr_knots = 15, vl_sigma = 10)
 cherry_spliner(nr_knots = 15, vl_sigma = 100)
 ```
 
-So by increasing the prior or weights, we render our trend line more *wigglier*  as well. This makes sense as the weights will be closer to 0 and hence wiggle around closer to the mean line if the standard deviation is small. If the weights become larger, we allow the curve to have more peaks. 
+So by increasing the prior or weights, we render our trend line more *wigglier*  as well. This makes sense as the weights will be closer to 0 and hence wiggle around closer to the mean line if the standard deviation is small. If the weights become larger, we allow the curve to have more peaks.  
+  
+  
+# Hard practices  
+  
+## Question 4H1  
+  
+**The weights listed below were recorded in the !Kung census, but heights were not recorded for these individuals. Provide predicted heights and 89% intervals (either HPDI or PI) for each of these individuals. That is, fill in the table below, using model-based predictions.**  
+  
+```{r question 4H1 part 1, echo=FALSE}
+opts <- options(knitr.kable.NA = "")
+tibble('Individual' = 1:5, 
+       'weight' = c(46.95, 43.72, 64.78, 32.59, 54.63), 
+       'expected height' = NA, 
+       '89% Interval' = NA) %>% 
+  knitr::kable(align = "ccrr")
+```
+  
+This question is similar to the question 1 in the homework. We solved it there by using a linear regression, but this time we model the relationship between height (cm) and the natural logarithm of weight (log-kg). Let's see if that makes any difference at all.  
+  
+```{r question 4H1 part 2}
+
+# new data to predict from 
+new_weight <- c(46.95, 43.72, 64.78, 32.59, 54.63)
+
+# fit the logarithmic model
+m_log <- alist(
+  height ~ dnorm(mu, sigma),
+  mu <- a + b * log(weight),
+  a ~ dnorm(178, 20),
+  b ~ dlnorm(0, 1),
+  sigma ~ dunif(0, 50)) %>% 
+  quap(data = d)
+```  
+  
+Now we can make predictions from our model:  
+  
+```{r question 4H1 part 3}
+# predict height 
+pred_height <- link(m_log, data = data.frame(weight = new_weight))
+
+# calculate means
+expected <- pred_height %>% 
+  as_tibble() %>% 
+  summarise_all(mean) %>% 
+  as_vector()
+
+# calculate percentile interval
+interval <- pred_height %>% 
+  as_tibble() %>% 
+  summarise_all(HPDI, prob = 0.89) %>% 
+  as_vector()
+```  
+  
+And add the predictions to the table.  
+  
+```{r question 4H1 part 4}
+tibble(individual = 1:5, weight = new_weight, expected = expected, 
+       lower = interval[c(TRUE, FALSE)], upper = interval[c(FALSE, TRUE)]) %>% 
+  knitr::kable(align = "cccrr")
+```  
+  
+And now we can compare our results to the predictions from the regular model, which we named `table1`. 
+
+```{r question 4H1 part 5}
+table1
+```  
+  
+And we can see that it actually makes a big difference. Our logarithmic model generally predicts that people are larger compared to the old model. This is particularly visible for low weights.  
+  
+## Question 4H2
+
+
 
