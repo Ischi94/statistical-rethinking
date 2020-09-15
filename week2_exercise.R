@@ -129,8 +129,8 @@ B <- cherry_blossoms$year %>% bs(knots = knot_list, degree = 3, intercept = TRUE
 m4.7 <- alist(D ~ dnorm(mu, sigma), 
               mu <- a + B %*% w, 
               a ~ dnorm(100, 10), 
-              w ~ dnorm(0, 10), 
-              sigma ~ dexp(vl_sigma)) %>% 
+              w ~ dnorm(0, vl_sigma), 
+              sigma ~ dexp(1)) %>% 
   quap(., data = list(D = cherry_blossoms$doy, B = B), 
                       start = list(w = rep(0, ncol(B))))
 
@@ -143,7 +143,7 @@ m4.7 %>%
 }
 
 
-splines_nr <- cherry_spliner(5, 100)
+splines_nr <- cherry_spliner(5, 1)
 
 cherry_blossoms$lower_pi <- splines_nr %>% select(lower) %>% pull()
 cherry_blossoms$upper_pi <- splines_nr %>% select(upper) %>% pull()
