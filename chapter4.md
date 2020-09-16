@@ -98,11 +98,11 @@ table_height
 
 | individual | weight | expected |    lower|    upper|
 |:----------:|:------:|:--------:|--------:|--------:|
-|     1      | 46.95  | 158.2569 | 157.5033| 159.1066|
-|     2      | 43.72  | 152.5620 | 151.7743| 153.2600|
-|     3      | 64.78  | 189.6934 | 188.3258| 191.1202|
-|     4      | 32.59  | 132.9384 | 132.3141| 133.6188|
-|     5      | 54.63  | 171.7977 | 170.8638| 172.9561|
+|     1      | 46.95  | 158.3155 | 157.5387| 159.1781|
+|     2      | 43.72  | 152.6138 | 151.9201| 153.3894|
+|     3      | 64.78  | 189.7901 | 188.3924| 191.1863|
+|     4      | 32.59  | 132.9664 | 132.3020| 133.5576|
+|     5      | 54.63  | 171.8727 | 170.7816| 172.8710|
 
 ## Question 2
 
@@ -148,9 +148,9 @@ precis(m_log) %>% as_tibble() %>%
 
 |parameter |    mean    |        sd|      lower|      upper|
 |:---------|:----------:|---------:|----------:|----------:|
-|a         | -22.874191 | 1.3342774| -25.006624| -20.741758|
-|b         | 46.817760  | 0.3823201|  46.206739|  47.428782|
-|sigma     |  5.137034  | 0.1558806|   4.887906|   5.386161|
+|a         | -22.874304 | 1.3342943| -25.006764| -20.741844|
+|b         | 46.817784  | 0.3823250|  46.206755|  47.428813|
+|sigma     |  5.137099  | 0.1558856|   4.887964|   5.386234|
 
 Instead of trying to read these estimates, we can just visualise our model. Let's calculate the predicted mean height as a function of weight, the 97% PI for the mean, and the 97% PI for predicted heights as explained on page 108.  
   
@@ -751,11 +751,11 @@ table_height
 
 | individual | weight | expected |    lower|    upper|
 |:----------:|:------:|:--------:|--------:|--------:|
-|     1      | 46.95  | 158.2569 | 157.5033| 159.1066|
-|     2      | 43.72  | 152.5620 | 151.7743| 153.2600|
-|     3      | 64.78  | 189.6934 | 188.3258| 191.1202|
-|     4      | 32.59  | 132.9384 | 132.3141| 133.6188|
-|     5      | 54.63  | 171.7977 | 170.8638| 172.9561|
+|     1      | 46.95  | 158.3155 | 157.5387| 159.1781|
+|     2      | 43.72  | 152.6138 | 151.9201| 153.3894|
+|     3      | 64.78  | 189.7901 | 188.3924| 191.1863|
+|     4      | 32.59  | 132.9664 | 132.3020| 133.5576|
+|     5      | 54.63  | 171.8727 | 170.7816| 172.8710|
   
 And we can see that it actually makes a big difference, especially for those with a large weight (*individual 3*), or with a particularly low weight (*individual 4*).  
   
@@ -781,7 +781,7 @@ str(young)
   
 ### Part 1  
   
-**Fit a linear regression to these data, using `quap()`. Present and interprete the estimates. For every 10 units of increase in weight, how much taller does the model predict a child gets?**  
+**Fit a linear regression to these data, using `quap()`. Present and interpret the estimates. For every 10 units of increase in weight, how much taller does the model predict a child gets?**  
   
 We can use the same priors as before, but should decrease the prior on alpha to account for lower overall height in our (non-adult) data set. It is important to center the weight values for interpretation. 
   
@@ -849,7 +849,101 @@ plot_regression(young, weight, height) +
   
 **What aspects of the model fit concern you? Describe the kinds of assumptions you would change, if any, to improve the model. You don’t have to write any new code. Just explain what the model appears to be doing a bad job of, and what you hypothesize would be a better model.**  
   
-The model clearly fails to estimate height at both low (<10) and high (>30) weights. By just eyeballing the data, it seems that a linear relationship assumption is not realistic. To improve the model, we can either transform one of the parameters, or use a polynomial regression. 
+The model clearly fails to estimate height at both low (<10) and high (>30) weights. By just eyeballing the data, it seems that a linear relationship assumption is not realistic. To improve the model, we can either transform one of the parameters, or use a polynomial regression.  
+  
+## Question 4H3  
+  
+**Suppose a colleague of yours, who works on allometry, glances at the practice problems just above. Your colleague exclaims, “That’s silly. Everyone knows that it’s only the logarithm of body weight that scales with height!” Let’s take your colleague’s advice and see what happens.**  
+  
+### Part 1  
+  
+**Model the relationship between height (cm) and the natural logarithm of weight (log-kg). Use the entire Howell1 data frame, all 544 rows, adults and non-adults. Can you interpret the resulting estimates.?**  
+
+All we need to do is make a formula for the log of the weights, and the fit it to `quap()`. Remember that this uses all the data, so we should adjust our priors to it. Then we get the coefficient with `precis()`.    
+  
+
+```r
+# fit model
+m_log <- alist(
+  height ~ dnorm(mu, sigma),
+  mu <- a + b * log(weight),
+  a ~ dnorm(178, 100),
+  b ~ dlnorm(0, 1),
+  sigma ~ dunif(0, 50)) %>% 
+  quap(data = d)
+
+# get coefficients
+m_log_res <- precis(m_log) %>% as_tibble() %>% 
+  add_column(parameter = rownames(precis(m_log)), .before = "mean") %>% 
+  rename("lower" = '5.5%', "upper" = '94.5%')
+```
+
+```
+## Warning in class(x) <- c(setdiff(subclass, tibble_class), tibble_class): Setze
+## class(x) auf mehrere Zeichenketten("tbl_df", "tbl", ...); das Ergebnis ist kein
+## S4 Objekt mehr
+```
+
+```r
+knitr::kable(m_log_res, align = "lccc")
+```
+
+
+
+|parameter |    mean    |    sd     |   lower    |upper     |
+|:---------|:----------:|:---------:|:----------:|:---------|
+|a         | -23.735496 | 1.3353092 | -25.869578 |-21.60141 |
+|b         | 47.061160  | 0.3826021 | 46.449688  |47.67263  |
+|sigma     |  5.134738  | 0.1556713 |  4.885945  |5.38353   |
+  
+We get a weird alpha estimate of -24, what does this mean? It's just the predicted height of an individual with the weight of 0 log-kg. Beta shows the predicted increase (41 cm) for a 1 log-kg increase in weight. The standard deviation of height prediction, sigma, is around 5 cm. We can see that using a transformation for one parameter renders the coefficients less interpretable.  
+  
+### Part 2  
+  
+**Begin with this plot: `plot(height ~ weight, data = Howell1), col = col.alpha(rangi2, 0.4))`. Then use samples from the quadratic approximate posterior of the model in (a) to superimpose on the plot: (1) the predicted mean height as a function of weight, (2) the 97% HPDI for the mean, and (3) the 97% HPDI for predicted heights.**  
+  
+Again, our predefined functions come in quite handy here. But first let's recreate the plot in `ggplot2`.  
+  
+
+```r
+ggplot(data = d) +
+  geom_point(aes(x = weight, y = height), colour = "steelblue4", alpha = 0.5) +
+  theme_minimal()
+```
+
+![](chapter4_files/figure-html/question 4H3 part 2-1.png)<!-- -->
+  
+Now we can calculate the predictions from our model:  
+  
+
+```r
+# define weight range
+weight_seq <- seq(from = min(d$weight), to = max(d$weight), by = 1)
+
+# calculate 89% intervals for each weight
+intervals <- tidy_intervals(link, m_log, HPDI, 
+                            x_var = "weight", x_seq = weight_seq)
+
+# calculate means
+reg_line <- tidy_mean(m_log, data = data.frame(weight = weight_seq))
+
+# calculate prediction intervals
+pred_intervals <- tidy_intervals(sim, m_log, PI, 
+                                 x_var = "weight", x_seq = weight_seq)
+
+# plot it 
+plot_regression(d, weight, height)
+```
+
+![](chapter4_files/figure-html/question 4H3 part 3-1.png)<!-- -->
+  
+We can see a pretty good fit for the relationship between height (cm) and the natural logarithm of weight (log-kg).  
+  
+
+
+
+
+
 
 
 
