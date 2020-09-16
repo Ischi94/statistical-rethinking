@@ -813,7 +813,9 @@ plot_regression(d, weight, height)
   
 We can see a pretty good fit for the relationship between height (cm) and the natural logarithm of weight (log-kg).  
   
-
+## 4H4  
+  
+**Plot the prior predictive distribution for the parabolic polynomial regression model by modifying the code that plots the linear regression prior predictive distribution. Can you modify the prior distributions of a, b1, and b2 so that the prior predictions stay withing the biologically reasonable outcome space? That is to say: Do not try to fit the data by hand. But do try to keep the curves consisten with what you know about height and weight, before seeing these exact data.**
 
 
 

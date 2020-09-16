@@ -358,31 +358,40 @@ d_stand <- d %>% mutate(weight_s = (weight - mean(weight)) / sd(weight),
 # fit model
 m_poly <- alist(height ~ dnorm(mu, sigma), 
                mu <- a + b1 * weight_s + b2 * weight_s2,
-               a ~ dnorm(125, 30), 
+               a ~ dnorm(130, 20), 
                b1 ~ dlnorm(0, 1), 
-               b2 ~ dnorm(0, 1), 
+               b2 ~ dnorm(0, 3), 
                sigma ~ dunif(0, 50)) %>% 
   quap(data = d_stand)
 
+
+# set number of curves
+N <- 100
+
 # set seed
-set.seed(123)
+# set.seed(123)
 
-m_poly_prior <- extract.prior(m_poly)
-m_poly_mu <- link(m_poly, post = m_poly_prior, data = list(weight_s = c(-3, 3), 
-                                                           weight_s2 = c(-3, 3))) %>% 
+
+weight_seq <- tibble(weight = seq(from = min(d_stand$weight), 
+                                  to =  max(d_stand$weight), 
+                                  by = 1)) %>% 
+  mutate(weight_s = (weight - mean(weight)) / sd(weight), 
+         weight_s2 = weight_s^2)
+
+
+m_poly_prior <- extract.prior(m_poly, n = N)
+
+m_poly_mu <- link(m_poly, post = m_poly_prior, 
+                  data = list(weight_s = weight_seq$weight_s, 
+                              weight_s2 = weight_seq$weight_s)) %>% 
   as_tibble() %>% 
-  rename("lower" = V1, "upper" = V2) %>% 
-  add_column(x1 = -2, x2 = 2) %>% 
-  # convert back to natural scale
-  mutate(x1n = x1 * sd(d_stand$weight) + mean(d_stand$weight), 
-         x2n = x2 * sd(d_stand$weight) + mean(d_stand$weight))
+  pivot_longer(cols = everything(), values_to = "height") %>% 
+  add_column(weight = rep(weight_seq$weight, N), 
+             type = rep(as.character(1:N), each = length(weight_seq$weight)))
 
-# plot it
-ggplot(d_stand, aes(x = weight_s)) +
-  geom_hline(yintercept = c(0, 272)) +
-  geom_segment(aes(x = x1n, y = lower, xend = x2n, yend = upper), 
-               alpha = 0.1, data = m_poly_mu) 
 
+ggplot(m_poly_mu) +
+  geom_line(aes(x = weight, y = height, group = type))
 
 # seems like the prior for a is to high but thats ok. However, many lines have
 # a negative slope for the prior b1 ~ dnorm(0, 10), 
