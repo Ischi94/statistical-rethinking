@@ -224,7 +224,7 @@ Let us first recap how the polynomial regression model in Chapter 4 was built: T
 ```{r question 3 part 1}
 # standardise weight
 d_stand <- d %>% mutate(weight_s = (weight - mean(weight)) / sd(weight), 
-              weight_s2 = weight_s^2) %>% 
+                        weight_s2 = weight_s^2) %>% 
   as_tibble()
 ```
 
@@ -241,40 +241,71 @@ m_poly <- alist(height ~ dnorm(mu, sigma),
   quap(data = d_stand)
 ```
 
-For this quap, we can sample from the prior distribution using the `extract.prior()` function. We then pass these samples from the prior to the link function for the weight space we are interested in. After transforming the weight back to natural scale, we can take a look at the prior probabilities. 
+To get the prior prediction, we can sample from the prior distribution using the `extract.prior()` function. We then pass these samples from the prior to the link function for the weight space we are interested in. As we want to try out various priors and how they affect the prediction, I'll make a function that takes a model definition (an `alist`) and the number of predicted curves as argument. 
 
 ```{r question 3 part 3}
-# set seed
-set.seed(123)
-
-# get 30 samples for each parameter (a, b1, b2, sigma) 
-m_poly_prior <- extract.prior(m_poly, n = 30)
-
-# now pass the samples from the prior distribution to the link function 
-m_poly_mu <- link(m_poly, post = m_poly_prior, 
-     data = list(weight_s = seq(from = min(d_stand$weight_s),
-                                to = max(d_stand$weight_s), 
-                                length.out = 50), 
-                 weight_s2 = seq(from = min(d_stand$weight_s2),
-                                 to = max(d_stand$weight_s2), 
-                                 length.out = 50))) %>% 
-  as_tibble() %>% 
-  pivot_longer(cols = everything(), names_to = "name", values_to = "height") %>% 
-  add_column(weight_s = rep(seq(from = min(d_stand$weight_s),
-                              to = max(d_stand$weight_s), 
-                              length.out = 50), 30)) %>% 
-  mutate(weight = weight_s * sd(d_stand$weight) + mean(d_stand$weight), 
-         name = rep(1:30, each = 50), 
-         name = as.factor(name))
+modify_prior_poly <- function(my_alist, N) {
+  
+  
+  # fit model
+  m_poly <- my_alist %>%
+    quap(data = d_stand)
+  
+  
+  # make weight sequence with both standardised weight and the square of it
+  weight_seq <- tibble(weight = seq(
+    from = min(d_stand$weight),
+    to =  max(d_stand$weight),
+    by = 1
+  )) %>%
+    mutate(weight_s = (weight - mean(weight)) / sd(weight),
+           weight_s2 = weight_s ^ 2)
+  
+  # extract samples from the prior
+  m_poly_prior <- extract.prior(m_poly, n = N)
+  
+  # now apply the polynomial equation to the priors to get predicted heights
+  m_poly_mu <- link(
+    m_poly,
+    post = m_poly_prior,
+    data = list(
+      weight_s = weight_seq$weight_s,
+      weight_s2 = weight_seq$weight_s2
+    )
+  ) %>%
+    as_tibble() %>%
+    pivot_longer(cols = everything(), values_to = "height") %>%
+    add_column(
+      weight = rep(weight_seq$weight, N),
+      type = rep(as.character(1:N), each = length(weight_seq$weight))
+    )
+  
+  # plot it 
+  ggplot(m_poly_mu) +
+    geom_line(aes(x = weight, y = height, group = type), alpha = 0.5) +
+    geom_hline(yintercept = c(0, 272), colour = "steelblue4") +
+    annotate(
+      geom = "text",
+      x = c(6, 12),
+      y = c(11, 285),
+      label = c("Embryo", "World's tallest person"),
+      colour = c(rep("steelblue4", 2))
+    ) +
+    labs(x = "Weight in kg", y = "Height in cm") +
+    theme_minimal()
+}
 ```
-
+  
+We can now define our own model via an `alist` and then throw it into our function, and directly get the (visualised) output. Let's start with the priors used in the chapter, with 40 predictive curves sampled from the priors. 
 
 ```{r question 3 part 4}
-# plot it
-ggplot(m_poly_mu, aes(x = weight_s, y = height)) +
-  geom_hline(yintercept = c(0, 272), colour = "coral") +
-  geom_line(aes(group = name)) +
-  theme_light()
+alist(height ~ dnorm(mu, sigma), 
+      mu <- a + b1 * weight_s + b2 * weight_s2,
+      a ~ dnorm(178, 20), 
+      b1 ~ dlnorm(0, 1), 
+      b2 ~ dnorm(0, 1), 
+      sigma ~ dunif(0, 50)) %>% 
+  modify_prior_poly(my_alist = ., N = 40)
 ```
 
 Unfortunately, I get straight lines and no parabolas. I couldn't figure out why this is. To compare my results with those from McElreath himself, follow [this link](https://github.com/rmcelreath/statrethinking_winter2019/blob/master/homework/week02_solutions.pdf).  

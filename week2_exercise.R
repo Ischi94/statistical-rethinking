@@ -383,7 +383,7 @@ m_poly_prior <- extract.prior(m_poly, n = N)
 
 m_poly_mu <- link(m_poly, post = m_poly_prior, 
                   data = list(weight_s = weight_seq$weight_s, 
-                              weight_s2 = weight_seq$weight_s)) %>% 
+                              weight_s2 = weight_seq$weight_s2)) %>% 
   as_tibble() %>% 
   pivot_longer(cols = everything(), values_to = "height") %>% 
   add_column(weight = rep(weight_seq$weight, N), 

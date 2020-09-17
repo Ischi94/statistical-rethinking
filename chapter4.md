@@ -98,11 +98,11 @@ table_height
 
 | individual | weight | expected |    lower|    upper|
 |:----------:|:------:|:--------:|--------:|--------:|
-|     1      | 46.95  | 158.3155 | 157.5387| 159.1781|
-|     2      | 43.72  | 152.6138 | 151.9201| 153.3894|
-|     3      | 64.78  | 189.7901 | 188.3924| 191.1863|
-|     4      | 32.59  | 132.9664 | 132.3020| 133.5576|
-|     5      | 54.63  | 171.8727 | 170.7816| 172.8710|
+|     1      | 46.95  | 158.2809 | 157.4909| 159.0660|
+|     2      | 43.72  | 152.5820 | 151.9108| 153.3466|
+|     3      | 64.78  | 189.7395 | 188.4186| 191.1790|
+|     4      | 32.59  | 132.9446 | 132.3523| 133.6318|
+|     5      | 54.63  | 171.8312 | 170.8467| 172.8927|
 
 ## Question 2
 
@@ -148,9 +148,9 @@ precis(m_log) %>% as_tibble() %>%
 
 |parameter |    mean    |        sd|      lower|      upper|
 |:---------|:----------:|---------:|----------:|----------:|
-|a         | -22.874304 | 1.3342943| -25.006764| -20.741844|
-|b         | 46.817784  | 0.3823250|  46.206755|  47.428813|
-|sigma     |  5.137099  | 0.1558856|   4.887964|   5.386234|
+|a         | -22.874180 | 1.3342938| -25.006639| -20.741720|
+|b         | 46.817754  | 0.3823248|  46.206725|  47.428782|
+|sigma     |  5.137097  | 0.1558854|   4.887962|   5.386232|
 
 Instead of trying to read these estimates, we can just visualise our model. Let's calculate the predicted mean height as a function of weight, the 97% PI for the mean, and the 97% PI for predicted heights as explained on page 108.  
   
@@ -254,7 +254,7 @@ Let us first recap how the polynomial regression model in Chapter 4 was built: T
 ```r
 # standardise weight
 d_stand <- d %>% mutate(weight_s = (weight - mean(weight)) / sd(weight), 
-              weight_s2 = weight_s^2) %>% 
+                        weight_s2 = weight_s^2) %>% 
   as_tibble()
 ```
 
@@ -272,42 +272,73 @@ m_poly <- alist(height ~ dnorm(mu, sigma),
   quap(data = d_stand)
 ```
 
-For this quap, we can sample from the prior distribution using the `extract.prior()` function. We then pass these samples from the prior to the link function for the weight space we are interested in. After transforming the weight back to natural scale, we can take a look at the prior probabilities. 
+To get the prior prediction, we can sample from the prior distribution using the `extract.prior()` function. We then pass these samples from the prior to the link function for the weight space we are interested in. As we want to try out various priors and how they affect the prediction, I'll make a function that takes a model definition (an `alist`) and the number of predicted curves as argument. 
 
 
 ```r
-# set seed
-set.seed(123)
-
-# get 30 samples for each parameter (a, b1, b2, sigma) 
-m_poly_prior <- extract.prior(m_poly, n = 30)
-
-# now pass the samples from the prior distribution to the link function 
-m_poly_mu <- link(m_poly, post = m_poly_prior, 
-     data = list(weight_s = seq(from = min(d_stand$weight_s),
-                                to = max(d_stand$weight_s), 
-                                length.out = 50), 
-                 weight_s2 = seq(from = min(d_stand$weight_s2),
-                                 to = max(d_stand$weight_s2), 
-                                 length.out = 50))) %>% 
-  as_tibble() %>% 
-  pivot_longer(cols = everything(), names_to = "name", values_to = "height") %>% 
-  add_column(weight_s = rep(seq(from = min(d_stand$weight_s),
-                              to = max(d_stand$weight_s), 
-                              length.out = 50), 30)) %>% 
-  mutate(weight = weight_s * sd(d_stand$weight) + mean(d_stand$weight), 
-         name = rep(1:30, each = 50), 
-         name = as.factor(name))
+modify_prior_poly <- function(my_alist, N) {
+  
+  
+  # fit model
+  m_poly <- my_alist %>%
+    quap(data = d_stand)
+  
+  
+  # make weight sequence with both standardised weight and the square of it
+  weight_seq <- tibble(weight = seq(
+    from = min(d_stand$weight),
+    to =  max(d_stand$weight),
+    by = 1
+  )) %>%
+    mutate(weight_s = (weight - mean(weight)) / sd(weight),
+           weight_s2 = weight_s ^ 2)
+  
+  # extract samples from the prior
+  m_poly_prior <- extract.prior(m_poly, n = N)
+  
+  # now apply the polynomial equation to the priors to get predicted heights
+  m_poly_mu <- link(
+    m_poly,
+    post = m_poly_prior,
+    data = list(
+      weight_s = weight_seq$weight_s,
+      weight_s2 = weight_seq$weight_s2
+    )
+  ) %>%
+    as_tibble() %>%
+    pivot_longer(cols = everything(), values_to = "height") %>%
+    add_column(
+      weight = rep(weight_seq$weight, N),
+      type = rep(as.character(1:N), each = length(weight_seq$weight))
+    )
+  
+  # plot it 
+  ggplot(m_poly_mu) +
+    geom_line(aes(x = weight, y = height, group = type), alpha = 0.5) +
+    geom_hline(yintercept = c(0, 272), colour = "steelblue4") +
+    annotate(
+      geom = "text",
+      x = c(6, 12),
+      y = c(11, 285),
+      label = c("Embryo", "World's tallest person"),
+      colour = c(rep("steelblue4", 2))
+    ) +
+    labs(x = "Weight in kg", y = "Height in cm") +
+    theme_minimal()
+}
 ```
-
+  
+We can now define our own model via an `alist` and then throw it into our function, and directly get the (visualised) output. Let's start with the priors used in the chapter, with 40 predictive curves sampled from the priors. 
 
 
 ```r
-# plot it
-ggplot(m_poly_mu, aes(x = weight_s, y = height)) +
-  geom_hline(yintercept = c(0, 272), colour = "coral") +
-  geom_line(aes(group = name)) +
-  theme_light()
+alist(height ~ dnorm(mu, sigma), 
+      mu <- a + b1 * weight_s + b2 * weight_s2,
+      a ~ dnorm(178, 20), 
+      b1 ~ dlnorm(0, 1), 
+      b2 ~ dnorm(0, 1), 
+      sigma ~ dunif(0, 50)) %>% 
+  modify_prior_poly(my_alist = ., N = 40)
 ```
 
 ![](chapter4_files/figure-html/question 3 part 4-1.png)<!-- -->
@@ -517,9 +548,9 @@ m4.3new %>% vcov() %>% round(digits = 3) # lots of covariation
 
 ```
 ##            a      b sigma
-## a      3.612 -0.079 0.010
-## b     -0.079  0.002 0.000
-## sigma  0.010  0.000 0.037
+## a      3.602 -0.078 0.009
+## b     -0.078  0.002 0.000
+## sigma  0.009  0.000 0.037
 ```
 
 ```r
@@ -530,7 +561,7 @@ m4.3 %>% vcov() %>% round(digits = 3) # low covariation
 ##           a     b sigma
 ## a     0.073 0.000 0.000
 ## b     0.000 0.002 0.000
-## sigma 0.000 0.000 0.037
+## sigma 0.000 0.000 0.036
 ```
 
 So we seem to increase the covariation by not centering. Let's dig deeper by looking at summaries of the posterior distribution for each parameter:  
@@ -545,7 +576,7 @@ m4.3new %>% extract.samples() %>% as_tibble() %>%
 ## # A tibble: 1 x 3
 ##   alpha  beta sigma
 ##   <dbl> <dbl> <dbl>
-## 1  115. 0.890  5.08
+## 1  115. 0.891  5.08
 ```
 
 ```r
@@ -734,11 +765,11 @@ tibble(individual = 1:5, weight = new_weight, expected = expected,
 
 | individual | weight | expected |    lower|    upper|
 |:----------:|:------:|:--------:|--------:|--------:|
-|     1      | 46.95  | 157.3245 | 156.8922| 157.7907|
-|     2      | 43.72  | 153.9881 | 153.5386| 154.3864|
-|     3      | 64.78  | 172.3929 | 171.8946| 173.0614|
-|     4      | 32.59  | 140.2357 | 139.8477| 140.5806|
-|     5      | 54.63  | 164.4161 | 163.9305| 164.9549|
+|     1      | 46.95  | 157.3341 | 156.8987| 157.7641|
+|     2      | 43.72  | 153.9973 | 153.6144| 154.4400|
+|     3      | 64.78  | 172.4042 | 171.8310| 172.9727|
+|     4      | 32.59  | 140.2434 | 139.9042| 140.6265|
+|     5      | 54.63  | 164.4265 | 163.8885| 164.8726|
   
 And now we can compare our results to the predictions from the regular model, which we named `table_height`. 
 
@@ -751,11 +782,11 @@ table_height
 
 | individual | weight | expected |    lower|    upper|
 |:----------:|:------:|:--------:|--------:|--------:|
-|     1      | 46.95  | 158.3155 | 157.5387| 159.1781|
-|     2      | 43.72  | 152.6138 | 151.9201| 153.3894|
-|     3      | 64.78  | 189.7901 | 188.3924| 191.1863|
-|     4      | 32.59  | 132.9664 | 132.3020| 133.5576|
-|     5      | 54.63  | 171.8727 | 170.7816| 172.8710|
+|     1      | 46.95  | 158.2809 | 157.4909| 159.0660|
+|     2      | 43.72  | 152.5820 | 151.9108| 153.3466|
+|     3      | 64.78  | 189.7395 | 188.4186| 191.1790|
+|     4      | 32.59  | 132.9446 | 132.3523| 133.6318|
+|     5      | 54.63  | 171.8312 | 170.8467| 172.8927|
   
 And we can see that it actually makes a big difference, especially for those with a large weight (*individual 3*), or with a particularly low weight (*individual 4*).  
   
@@ -811,9 +842,9 @@ knitr::kable(m_young_res)
 
 |parameter |       mean|        sd|      lower|      upper|
 |:---------|----------:|---------:|----------:|----------:|
-|a         | 108.323692| 0.6087739| 107.350754| 109.296630|
-|b         |   2.716657| 0.0683153|   2.607476|   2.825838|
-|sigma     |   8.437153| 0.4305620|   7.749032|   9.125275|
+|a         | 108.324288| 0.6087700| 107.351356| 109.297220|
+|b         |   2.716536| 0.0683149|   2.607355|   2.825716|
+|sigma     |   8.437099| 0.4305551|   7.748988|   9.125209|
   
 b can be interpreted as the slope in our regression, where with 1 unit change, height increases by 2.72. Hence, for every 10 units of increase in weight the model predicts that a child gets 27.2 cm taller.  
   
@@ -890,11 +921,11 @@ knitr::kable(m_log_res, align = "lccc")
 
 
 
-|parameter |    mean    |    sd     |   lower    |upper     |
-|:---------|:----------:|:---------:|:----------:|:---------|
-|a         | -23.735496 | 1.3353092 | -25.869578 |-21.60141 |
-|b         | 47.061160  | 0.3826021 | 46.449688  |47.67263  |
-|sigma     |  5.134738  | 0.1556713 |  4.885945  |5.38353   |
+|parameter |    mean    |    sd     |   lower    |upper      |
+|:---------|:----------:|:---------:|:----------:|:----------|
+|a         | -23.734395 | 1.3352931 | -25.868451 |-21.600339 |
+|b         | 47.060850  | 0.3825974 | 46.449385  |47.672314  |
+|sigma     |  5.134674  | 0.1556665 |  4.885889  |5.383459   |
   
 We get a weird alpha estimate of -24, what does this mean? It's just the predicted height of an individual with the weight of 0 log-kg. Beta shows the predicted increase (41 cm) for a 1 log-kg increase in weight. The standard deviation of height prediction, sigma, is around 5 cm. We can see that using a transformation for one parameter renders the coefficients less interpretable.  
   
@@ -939,7 +970,9 @@ plot_regression(d, weight, height)
   
 We can see a pretty good fit for the relationship between height (cm) and the natural logarithm of weight (log-kg).  
   
-
+## 4H4  
+  
+**Plot the prior predictive distribution for the parabolic polynomial regression model by modifying the code that plots the linear regression prior predictive distribution. Can you modify the prior distributions of a, b1, and b2 so that the prior predictions stay withing the biologically reasonable outcome space? That is to say: Do not try to fit the data by hand. But do try to keep the curves consisten with what you know about height and weight, before seeing these exact data.**
 
 
 
