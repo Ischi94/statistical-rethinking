@@ -98,11 +98,11 @@ table_height
 
 | individual | weight | expected |    lower|    upper|
 |:----------:|:------:|:--------:|--------:|--------:|
-|     1      | 46.95  | 158.2809 | 157.4909| 159.0660|
-|     2      | 43.72  | 152.5820 | 151.9108| 153.3466|
-|     3      | 64.78  | 189.7395 | 188.4186| 191.1790|
-|     4      | 32.59  | 132.9446 | 132.3523| 133.6318|
-|     5      | 54.63  | 171.8312 | 170.8467| 172.8927|
+|     1      | 46.95  | 158.2663 | 157.3876| 159.0283|
+|     2      | 43.72  | 152.5715 | 151.8200| 153.3101|
+|     3      | 64.78  | 189.7022 | 188.2611| 191.1092|
+|     4      | 32.59  | 132.9483 | 132.3140| 133.6476|
+|     5      | 54.63  | 171.8068 | 170.6624| 172.7448|
 
 ## Question 2
 
@@ -148,9 +148,9 @@ precis(m_log) %>% as_tibble() %>%
 
 |parameter |    mean    |        sd|      lower|      upper|
 |:---------|:----------:|---------:|----------:|----------:|
-|a         | -22.874180 | 1.3342938| -25.006639| -20.741720|
-|b         | 46.817754  | 0.3823248|  46.206725|  47.428782|
-|sigma     |  5.137097  | 0.1558854|   4.887962|   5.386232|
+|a         | -22.874310 | 1.3342912| -25.006766| -20.741855|
+|b         | 46.817788  | 0.3823241|  46.206760|  47.428816|
+|sigma     |  5.137088  | 0.1558847|   4.887954|   5.386222|
 
 Instead of trying to read these estimates, we can just visualise our model. Let's calculate the predicted mean height as a function of weight, the 97% PI for the mean, and the 97% PI for predicted heights as explained on page 108.  
   
@@ -278,6 +278,8 @@ To get the prior prediction, we can sample from the prior distribution using the
 ```r
 modify_prior_poly <- function(my_alist, N) {
   
+  # set seed for reproducibility
+  set.seed(0709)
   
   # fit model
   m_poly <- my_alist %>%
@@ -343,7 +345,52 @@ alist(height ~ dnorm(mu, sigma),
 
 ![](chapter4_files/figure-html/question 3 part 4-1.png)<!-- -->
 
-Unfortunately, I get straight lines and no parabolas. I couldn't figure out why this is. To compare my results with those from McElreath himself, follow [this link](https://github.com/rmcelreath/statrethinking_winter2019/blob/master/homework/week02_solutions.pdf).  
+It seems like our priors are a bit too narrow as we do not cover the whole potential/ realistic space. So what we can do is decrease the prior on the mean of alpha a bit, while increasing its standard deviation:  
+  
+
+```r
+alist(height ~ dnorm(mu, sigma), 
+      mu <- a + b1 * weight_s + b2 * weight_s2,
+      a ~ dnorm(130, 35), # decrease mean and increase sd
+      b1 ~ dlnorm(0, 1), 
+      b2 ~ dnorm(0, 1), 
+      sigma ~ dunif(0, 50)) %>% 
+  modify_prior_poly(my_alist = ., N = 40)
+```
+
+![](chapter4_files/figure-html/question 3 part 5-1.png)<!-- -->
+  
+Now that looks more realistic to me, without knowing anything about the data. The prior on alpha now looks good to me, as we are expressing enough uncertainty now. The trend lines hower are a bit too straight (can you say that?) basically assuming no relationship between height and weight. But we already know, without looking at the data, that there is a positive relationship. This is prior knowledge we can and should use. So let's try making the slope of our prior predictive lines a bit more positive. We can do so by adjusting the prior on beta1. Now to tune the prior for the log-normal distribution is quite difficult. If we decrease the standard deviation, our distribution gets less skewed, meaning that we get less values that are very high but also less values that are very low. Instead, we will directly change the mean of the log-normal. When we increase it, we increase the chance of getting higher values for the slope:      
+  
+
+```r
+alist(height ~ dnorm(mu, sigma), 
+      mu <- a + b1 * weight_s + b2 * weight_s2,
+      a ~ dnorm(130, 35), 
+      b1 ~ dlnorm(1, 1), # increase mean 
+      b2 ~ dnorm(0, 1), 
+      sigma ~ dunif(0, 50)) %>% 
+  modify_prior_poly(my_alist = ., N = 40)
+```
+
+![](chapter4_files/figure-html/question 3 part 6-1.png)<!-- -->
+  
+This looks better now. We are not too certain about the relationship, but at least we directly included our prior knowledge now. One last thing we could change is the prior on beta2. This prior affects the curvature of the line. But, taking into account what we know about the relationship, I am quite happy about the curvature. We could just force it to be positive by using a narrow log-normal distribution, because a negative value will result in a downwards curvature (= negative relationship).  
+  
+
+```r
+alist(height ~ dnorm(mu, sigma), 
+      mu <- a + b1 * weight_s + b2 * weight_s2,
+      a ~ dnorm(130, 35), 
+      b1 ~ dlnorm(1, 1),  
+      b2 ~ dlnorm(0, 0.5), # force positivity
+      sigma ~ dunif(0, 50)) %>% 
+  modify_prior_poly(my_alist = ., N = 40)
+```
+
+![](chapter4_files/figure-html/question 3 part 7-1.png)<!-- -->
+  
+That's it. This is my first exercise fuzzing with priors and it really forced me to *think* about my model assumption. This takes a lot of time, but will eventually result in better models.  
   
   
 # Easy practices  
@@ -536,7 +583,7 @@ m4.3new <- alist(height ~ dnorm(mu, sigma), # likelihood
                  a ~ dnorm(178, 20), # alpha
                  b ~ dlnorm(0, 1), # beta
                  sigma ~ dunif(0, 50)) %>% # sigma
-  quap(., data = adults) # quadratic approximation
+  quap(., data = adults, start = list(a = 115, b = 0.9)) # quadratic approximation
 ```
   
 We shall look at the covariance of each model.  
@@ -548,7 +595,7 @@ m4.3new %>% vcov() %>% round(digits = 3) # lots of covariation
 
 ```
 ##            a      b sigma
-## a      3.602 -0.078 0.009
+## a      3.601 -0.078 0.009
 ## b     -0.078  0.002 0.000
 ## sigma  0.009  0.000 0.037
 ```
@@ -561,7 +608,7 @@ m4.3 %>% vcov() %>% round(digits = 3) # low covariation
 ##           a     b sigma
 ## a     0.073 0.000 0.000
 ## b     0.000 0.002 0.000
-## sigma 0.000 0.000 0.036
+## sigma 0.000 0.000 0.037
 ```
 
 So we seem to increase the covariation by not centering. Let's dig deeper by looking at summaries of the posterior distribution for each parameter:  
@@ -576,7 +623,7 @@ m4.3new %>% extract.samples() %>% as_tibble() %>%
 ## # A tibble: 1 x 3
 ##   alpha  beta sigma
 ##   <dbl> <dbl> <dbl>
-## 1  115. 0.891  5.08
+## 1  115. 0.891  5.07
 ```
 
 ```r
@@ -765,11 +812,11 @@ tibble(individual = 1:5, weight = new_weight, expected = expected,
 
 | individual | weight | expected |    lower|    upper|
 |:----------:|:------:|:--------:|--------:|--------:|
-|     1      | 46.95  | 157.3341 | 156.8987| 157.7641|
-|     2      | 43.72  | 153.9973 | 153.6144| 154.4400|
-|     3      | 64.78  | 172.4042 | 171.8310| 172.9727|
-|     4      | 32.59  | 140.2434 | 139.9042| 140.6265|
-|     5      | 54.63  | 164.4265 | 163.8885| 164.8726|
+|     1      | 46.95  | 157.3269 | 156.9247| 157.7544|
+|     2      | 43.72  | 153.9894 | 153.5958| 154.3793|
+|     3      | 64.78  | 172.3999 | 171.8134| 172.9006|
+|     4      | 32.59  | 140.2327 | 139.8573| 140.5483|
+|     5      | 54.63  | 164.4206 | 163.9459| 164.8838|
   
 And now we can compare our results to the predictions from the regular model, which we named `table_height`. 
 
@@ -782,11 +829,11 @@ table_height
 
 | individual | weight | expected |    lower|    upper|
 |:----------:|:------:|:--------:|--------:|--------:|
-|     1      | 46.95  | 158.2809 | 157.4909| 159.0660|
-|     2      | 43.72  | 152.5820 | 151.9108| 153.3466|
-|     3      | 64.78  | 189.7395 | 188.4186| 191.1790|
-|     4      | 32.59  | 132.9446 | 132.3523| 133.6318|
-|     5      | 54.63  | 171.8312 | 170.8467| 172.8927|
+|     1      | 46.95  | 158.2663 | 157.3876| 159.0283|
+|     2      | 43.72  | 152.5715 | 151.8200| 153.3101|
+|     3      | 64.78  | 189.7022 | 188.2611| 191.1092|
+|     4      | 32.59  | 132.9483 | 132.3140| 133.6476|
+|     5      | 54.63  | 171.8068 | 170.6624| 172.7448|
   
 And we can see that it actually makes a big difference, especially for those with a large weight (*individual 3*), or with a particularly low weight (*individual 4*).  
   
@@ -842,9 +889,9 @@ knitr::kable(m_young_res)
 
 |parameter |       mean|        sd|      lower|      upper|
 |:---------|----------:|---------:|----------:|----------:|
-|a         | 108.324288| 0.6087700| 107.351356| 109.297220|
-|b         |   2.716536| 0.0683149|   2.607355|   2.825716|
-|sigma     |   8.437099| 0.4305551|   7.748988|   9.125209|
+|a         | 108.323612| 0.6087742| 107.350673| 109.296551|
+|b         |   2.716658| 0.0683153|   2.607477|   2.825839|
+|sigma     |   8.437158| 0.4305626|   7.749036|   9.125280|
   
 b can be interpreted as the slope in our regression, where with 1 unit change, height increases by 2.72. Hence, for every 10 units of increase in weight the model predicts that a child gets 27.2 cm taller.  
   
@@ -921,11 +968,11 @@ knitr::kable(m_log_res, align = "lccc")
 
 
 
-|parameter |    mean    |    sd     |   lower    |upper      |
-|:---------|:----------:|:---------:|:----------:|:----------|
-|a         | -23.734395 | 1.3352931 | -25.868451 |-21.600339 |
-|b         | 47.060850  | 0.3825974 | 46.449385  |47.672314  |
-|sigma     |  5.134674  | 0.1556665 |  4.885889  |5.383459   |
+|parameter |    mean    |    sd     |   lower   |upper      |
+|:---------|:----------:|:---------:|:---------:|:----------|
+|a         | -23.748669 | 1.3351568 | -25.88251 |-21.614831 |
+|b         | 47.065102  | 0.3825584 | 46.45370  |47.676504  |
+|sigma     |  5.134163  | 0.1556276 |  4.88544  |5.382886   |
   
 We get a weird alpha estimate of -24, what does this mean? It's just the predicted height of an individual with the weight of 0 log-kg. Beta shows the predicted increase (41 cm) for a 1 log-kg increase in weight. The standard deviation of height prediction, sigma, is around 5 cm. We can see that using a transformation for one parameter renders the coefficients less interpretable.  
   
@@ -973,6 +1020,9 @@ We can see a pretty good fit for the relationship between height (cm) and the na
 ## 4H4  
   
 **Plot the prior predictive distribution for the parabolic polynomial regression model by modifying the code that plots the linear regression prior predictive distribution. Can you modify the prior distributions of a, b1, and b2 so that the prior predictions stay withing the biologically reasonable outcome space? That is to say: Do not try to fit the data by hand. But do try to keep the curves consisten with what you know about height and weight, before seeing these exact data.**
+  
+We already covered this in *homework question 3* above.  
+  
 
 
 

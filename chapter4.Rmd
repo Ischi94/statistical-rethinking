@@ -246,6 +246,8 @@ To get the prior prediction, we can sample from the prior distribution using the
 ```{r question 3 part 3}
 modify_prior_poly <- function(my_alist, N) {
   
+  # set seed for reproducibility
+  set.seed(0709)
   
   # fit model
   m_poly <- my_alist %>%
@@ -308,7 +310,43 @@ alist(height ~ dnorm(mu, sigma),
   modify_prior_poly(my_alist = ., N = 40)
 ```
 
-Unfortunately, I get straight lines and no parabolas. I couldn't figure out why this is. To compare my results with those from McElreath himself, follow [this link](https://github.com/rmcelreath/statrethinking_winter2019/blob/master/homework/week02_solutions.pdf).  
+It seems like our priors are a bit too narrow as we do not cover the whole potential/ realistic space. So what we can do is decrease the prior on the mean of alpha a bit, while increasing its standard deviation:  
+  
+```{r question 3 part 5}
+alist(height ~ dnorm(mu, sigma), 
+      mu <- a + b1 * weight_s + b2 * weight_s2,
+      a ~ dnorm(130, 35), # decrease mean and increase sd
+      b1 ~ dlnorm(0, 1), 
+      b2 ~ dnorm(0, 1), 
+      sigma ~ dunif(0, 50)) %>% 
+  modify_prior_poly(my_alist = ., N = 40)
+```  
+  
+Now that looks more realistic to me, without knowing anything about the data. The prior on alpha now looks good to me, as we are expressing enough uncertainty now. The trend lines hower are a bit too straight (can you say that?) basically assuming no relationship between height and weight. But we already know, without looking at the data, that there is a positive relationship. This is prior knowledge we can and should use. So let's try making the slope of our prior predictive lines a bit more positive. We can do so by adjusting the prior on beta1. Now to tune the prior for the log-normal distribution is quite difficult. If we decrease the standard deviation, our distribution gets less skewed, meaning that we get less values that are very high but also less values that are very low. Instead, we will directly change the mean of the log-normal. When we increase it, we increase the chance of getting higher values for the slope:      
+  
+```{r question 3 part 6}
+alist(height ~ dnorm(mu, sigma), 
+      mu <- a + b1 * weight_s + b2 * weight_s2,
+      a ~ dnorm(130, 35), 
+      b1 ~ dlnorm(1, 1), # increase mean 
+      b2 ~ dnorm(0, 1), 
+      sigma ~ dunif(0, 50)) %>% 
+  modify_prior_poly(my_alist = ., N = 40)
+```  
+  
+This looks better now. We are not too certain about the relationship, but at least we directly included our prior knowledge now. One last thing we could change is the prior on beta2. This prior affects the curvature of the line. But, taking into account what we know about the relationship, I am quite happy about the curvature. We could just force it to be positive by using a narrow log-normal distribution, because a negative value will result in a downwards curvature (= negative relationship).  
+  
+```{r question 3 part 7}
+alist(height ~ dnorm(mu, sigma), 
+      mu <- a + b1 * weight_s + b2 * weight_s2,
+      a ~ dnorm(130, 35), 
+      b1 ~ dlnorm(1, 1),  
+      b2 ~ dlnorm(0, 0.5), # force positivity
+      sigma ~ dunif(0, 50)) %>% 
+  modify_prior_poly(my_alist = ., N = 40)
+```  
+  
+That's it. This is my first exercise fuzzing with priors and it really forced me to *think* about my model assumption. This takes a lot of time, but will eventually result in better models.  
   
   
 # Easy practices  
@@ -486,7 +524,7 @@ m4.3new <- alist(height ~ dnorm(mu, sigma), # likelihood
                  a ~ dnorm(178, 20), # alpha
                  b ~ dlnorm(0, 1), # beta
                  sigma ~ dunif(0, 50)) %>% # sigma
-  quap(., data = adults) # quadratic approximation
+  quap(., data = adults, start = list(a = 115, b = 0.9)) # quadratic approximation
 
 ```  
   
@@ -847,6 +885,9 @@ We can see a pretty good fit for the relationship between height (cm) and the na
 ## 4H4  
   
 **Plot the prior predictive distribution for the parabolic polynomial regression model by modifying the code that plots the linear regression prior predictive distribution. Can you modify the prior distributions of a, b1, and b2 so that the prior predictions stay withing the biologically reasonable outcome space? That is to say: Do not try to fit the data by hand. But do try to keep the curves consisten with what you know about height and weight, before seeing these exact data.**
+  
+We already covered this in *homework question 3* above.  
+  
 
 
 
