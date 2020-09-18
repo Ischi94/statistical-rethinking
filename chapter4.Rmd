@@ -512,7 +512,7 @@ m4.3 <- alist(height ~ dnorm(mu, sigma), # likelihood
                  a ~ dnorm(178, 20), # alpha
                  b ~ dlnorm(0, 1), # beta
                  sigma ~ dunif(0, 50)) %>% # sigma
-  quap(., data = adults) # quadratic approximation
+  quap(data = adults) # quadratic approximation
 
 ```  
   
@@ -524,7 +524,7 @@ m4.3new <- alist(height ~ dnorm(mu, sigma), # likelihood
                  a ~ dnorm(178, 20), # alpha
                  b ~ dlnorm(0, 1), # beta
                  sigma ~ dunif(0, 50)) %>% # sigma
-  quap(., data = adults, start = list(a = 115, b = 0.9)) # quadratic approximation
+  quap(data = adults, start = list(a = 115, b = 0.9)) # quadratic approximation
 
 ```  
   
@@ -628,7 +628,7 @@ m4.7 <- alist(D ~ dnorm(mu, sigma),
               a ~ dnorm(100, 10), 
               w ~ dnorm(0, my_sigma), 
               sigma ~ dexp(1)) %>% 
-  quap(., data = list(D = cherry_blossoms$doy, B = B, my_sigma = vl_sigma), 
+  quap(data = list(D = cherry_blossoms$doy, B = B, my_sigma = vl_sigma), 
                       start = list(w = rep(0, ncol(B))))
 
 # get 97% posterior interval for mean
@@ -882,12 +882,99 @@ plot_regression(d, weight, height)
   
 We can see a pretty good fit for the relationship between height (cm) and the natural logarithm of weight (log-kg).  
   
-## 4H4  
+## Question 4H4  
   
 **Plot the prior predictive distribution for the parabolic polynomial regression model by modifying the code that plots the linear regression prior predictive distribution. Can you modify the prior distributions of a, b1, and b2 so that the prior predictions stay withing the biologically reasonable outcome space? That is to say: Do not try to fit the data by hand. But do try to keep the curves consisten with what you know about height and weight, before seeing these exact data.**
   
 We already covered this in *homework question 3* above.  
   
+  
+## Question 4H5  
+  
+**Return to data(cherry_blossoms) and model the association between blossom date (`doy`) and March temperature (`temp`). Note that there are many missing values in both variables. You may consider a linear model, a polynomial, or a spline on temperature. How well does temperature rend predict the blossom trend?**  
+  
+The easiest way to deal with missing values is to omit them. There are more sophisticated ways but for now it's sufficient for us. Let's load the data, select the parameters and add a column with the centered temperature in case we apply a polynomial regression.  
+  
+```{r question 4H5 part 2}
+data("cherry_blossoms")
+
+cherry_blossoms <- cherry_blossoms %>%
+  as_tibble() %>% 
+  select(doy, temp) %>% 
+  drop_na() %>% 
+  mutate(temp_sc = (temp - mean(temp))/ sd(temp))
+```  
+  
+Now let's take a quick look at the data to choose which model to use.  
+  
+```{r question 4H5 part 3}
+ggplot(cherry_blossoms) +
+  geom_point(aes(temp_sc, doy), alpha = 0.5) +
+  labs(x = "Centered temperature", y = "Day in year") +
+  theme_minimal()
+```  
+  
+It seems like there is a nuanced negative relationship, but with a lot of noise. Using a polynomial regression or a spline would probably capture too much of this noise without providing much insight. I will therefore use a simple linear regression approach and the temperature parameter as it is (without centering). I will mainly use less informative, wide priors. There is, however enough data so that priors do not matter that much. The prior on alpha covers most realistic values and the prior on beta that favours negative values (= negative slope = negative relationship).    
+  
+  
+```{r question 4H5 part 4}
+# define average temp
+xbar <- cherry_blossoms %>% 
+  summarise(mean_temp = mean(temp)) %>% 
+  pull()
+
+# fit modell
+cherry_linear <- 
+  # define formula
+  alist(doy ~ dnorm(mu, sigma),
+        mu <- a + b * (temp - xbar),
+        a ~ dnorm(115, 30),
+        b ~ dnorm(-2, 5),
+        sigma ~ dunif(0, 50)) %>% 
+  # calculate maximum a posterior
+  quap(data = cherry_blossoms)
+```  
+  
+Let's glimpse at the estimated parameters:  
+  
+```{r question 4H5 part 5, message=FALSE}
+precis(cherry_linear) %>% as_tibble() %>% 
+  add_column(parameter = rownames(precis(cherry_linear))) %>% 
+  rename("lower" = '5.5%', "upper" = '94.5%') %>% 
+  select(parameter, everything()) %>% 
+  knitr::kable(align = "lcrrr")
+```
+  
+The intercept is around day 105. The relationship is indeed negative: With every degree celsius warmer, the day of blossom is 3 days earlier on average. The confidence intervals are negative as well, showing that this relationship is somewhat strong (puhh, I almost said *significant*).  
+Let's look at the 89% prediction intervals:  
+  
+```{r question 4H5 part 6}
+# define sequence of temperature
+temp_seq <- seq(from = min(cherry_blossoms$temp), 
+                to = max(cherry_blossoms$temp), by = 0.5)
+
+# calculate 89% intervals for each weight
+intervals <- tidy_intervals(link, cherry_linear, HPDI, "temp", temp_seq)
+
+
+# calculate means
+reg_line <- tidy_mean(cherry_linear, data = data.frame(temp = temp_seq))
+
+
+# calculate prediction intervals
+pred_intervals <- tidy_intervals(sim, cherry_linear, PI, "temp", temp_seq)
+
+  
+# plot it 
+plot_regression(cherry_blossoms, temp, doy)
+```  
+  
+We can see the (coloured) negative trend line. The darker shaded interval around it shows the 89% plausible regions for the distribution of the mean `doy`. The lighter and broader interval shows the region within which the model expects to find 89% of actual height in the population. 
+
+
+
+
+
 
 
 

@@ -98,11 +98,11 @@ table_height
 
 | individual | weight | expected |    lower|    upper|
 |:----------:|:------:|:--------:|--------:|--------:|
-|     1      | 46.95  | 158.2663 | 157.3876| 159.0283|
-|     2      | 43.72  | 152.5715 | 151.8200| 153.3101|
-|     3      | 64.78  | 189.7022 | 188.2611| 191.1092|
-|     4      | 32.59  | 132.9483 | 132.3140| 133.6476|
-|     5      | 54.63  | 171.8068 | 170.6624| 172.7448|
+|     1      | 46.95  | 158.2630 | 157.3588| 159.0054|
+|     2      | 43.72  | 152.5677 | 151.8180| 153.2906|
+|     3      | 64.78  | 189.7015 | 188.3146| 191.1171|
+|     4      | 32.59  | 132.9428 | 132.2147| 133.5713|
+|     5      | 54.63  | 171.8046 | 170.7763| 172.9033|
 
 ## Question 2
 
@@ -146,11 +146,11 @@ precis(m_log) %>% as_tibble() %>%
 
 
 
-|parameter |    mean    |        sd|      lower|      upper|
-|:---------|:----------:|---------:|----------:|----------:|
-|a         | -22.874310 | 1.3342912| -25.006766| -20.741855|
-|b         | 46.817788  | 0.3823241|  46.206760|  47.428816|
-|sigma     |  5.137088  | 0.1558847|   4.887954|   5.386222|
+|parameter |    mean    |        sd|     lower|      upper|
+|:---------|:----------:|---------:|---------:|----------:|
+|a         | -22.860624 | 1.3342556| -24.99302| -20.728226|
+|b         | 46.814039  | 0.3823133|  46.20303|  47.425050|
+|sigma     |  5.136812  | 0.1558648|   4.88771|   5.385914|
 
 Instead of trying to read these estimates, we can just visualise our model. Let's calculate the predicted mean height as a function of weight, the 97% PI for the mean, and the 97% PI for predicted heights as explained on page 108.  
   
@@ -571,7 +571,7 @@ m4.3 <- alist(height ~ dnorm(mu, sigma), # likelihood
                  a ~ dnorm(178, 20), # alpha
                  b ~ dlnorm(0, 1), # beta
                  sigma ~ dunif(0, 50)) %>% # sigma
-  quap(., data = adults) # quadratic approximation
+  quap(data = adults) # quadratic approximation
 ```
   
 Now do the same but without `xbar`.
@@ -583,7 +583,7 @@ m4.3new <- alist(height ~ dnorm(mu, sigma), # likelihood
                  a ~ dnorm(178, 20), # alpha
                  b ~ dlnorm(0, 1), # beta
                  sigma ~ dunif(0, 50)) %>% # sigma
-  quap(., data = adults, start = list(a = 115, b = 0.9)) # quadratic approximation
+  quap(data = adults, start = list(a = 115, b = 0.9)) # quadratic approximation
 ```
   
 We shall look at the covariance of each model.  
@@ -693,7 +693,7 @@ m4.7 <- alist(D ~ dnorm(mu, sigma),
               a ~ dnorm(100, 10), 
               w ~ dnorm(0, my_sigma), 
               sigma ~ dexp(1)) %>% 
-  quap(., data = list(D = cherry_blossoms$doy, B = B, my_sigma = vl_sigma), 
+  quap(data = list(D = cherry_blossoms$doy, B = B, my_sigma = vl_sigma), 
                       start = list(w = rep(0, ncol(B))))
 
 # get 97% posterior interval for mean
@@ -829,11 +829,11 @@ table_height
 
 | individual | weight | expected |    lower|    upper|
 |:----------:|:------:|:--------:|--------:|--------:|
-|     1      | 46.95  | 158.2663 | 157.3876| 159.0283|
-|     2      | 43.72  | 152.5715 | 151.8200| 153.3101|
-|     3      | 64.78  | 189.7022 | 188.2611| 191.1092|
-|     4      | 32.59  | 132.9483 | 132.3140| 133.6476|
-|     5      | 54.63  | 171.8068 | 170.6624| 172.7448|
+|     1      | 46.95  | 158.2630 | 157.3588| 159.0054|
+|     2      | 43.72  | 152.5677 | 151.8180| 153.2906|
+|     3      | 64.78  | 189.7015 | 188.3146| 191.1171|
+|     4      | 32.59  | 132.9428 | 132.2147| 133.5713|
+|     5      | 54.63  | 171.8046 | 170.7763| 172.9033|
   
 And we can see that it actually makes a big difference, especially for those with a large weight (*individual 3*), or with a particularly low weight (*individual 4*).  
   
@@ -1023,6 +1023,116 @@ We can see a pretty good fit for the relationship between height (cm) and the na
   
 We already covered this in *homework question 3* above.  
   
+  
+## Question 4H5  
+  
+**Return to data(cherry_blossoms) and model the association between blossom date (`doy`) and March temperature (`temp`). Note that there are many missing values in both variables. You may consider a linear model, a polynomial, or a spline on temperature. How well does temperature rend predict the blossom trend?**  
+  
+The easiest way to deal with missing values is to omit them. There are more sophisticated ways but for now it's sufficient for us. Let's load the data, select the parameters and add a column with the centered temperature in case we apply a polynomial regression.  
+  
+
+```r
+data("cherry_blossoms")
+
+cherry_blossoms <- cherry_blossoms %>%
+  as_tibble() %>% 
+  select(doy, temp) %>% 
+  drop_na() %>% 
+  mutate(temp_sc = (temp - mean(temp))/ sd(temp))
+```
+  
+Now let's take a quick look at the data to choose which model to use.  
+  
+
+```r
+ggplot(cherry_blossoms) +
+  geom_point(aes(temp_sc, doy), alpha = 0.5) +
+  labs(x = "Centered temperature", y = "Day in year") +
+  theme_minimal()
+```
+
+![](chapter4_files/figure-html/question 4H5 part 3-1.png)<!-- -->
+  
+It seems like there is a nuanced negative relationship, but with a lot of noise. Using a polynomial regression or a spline would probably capture too much of this noise without providing much insight. I will therefore use a simple linear regression approach and the temperature parameter as it is (without centering). I will mainly use less informative, wide priors. There is, however enough data so that priors do not matter that much. The prior on alpha covers most realistic values and the prior on beta that favours negative values (= negative slope = negative relationship).    
+  
+  
+
+```r
+# define average temp
+xbar <- cherry_blossoms %>% 
+  summarise(mean_temp = mean(temp)) %>% 
+  pull()
+
+# fit modell
+cherry_linear <- 
+  # define formula
+  alist(doy ~ dnorm(mu, sigma),
+        mu <- a + b * (temp - xbar),
+        a ~ dnorm(115, 30),
+        b ~ dnorm(-2, 5),
+        sigma ~ dunif(0, 50)) %>% 
+  # calculate maximum a posterior
+  quap(data = cherry_blossoms)
+```
+  
+Let's glimpse at the estimated parameters:  
+  
+
+```r
+precis(cherry_linear) %>% as_tibble() %>% 
+  add_column(parameter = rownames(precis(cherry_linear))) %>% 
+  rename("lower" = '5.5%', "upper" = '94.5%') %>% 
+  select(parameter, everything()) %>% 
+  knitr::kable(align = "lcrrr")
+```
+
+```
+## Warning in class(x) <- c(setdiff(subclass, tibble_class), tibble_class): Setze
+## class(x) auf mehrere Zeichenketten("tbl_df", "tbl", ...); das Ergebnis ist kein
+## S4 Objekt mehr
+```
+
+
+
+|parameter |    mean    |        sd|      lower|      upper|
+|:---------|:----------:|---------:|----------:|----------:|
+|a         | 104.921717 | 0.2106636| 104.585036| 105.258398|
+|b         | -2.990224  | 0.3078718|  -3.482263|  -2.498185|
+|sigma     |  5.910001  | 0.1489653|   5.671926|   6.148077|
+  
+The intercept is around day 105. The relationship is indeed negative: With every degree celsius warmer, the day of blossom is 3 days earlier on average. The confidence intervals are negative as well, showing that this relationship is somewhat strong (puhh, I almost said *significant*).  
+Let's look at the 89% prediction intervals:  
+  
+
+```r
+# define sequence of temperature
+temp_seq <- seq(from = min(cherry_blossoms$temp), 
+                to = max(cherry_blossoms$temp), by = 0.5)
+
+# calculate 89% intervals for each weight
+intervals <- tidy_intervals(link, cherry_linear, HPDI, "temp", temp_seq)
+
+
+# calculate means
+reg_line <- tidy_mean(cherry_linear, data = data.frame(temp = temp_seq))
+
+
+# calculate prediction intervals
+pred_intervals <- tidy_intervals(sim, cherry_linear, PI, "temp", temp_seq)
+
+  
+# plot it 
+plot_regression(cherry_blossoms, temp, doy)
+```
+
+![](chapter4_files/figure-html/question 4H5 part 6-1.png)<!-- -->
+  
+We can see the (coloured) negative trend line. The darker shaded interval around it shows the 89% plausible regions for the distribution of the mean `doy`. The lighter and broader interval shows the region within which the model expects to find 89% of actual height in the population. 
+
+
+
+
+
 
 
 
