@@ -969,7 +969,14 @@ pred_intervals <- tidy_intervals(sim, cherry_linear, PI, "temp", temp_seq)
 plot_regression(cherry_blossoms, temp, doy)
 ```  
   
-We can see the (coloured) negative trend line. The darker shaded interval around it shows the 89% plausible regions for the distribution of the mean `doy`. The lighter and broader interval shows the region within which the model expects to find 89% of actual height in the population. 
+We can see the (coloured) negative trend line. The darker shaded interval around it shows the 89% plausible regions for the distribution of the mean `doy`. The lighter and broader interval shows the region within which the model expects to find 89% of actual height in the population. So to answer the question: Temperature is clearly associated with the blossom trend, but the scatter of the predictions is quite large. Temperature does a mediocre job in predicting the `doy`.  
+  
+  
+## Question 4H6  
+  
+**Simulate the prior predictive distribution for the cherry blossom spline in the chapter. Adjust the prior on the weights and observe what happens. What do you think the prior on the weight is doing?**  
+  
+Again, as we want to tinker with the priors, we should make a function. 
 
 
 
