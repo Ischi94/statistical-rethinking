@@ -9,6 +9,8 @@ output:
     number_sections: true  
     theme: journal
     keep_md: true
+editor_options: 
+  chunk_output_type: console
 ---
 
 
@@ -16,7 +18,9 @@ output:
 # Introduction 
 
 This is the third part of a series where I work through the practice questions of the second edition of Richard McElreaths [Statistical Rethinking](https://xcelab.net/rm/statistical-rethinking/). Each post covers a new chapter. There are already some awesome sources for this book online like [Jeffrey Girard](https://jmgirard.com/statistical-rethinking-ch2/) working through the exercises of the first edition, or [Solomon Kurz](https://bookdown.org/ajkurz/Statistical_Rethinking_recoded/) leading through each example of the book with the *brms* and the *tidyverse* packages. You can even watch the [lectures of McElreath](https://www.youtube.com/playlist?list=PLDcUM9US4XdNM4Edgs7weiyIguLSToZRI) on Youtube and work through the [homework and solutions](https://github.com/rmcelreath/statrethinking_winter2019/tree/master/homework).
-However, so far I couldn't find a source providing solutions for the practice questions of the second edition, or the homework practices, in a tidy(-verse) way. My aim here is therefore to provide solutions for each homework and practice question of the second edition, using the *tidyverse* and the *rethinking* packages. The third part of the series will cover chapter 4, which corresponds to week 2 of the lectures and homework. 
+However, so far I couldn't find a source providing solutions for the practice questions of the second edition, or the homework practices, in a tidy(-verse) way. My aim here is therefore to provide solutions for each homework and practice question of the second edition, using the *tidyverse* and the *rethinking* packages. The third part of the series will cover chapter 4, which corresponds to week 2 of the lectures and homework.  
+McElreath himself states that chapter 4 is provides the foundation for most of the examples of the later chapters. So I will spend a bit more time on this chapter and go a bit more into detail.  
+  
 
 # Homework
 
@@ -87,8 +91,8 @@ Now we just have to add the predicted values to the table:
 
 
 ```r
-table_height <- tibble(individual = 1:5, weight = new_weight, expected = expected, 
-       lower = interval[c(TRUE, FALSE)], upper = interval[c(FALSE, TRUE)]) %>% 
+table_height <- tibble(individual = 1:5, weight = new_weight, expected = expected,
+                       lower = interval[c(TRUE, FALSE)], upper = interval[c(FALSE, TRUE)]) %>% 
   knitr::kable(align = "cccrr")
 
 table_height
@@ -98,11 +102,11 @@ table_height
 
 | individual | weight | expected |    lower|    upper|
 |:----------:|:------:|:--------:|--------:|--------:|
-|     1      | 46.95  | 158.2630 | 157.3588| 159.0054|
-|     2      | 43.72  | 152.5677 | 151.8180| 153.2906|
-|     3      | 64.78  | 189.7015 | 188.3146| 191.1171|
-|     4      | 32.59  | 132.9428 | 132.2147| 133.5713|
-|     5      | 54.63  | 171.8046 | 170.7763| 172.9033|
+|     1      | 46.95  | 158.2598 | 157.4822| 159.0747|
+|     2      | 43.72  | 152.5684 | 151.7712| 153.2207|
+|     3      | 64.78  | 189.6771 | 188.2664| 191.0991|
+|     4      | 32.59  | 132.9567 | 132.2909| 133.5861|
+|     5      | 54.63  | 171.7923 | 170.8008| 172.8412|
 
 ## Question 2
 
@@ -146,11 +150,11 @@ precis(m_log) %>% as_tibble() %>%
 
 
 
-|parameter |    mean    |        sd|     lower|      upper|
-|:---------|:----------:|---------:|---------:|----------:|
-|a         | -22.860624 | 1.3342556| -24.99302| -20.728226|
-|b         | 46.814039  | 0.3823133|  46.20303|  47.425050|
-|sigma     |  5.136812  | 0.1558648|   4.88771|   5.385914|
+|parameter |    mean    |        sd|      lower|      upper|
+|:---------|:----------:|---------:|----------:|----------:|
+|a         | -22.874288 | 1.3342913| -25.006744| -20.741833|
+|b         | 46.817782  | 0.3823241|  46.206754|  47.428810|
+|sigma     |  5.137088  | 0.1558847|   4.887954|   5.386222|
 
 Instead of trying to read these estimates, we can just visualise our model. Let's calculate the predicted mean height as a function of weight, the 97% PI for the mean, and the 97% PI for predicted heights as explained on page 108.  
   
@@ -231,7 +235,7 @@ This looks like a decent fit. Let's make a function of the ggplot, so we can cal
 
 
 ```r
-plot_regression <- function(df, x, y, # results, 
+plot_regression <- function(df, x, y, 
                             interv = intervals, pred_interv = pred_intervals){
   ggplot(df) +
     geom_point(aes({{x}}, {{y}}), alpha = 0.5) +
@@ -395,7 +399,28 @@ That's it. This is my first exercise fuzzing with priors and it really forced me
   
 # Easy practices  
   
-All the easy questions don't require new R code and are already covered by [Jeffrey Girard](https://jmgirard.com/statistical-rethinking-ch4/). 
+##  Question 4E1
+  
+**In the model definition below, which line is the likelihood?**  
+  
+$y_{i} ∼ Normal(μ,σ)$  
+$μ ∼ Normal(0,10)$  
+$σ ∼ Exponential(1)$   
+  
+We can follow the example on page 82: The first line is therefore the likelihood, the second line the prior on the mean, and the third the prior on the standard deviation.  
+  
+## Question 4E2  
+  
+**In the model definition just above, how many parameters are in the posterior distribution?**  
+  
+Y is not a parameter. It is the observed data (page 82). Hence, there are two parameters to be estimated in this model: μ and σ.  
+  
+## Question 4E3  
+  
+**Using the model definition above, write down the appropriate form of Bayes’ theorem that includes the proper likelihood and priors**  
+  
+We can simply follow the example on page 83:  
+$Pr(μ,σ|y)=∏iNormal(yi|μ,σ)Normal(μ|0,10)Uniform(σ|0,10)∫∫∏iNormal(hi|μ,σ)Normal(μ|0,10)Uniform(σ|0,10)dμdσ$
 
 # Medium practices 
   
@@ -829,11 +854,11 @@ table_height
 
 | individual | weight | expected |    lower|    upper|
 |:----------:|:------:|:--------:|--------:|--------:|
-|     1      | 46.95  | 158.2630 | 157.3588| 159.0054|
-|     2      | 43.72  | 152.5677 | 151.8180| 153.2906|
-|     3      | 64.78  | 189.7015 | 188.3146| 191.1171|
-|     4      | 32.59  | 132.9428 | 132.2147| 133.5713|
-|     5      | 54.63  | 171.8046 | 170.7763| 172.9033|
+|     1      | 46.95  | 158.2598 | 157.4822| 159.0747|
+|     2      | 43.72  | 152.5684 | 151.7712| 153.2207|
+|     3      | 64.78  | 189.6771 | 188.2664| 191.0991|
+|     4      | 32.59  | 132.9567 | 132.2909| 133.5861|
+|     5      | 54.63  | 171.7923 | 170.8008| 172.8412|
   
 And we can see that it actually makes a big difference, especially for those with a large weight (*individual 3*), or with a particularly low weight (*individual 4*).  
   
@@ -1017,7 +1042,7 @@ plot_regression(d, weight, height)
   
 We can see a pretty good fit for the relationship between height (cm) and the natural logarithm of weight (log-kg).  
   
-## 4H4  
+## Question 4H4  
   
 **Plot the prior predictive distribution for the parabolic polynomial regression model by modifying the code that plots the linear regression prior predictive distribution. Can you modify the prior distributions of a, b1, and b2 so that the prior predictions stay withing the biologically reasonable outcome space? That is to say: Do not try to fit the data by hand. But do try to keep the curves consisten with what you know about height and weight, before seeing these exact data.**
   
@@ -1127,7 +1152,14 @@ plot_regression(cherry_blossoms, temp, doy)
 
 ![](chapter4_files/figure-html/question 4H5 part 6-1.png)<!-- -->
   
-We can see the (coloured) negative trend line. The darker shaded interval around it shows the 89% plausible regions for the distribution of the mean `doy`. The lighter and broader interval shows the region within which the model expects to find 89% of actual height in the population. 
+We can see the (coloured) negative trend line. The darker shaded interval around it shows the 89% plausible regions for the distribution of the mean `doy`. The lighter and broader interval shows the region within which the model expects to find 89% of actual height in the population. So to answer the question: Temperature is clearly associated with the blossom trend, but the scatter of the predictions is quite large. Temperature does a mediocre job in predicting the `doy`.  
+  
+  
+## Question 4H6  
+  
+**Simulate the prior predictive distribution for the cherry blossom spline in the chapter. Adjust the prior on the weights and observe what happens. What do you think the prior on the weight is doing?**  
+  
+Again, as we want to tinker with the priors, we should make a function. 
 
 
 

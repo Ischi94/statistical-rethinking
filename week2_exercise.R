@@ -503,6 +503,8 @@ plot_regression(cherry_blossoms, temp, doy)
 # simulate the prior predictive distribution for the cherry blossom spline in the 
 # chapter. Adjust the prior on the weights and observe what happens. What do you think
 # the prior on the weights is doing?
+data("cherry_blossoms")
+
 cherry_blossoms <- cherry_blossoms %>%
   as_tibble() %>% 
   select(doy, year) %>% 
@@ -511,7 +513,8 @@ cherry_blossoms <- cherry_blossoms %>%
 # knots number
 num_knots <- 15
 # make knots
-knot_list <- quantile(cherry_blossoms$year, probs = seq(0, 1, length.out = num_knots))
+knot_list <- quantile(cherry_blossoms$year, 
+                      probs = seq(0, 1, length.out = num_knots))
 
 # construct basis function
 B <- bs(cherry_blossoms$year, knots = knot_list[-c(1, num_knots)], 
@@ -533,6 +536,7 @@ cherry_spline <-
 set.seed(123)
 
 cherry_spline_prior <- extract.prior(cherry_spline)
+
 cherry_spline_prior_dist <- link(cherry_spline, post = cherry_spline_prior, 
                   data = list(year = cherry_blossoms$year)) %>% 
   as_tibble() %>% 

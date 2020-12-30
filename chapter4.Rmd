@@ -9,6 +9,8 @@ output:
     number_sections: true  
     theme: journal
     keep_md: true
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -20,7 +22,9 @@ library(rethinking)
 # Introduction 
 
 This is the third part of a series where I work through the practice questions of the second edition of Richard McElreaths [Statistical Rethinking](https://xcelab.net/rm/statistical-rethinking/). Each post covers a new chapter. There are already some awesome sources for this book online like [Jeffrey Girard](https://jmgirard.com/statistical-rethinking-ch2/) working through the exercises of the first edition, or [Solomon Kurz](https://bookdown.org/ajkurz/Statistical_Rethinking_recoded/) leading through each example of the book with the *brms* and the *tidyverse* packages. You can even watch the [lectures of McElreath](https://www.youtube.com/playlist?list=PLDcUM9US4XdNM4Edgs7weiyIguLSToZRI) on Youtube and work through the [homework and solutions](https://github.com/rmcelreath/statrethinking_winter2019/tree/master/homework).
-However, so far I couldn't find a source providing solutions for the practice questions of the second edition, or the homework practices, in a tidy(-verse) way. My aim here is therefore to provide solutions for each homework and practice question of the second edition, using the *tidyverse* and the *rethinking* packages. The third part of the series will cover chapter 4, which corresponds to week 2 of the lectures and homework. 
+However, so far I couldn't find a source providing solutions for the practice questions of the second edition, or the homework practices, in a tidy(-verse) way. My aim here is therefore to provide solutions for each homework and practice question of the second edition, using the *tidyverse* and the *rethinking* packages. The third part of the series will cover chapter 4, which corresponds to week 2 of the lectures and homework.  
+McElreath himself states that chapter 4 is provides the foundation for most of the examples of the later chapters. So I will spend a bit more time on this chapter and go a bit more into detail.  
+  
 
 # Homework
 
@@ -87,8 +91,8 @@ interval <- pred_height %>%
 Now we just have to add the predicted values to the table:
 
 ```{r question 1 part 5}
-table_height <- tibble(individual = 1:5, weight = new_weight, expected = expected, 
-       lower = interval[c(TRUE, FALSE)], upper = interval[c(FALSE, TRUE)]) %>% 
+table_height <- tibble(individual = 1:5, weight = new_weight, expected = expected,
+                       lower = interval[c(TRUE, FALSE)], upper = interval[c(FALSE, TRUE)]) %>% 
   knitr::kable(align = "cccrr")
 
 table_height
@@ -202,7 +206,7 @@ ggplot(d) +
 This looks like a decent fit. Let's make a function of the ggplot, so we can call it later on:
 
 ```{r question 2 part 8}
-plot_regression <- function(df, x, y, # results, 
+plot_regression <- function(df, x, y, 
                             interv = intervals, pred_interv = pred_intervals){
   ggplot(df) +
     geom_point(aes({{x}}, {{y}}), alpha = 0.5) +
@@ -351,8 +355,41 @@ That's it. This is my first exercise fuzzing with priors and it really forced me
   
 # Easy practices  
   
-All the easy questions don't require new R code and are already covered by [Jeffrey Girard](https://jmgirard.com/statistical-rethinking-ch4/). 
-
+##  Question 4E1
+  
+**In the model definition below, which line is the likelihood?**  
+  
+$y_{i} ∼ Normal(μ,σ)$  
+$μ ∼ Normal(0,10)$  
+$σ ∼ Exponential(1)$   
+  
+We can follow the example on page 82: The first line is therefore the likelihood, the second line the prior on the mean, and the third the prior on the standard deviation.  
+  
+## Question 4E2  
+  
+**In the model definition just above, how many parameters are in the posterior distribution?**  
+  
+Y is not a parameter. It is the observed data (page 82). Hence, there are two parameters to be estimated in this model: μ and σ.  
+  
+## Question 4E3  
+  
+**Using the model definition above, write down the appropriate form of Bayes’ theorem that includes the proper likelihood and priors**  
+  
+We can simply follow the example on page 83:  
+$Pr(μ,σ|y)=∏iNormal(yi|μ,σ)Normal(μ|0,10)Uniform(σ|0,10)/∫∫∏iNormal(hi|μ,σ)Normal(μ|0,10)Uniform(σ|0,10)dμdσ$
+  
+Question 4E4  
+  
+**In the model definition below, which line is the linear model?**  
+  
+$y_{i} ∼ Normal(μ,σ)$  
+$μ_{i} = α + βx_{i}$  
+$α ~ Normal(0, 10)$  
+$β ∼ Normal(0,1)$  
+$σ ∼ Exponential(2)$   
+  
+Following the example on page 77: The first line is the likelihood. The second the linear model. The third the prior on α. The fourth the prior on β. And the fifth the prior on σ.  
+  
 # Medium practices 
   
 ## Question 4M1
@@ -385,17 +422,17 @@ ggplot(prior_y) +
 
 ## Question 4M2  
   
-**Translate the model just above into a `map()` formula**
+**Translate the model just above into a `quap()` formula**
   
 ```{r question 4M2}
-map_frm <- alist(y ~ dnorm(mu, sigma), 
+quap_frm <- alist(y ~ dnorm(mu, sigma), 
                  mu ~ dnorm(0, 10), 
                  sigma ~ dexp(1)) 
 ```
 
 ## Question 4M3  
 
-**Translate the `map()` model formula below into a mathematical model definition.**  
+**Translate the `quap()` model formula below into a mathematical model definition.**  
   
 ```{r question 4M3}
 flist <- alist(
@@ -415,7 +452,7 @@ $σ ∼ Uniform(0, 50)$
   
 ## Question 4M4  
   
-**A sample of students is measured for height each year for 3 years. After the third year, you want to fit a linear regression predicting height using year as a predictor. Write down the mathematical model definition for this regression, using any variable names and priors you choose. Be prepared to defend you choice of priors.**  
+**A sample of students is measured for height each year for 3 years. After the third year, you want to fit a linear regression predicting height using year as a predictor. Write down the mathematical model definition for this regression, using any variable names and priors you choose. Be prepared to defend your choice of priors.**  
   
 We can use a simple linear regression approach for this.  
 First the likelihood, assuming that height is normally distributed:  
@@ -446,7 +483,7 @@ tibble(growth = runif(10000, 0, 7)) %>%
   theme_minimal()
 ```  
   
-Now we just need to add a prior for sigma, the standard deviation of the height. I chosse a weak prior, which is within the reasonable height space (the first plot). A sigma above 40 would lead to height values outside of this range (second plot):  
+Now we just need to add a prior for sigma, the standard deviation of the height. I choose a weak prior, which is within the reasonable height space (the first plot). A sigma above 40 would lead to height values outside of this range (second plot):  
 $σ ∼ Uniform(0, 30)$
   
 ```{r question 4M4 part 3, fig.show="hold", out.width="50%"}
@@ -465,9 +502,9 @@ tibble(height = rnorm(10000, 150, 40)) %>%
   
 ## Question 4M5  
   
-**Now suppose I tell you that the average height in the first year was 120 cm and that every student got taller each year. Does this information lead you to change your choice of priors? How?**
+**Now suppose I remind you that every student got taller each year. Does this information lead you to change your choice of priors? How?**
 
-An average height of 120cm tells us that the students are children. We can keep our likelihood and linear model, but need to adjust the prior for alpha, beta, and sigma slightly. For alpha, we can use the new mean of 120. For beta (the growth rate), we can use a log normal distribution to force positive values and make them slightly bigger as before, as children tend to grow faster. For sigma, we can reduce it slightly as the spread is probably lower within children. 
+An increasing height tells us that the students are children or juveniles. We can keep our likelihood and linear model, but need to adjust the prior for alpha, beta, and sigma slightly. For alpha, we can use a new mean of 120. For beta (the growth rate), we can use a log normal distribution to force positive values and make them slightly bigger as before, as children tend to grow faster. For sigma, we can reduce it slightly as the spread is probably lower within children. 
   
 $h_{1} ∼ Normal(μ,σ)$  
   
@@ -538,10 +575,14 @@ m4.3 %>% vcov() %>% round(digits = 3) # low covariation
 So we seem to increase the covariation by not centering. Let's dig deeper by looking at summaries of the posterior distribution for each parameter:  
   
 ```{r question 4M7 part 4}
-m4.3new %>% extract.samples() %>% as_tibble() %>% 
+m4.3new %>% 
+  extract.samples() %>% 
+  as_tibble() %>% 
   summarise(alpha = mean(a), beta = mean(b), sigma = mean(sigma))
 
-m4.3 %>% extract.samples() %>% as_tibble() %>% 
+m4.3 %>% 
+  extract.samples() %>% 
+  as_tibble() %>% 
   summarise(alpha = mean(a), beta = mean(b), sigma = mean(sigma))
 ```
 
@@ -706,7 +747,8 @@ m_log <- alist(
   a ~ dnorm(178, 20),
   b ~ dlnorm(0, 1),
   sigma ~ dunif(0, 50)) %>% 
-  quap(data = d)
+  quap(data = d, 
+       start = list(a = mean(d$height), b = 1.5, sigma = 9))
 ```  
   
 Now we can make predictions from our model:  
@@ -782,7 +824,7 @@ m_young_res <- precis(m_young) %>%
 knitr::kable(m_young_res)
 ```  
   
-b can be interpreted as the slope in our regression, where with 1 unit change, height increases by 2.72. Hence, for every 10 units of increase in weight the model predicts that a child gets 27.2 cm taller.  
+b can be interpreted as the slope in our regression, where with 1 unit change, height increases by `r m_young_res %>% filter(parameter == "b") %>% pull(mean) %>% round(2)`. Hence, for every 10 units of increase in weight the model predicts that a child gets `r m_young_res %>% filter(parameter == "b") %>% pull(mean) %>% round(2)*10` cm taller.  
   
 ### Part 2  
   
@@ -826,7 +868,7 @@ The model clearly fails to estimate height at both low (<10) and high (>30) weig
 
 All we need to do is make a formula for the log of the weights, and the fit it to `quap()`. Remember that this uses all the data, so we should adjust our priors to it. Then we get the coefficient with `precis()`.    
   
-```{r question 4H3 part 1}
+```{r question 4H3 part 1, warning=FALSE}
 
 # fit model
 m_log <- alist(
@@ -937,7 +979,7 @@ cherry_linear <-
   
 Let's glimpse at the estimated parameters:  
   
-```{r question 4H5 part 5, message=FALSE}
+```{r question 4H5 part 5, message=FALSE, warning=FALSE}
 precis(cherry_linear) %>% as_tibble() %>% 
   add_column(parameter = rownames(precis(cherry_linear))) %>% 
   rename("lower" = '5.5%', "upper" = '94.5%') %>% 
@@ -976,6 +1018,41 @@ We can see the (coloured) negative trend line. The darker shaded interval around
   
 **Simulate the prior predictive distribution for the cherry blossom spline in the chapter. Adjust the prior on the weights and observe what happens. What do you think the prior on the weight is doing?**  
   
+Let's first load the data again. 
+```{r question 4H6 part 1}
+data("cherry_blossoms")
+
+cherry_blossoms <- cherry_blossoms %>%
+  as_tibble() %>% 
+  select(doy, year) %>% 
+  drop_na(doy)
+```
+  
+
+Now let's first calculate the prior predictive distribution with the prior used in the chapter. For this, we sample from the priors and calculate the trend line using the linear model equation. Note that we use the basis functions calculated above (B).  
+  
+```{r question 4H6 part 2}
+set.seed(2971)
+
+# nr of trend lines  
+N <- 100
+
+a <- rnorm(N, 100, 10)
+w <- rnorm(N, 0, 10)
+```
+
+Now we need to apply the equation and then bring it into a proper format for plotting:  
+  
+```{r question 4H6 part 3}
+x_seq <- seq(from = min(cherry_blossoms$year), 
+             to = max(cherry_blossoms$year), 
+             length.out = 100)
+
+B[, 1:15] %>% 
+  
+pmap(list(a, w), ~ .x + .y + .z)
+```
+
 Again, as we want to tinker with the priors, we should make a function. 
 
 
