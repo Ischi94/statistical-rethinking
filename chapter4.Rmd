@@ -1058,7 +1058,7 @@ N <- dim(B)[2]
 a <- rnorm(N, 100, 10)
 w <- rnorm(N, 0, 1)
     
-mu <- map(1:dim(B)[1], ~ a + sum(B[.x, ]*w))
+mu <- purrr::map(1:dim(B)[1], ~ a + sum(B[.x, ]*w))
 ```  
   
 mu is a list with 827 elements (one for each year observation in the data), and each element contains 19 estimates for mu (one for each knot/ basis function). We can get the mean estimate for each knot by applying the `mean` function to each element in mu:  
@@ -1088,7 +1088,7 @@ mu_sampler <- function(i){
     a <- rnorm(N, 100, 10)
     w <- rnorm(N, 0, 1)
     
-    mu <- map(1:827, ~ a + sum(B[.x, ]*w)) %>% 
+    mu <- purrr::map(1:827, ~ a + sum(B[.x, ]*w)) %>% 
       map_dbl(mean)
   }
 ```  
@@ -1118,7 +1118,7 @@ prior_weight <- function(w_mean, w_sd) {
     a <- rnorm(N, 100, 10)
     w <- rnorm(N, w_mean, w_sd)
     
-    mu <- map(1:827, ~ a + sum(B[.x, ]*w)) %>% 
+    mu <- purrr::map(1:827, ~ a + sum(B[.x, ]*w)) %>% 
       map_dbl(mean)
   }
   
@@ -1153,7 +1153,7 @@ knot_sampler <- function(i){
   a <- rnorm(N, 100, 10)
   w <- rnorm(N, 0, 1)
   
-  mu <- map(1:dim(B)[1], ~ a + sum(B[.x, ]*w)) %>% 
+  mu <- purrr::map(1:dim(B)[1], ~ a + sum(B[.x, ]*w)) %>% 
     map_dbl(mean)
 }
 ```
@@ -1203,7 +1203,7 @@ prior_knot <- function(w_mean, w_sd) {
   a <- rnorm(N, 100, 10)
   w <- rnorm(N, w_mean, w_sd)
   
-  mu <- map(1:dim(B)[1], ~ a + sum(B[.x, ]*w)) %>% 
+  mu <- purrr::map(1:dim(B)[1], ~ a + sum(B[.x, ]*w)) %>% 
     map_dbl(mean)
   }
   
@@ -1241,7 +1241,7 @@ prior_knot(0, 10)
 ```
 Increasing the sd for w increases the spread of the percentile interval, while the mean stays the same. What happens when we increase the mean of w?  
   
-```{r question 4H6 part 18}
+```{r question 4H6 part 17}
 prior_knot(10, 1)
 ```
 Now we increase the overall estimate for `doy`. It seems that w acts on each knot equally. It further seems to drive the overall estimate for `doy`. 

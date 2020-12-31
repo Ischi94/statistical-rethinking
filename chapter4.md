@@ -102,11 +102,11 @@ table_height
 
 | individual | weight | expected |    lower|    upper|
 |:----------:|:------:|:--------:|--------:|--------:|
-|     1      | 46.95  | 158.2598 | 157.4822| 159.0747|
-|     2      | 43.72  | 152.5684 | 151.7712| 153.2207|
-|     3      | 64.78  | 189.6771 | 188.2664| 191.0991|
-|     4      | 32.59  | 132.9567 | 132.2909| 133.5861|
-|     5      | 54.63  | 171.7923 | 170.8008| 172.8412|
+|     1      | 46.95  | 158.2903 | 157.4678| 159.0789|
+|     2      | 43.72  | 152.5933 | 151.8567| 153.3026|
+|     3      | 64.78  | 189.7384 | 188.3885| 191.1626|
+|     4      | 32.59  | 132.9625 | 132.3085| 133.5688|
+|     5      | 54.63  | 171.8361 | 170.8114| 172.8606|
 
 ## Question 2
 
@@ -152,8 +152,8 @@ precis(m_log) %>% as_tibble() %>%
 
 |parameter |    mean    |        sd|      lower|      upper|
 |:---------|:----------:|---------:|----------:|----------:|
-|a         | -22.874288 | 1.3342913| -25.006744| -20.741833|
-|b         | 46.817782  | 0.3823241|  46.206754|  47.428810|
+|a         | -22.874311 | 1.3342911| -25.006766| -20.741856|
+|b         | 46.817788  | 0.3823240|  46.206760|  47.428815|
 |sigma     |  5.137088  | 0.1558847|   4.887954|   5.386222|
 
 Instead of trying to read these estimates, we can just visualise our model. Let's calculate the predicted mean height as a function of weight, the 97% PI for the mean, and the 97% PI for predicted heights as explained on page 108.  
@@ -420,8 +420,20 @@ Y is not a parameter. It is the observed data (page 82). Hence, there are two pa
 **Using the model definition above, write down the appropriate form of Bayes’ theorem that includes the proper likelihood and priors**  
   
 We can simply follow the example on page 83:  
-$Pr(μ,σ|y)=∏iNormal(yi|μ,σ)Normal(μ|0,10)Uniform(σ|0,10)∫∫∏iNormal(hi|μ,σ)Normal(μ|0,10)Uniform(σ|0,10)dμdσ$
-
+$Pr(μ,σ|y)=∏iNormal(yi|μ,σ)Normal(μ|0,10)Uniform(σ|0,10)/∫∫∏iNormal(hi|μ,σ)Normal(μ|0,10)Uniform(σ|0,10)dμdσ$
+  
+Question 4E4  
+  
+**In the model definition below, which line is the linear model?**  
+  
+$y_{i} ∼ Normal(μ,σ)$  
+$μ_{i} = α + βx_{i}$  
+$α ~ Normal(0, 10)$  
+$β ∼ Normal(0,1)$  
+$σ ∼ Exponential(2)$   
+  
+Following the example on page 77: The first line is the likelihood. The second the linear model. The third the prior on α. The fourth the prior on β. And the fifth the prior on σ.  
+  
 # Medium practices 
   
 ## Question 4M1
@@ -457,18 +469,18 @@ ggplot(prior_y) +
 
 ## Question 4M2  
   
-**Translate the model just above into a `map()` formula**
+**Translate the model just above into a `quap()` formula**
   
 
 ```r
-map_frm <- alist(y ~ dnorm(mu, sigma), 
+quap_frm <- alist(y ~ dnorm(mu, sigma), 
                  mu ~ dnorm(0, 10), 
                  sigma ~ dexp(1)) 
 ```
 
 ## Question 4M3  
 
-**Translate the `map()` model formula below into a mathematical model definition.**  
+**Translate the `quap()` model formula below into a mathematical model definition.**  
   
 
 ```r
@@ -489,7 +501,7 @@ $σ ∼ Uniform(0, 50)$
   
 ## Question 4M4  
   
-**A sample of students is measured for height each year for 3 years. After the third year, you want to fit a linear regression predicting height using year as a predictor. Write down the mathematical model definition for this regression, using any variable names and priors you choose. Be prepared to defend you choice of priors.**  
+**A sample of students is measured for height each year for 3 years. After the third year, you want to fit a linear regression predicting height using year as a predictor. Write down the mathematical model definition for this regression, using any variable names and priors you choose. Be prepared to defend your choice of priors.**  
   
 We can use a simple linear regression approach for this.  
 First the likelihood, assuming that height is normally distributed:  
@@ -526,7 +538,7 @@ tibble(growth = runif(10000, 0, 7)) %>%
 
 ![](chapter4_files/figure-html/question 4M4 part 2-1.png)<!-- -->
   
-Now we just need to add a prior for sigma, the standard deviation of the height. I chosse a weak prior, which is within the reasonable height space (the first plot). A sigma above 40 would lead to height values outside of this range (second plot):  
+Now we just need to add a prior for sigma, the standard deviation of the height. I choose a weak prior, which is within the reasonable height space (the first plot). A sigma above 40 would lead to height values outside of this range (second plot):  
 $σ ∼ Uniform(0, 30)$
   
 
@@ -548,9 +560,9 @@ tibble(height = rnorm(10000, 150, 40)) %>%
   
 ## Question 4M5  
   
-**Now suppose I tell you that the average height in the first year was 120 cm and that every student got taller each year. Does this information lead you to change your choice of priors? How?**
+**Now suppose I remind you that every student got taller each year. Does this information lead you to change your choice of priors? How?**
 
-An average height of 120cm tells us that the students are children. We can keep our likelihood and linear model, but need to adjust the prior for alpha, beta, and sigma slightly. For alpha, we can use the new mean of 120. For beta (the growth rate), we can use a log normal distribution to force positive values and make them slightly bigger as before, as children tend to grow faster. For sigma, we can reduce it slightly as the spread is probably lower within children. 
+An increasing height tells us that the students are children or juveniles. We can keep our likelihood and linear model, but need to adjust the prior for alpha, beta, and sigma slightly. For alpha, we can use a new mean of 120. For beta (the growth rate), we can use a log normal distribution to force positive values and make them slightly bigger as before, as children tend to grow faster. For sigma, we can reduce it slightly as the spread is probably lower within children. 
   
 $h_{1} ∼ Normal(μ,σ)$  
   
@@ -640,7 +652,9 @@ So we seem to increase the covariation by not centering. Let's dig deeper by loo
   
 
 ```r
-m4.3new %>% extract.samples() %>% as_tibble() %>% 
+m4.3new %>% 
+  extract.samples() %>% 
+  as_tibble() %>% 
   summarise(alpha = mean(a), beta = mean(b), sigma = mean(sigma))
 ```
 
@@ -652,7 +666,9 @@ m4.3new %>% extract.samples() %>% as_tibble() %>%
 ```
 
 ```r
-m4.3 %>% extract.samples() %>% as_tibble() %>% 
+m4.3 %>% 
+  extract.samples() %>% 
+  as_tibble() %>% 
   summarise(alpha = mean(a), beta = mean(b), sigma = mean(sigma))
 ```
 
@@ -801,7 +817,8 @@ m_log <- alist(
   a ~ dnorm(178, 20),
   b ~ dlnorm(0, 1),
   sigma ~ dunif(0, 50)) %>% 
-  quap(data = d)
+  quap(data = d, 
+       start = list(a = mean(d$height), b = 1.5, sigma = 9))
 ```
   
 Now we can make predictions from our model:  
@@ -837,11 +854,11 @@ tibble(individual = 1:5, weight = new_weight, expected = expected,
 
 | individual | weight | expected |    lower|    upper|
 |:----------:|:------:|:--------:|--------:|--------:|
-|     1      | 46.95  | 157.3269 | 156.9247| 157.7544|
-|     2      | 43.72  | 153.9894 | 153.5958| 154.3793|
-|     3      | 64.78  | 172.3999 | 171.8134| 172.9006|
-|     4      | 32.59  | 140.2327 | 139.8573| 140.5483|
-|     5      | 54.63  | 164.4206 | 163.9459| 164.8838|
+|     1      | 46.95  | 157.3319 | 156.8660| 157.7259|
+|     2      | 43.72  | 153.9949 | 153.5659| 154.3738|
+|     3      | 64.78  | 172.4026 | 171.7798| 172.9538|
+|     4      | 32.59  | 140.2403 | 139.9027| 140.6235|
+|     5      | 54.63  | 164.4245 | 163.9121| 164.8932|
   
 And now we can compare our results to the predictions from the regular model, which we named `table_height`. 
 
@@ -854,11 +871,11 @@ table_height
 
 | individual | weight | expected |    lower|    upper|
 |:----------:|:------:|:--------:|--------:|--------:|
-|     1      | 46.95  | 158.2598 | 157.4822| 159.0747|
-|     2      | 43.72  | 152.5684 | 151.7712| 153.2207|
-|     3      | 64.78  | 189.6771 | 188.2664| 191.0991|
-|     4      | 32.59  | 132.9567 | 132.2909| 133.5861|
-|     5      | 54.63  | 171.7923 | 170.8008| 172.8412|
+|     1      | 46.95  | 158.2903 | 157.4678| 159.0789|
+|     2      | 43.72  | 152.5933 | 151.8567| 153.3026|
+|     3      | 64.78  | 189.7384 | 188.3885| 191.1626|
+|     4      | 32.59  | 132.9625 | 132.3085| 133.5688|
+|     5      | 54.63  | 171.8361 | 170.8114| 172.8606|
   
 And we can see that it actually makes a big difference, especially for those with a large weight (*individual 3*), or with a particularly low weight (*individual 4*).  
   
@@ -914,9 +931,9 @@ knitr::kable(m_young_res)
 
 |parameter |       mean|        sd|      lower|      upper|
 |:---------|----------:|---------:|----------:|----------:|
-|a         | 108.323612| 0.6087742| 107.350673| 109.296551|
-|b         |   2.716658| 0.0683153|   2.607477|   2.825839|
-|sigma     |   8.437158| 0.4305626|   7.749036|   9.125280|
+|a         | 108.323275| 0.6089240| 107.350097| 109.296453|
+|b         |   2.716610| 0.0683322|   2.607402|   2.825818|
+|sigma     |   8.439234| 0.4308276|   7.750689|   9.127780|
   
 b can be interpreted as the slope in our regression, where with 1 unit change, height increases by 2.72. Hence, for every 10 units of increase in weight the model predicts that a child gets 27.2 cm taller.  
   
@@ -979,25 +996,17 @@ m_log <- alist(
 m_log_res <- precis(m_log) %>% as_tibble() %>% 
   add_column(parameter = rownames(precis(m_log)), .before = "mean") %>% 
   rename("lower" = '5.5%', "upper" = '94.5%')
-```
 
-```
-## Warning in class(x) <- c(setdiff(subclass, tibble_class), tibble_class): Setze
-## class(x) auf mehrere Zeichenketten("tbl_df", "tbl", ...); das Ergebnis ist kein
-## S4 Objekt mehr
-```
-
-```r
 knitr::kable(m_log_res, align = "lccc")
 ```
 
 
 
-|parameter |    mean    |    sd     |   lower   |upper      |
-|:---------|:----------:|:---------:|:---------:|:----------|
-|a         | -23.748669 | 1.3351568 | -25.88251 |-21.614831 |
-|b         | 47.065102  | 0.3825584 | 46.45370  |47.676504  |
-|sigma     |  5.134163  | 0.1556276 |  4.88544  |5.382886   |
+|parameter |    mean    |    sd     |   lower    |upper      |
+|:---------|:----------:|:---------:|:----------:|:----------|
+|a         | -23.734756 | 1.3353063 | -25.868833 |-21.600679 |
+|b         | 47.060955  | 0.3826012 | 46.449485  |47.672426  |
+|sigma     |  5.134726  | 0.1556704 |  4.885935  |5.383517   |
   
 We get a weird alpha estimate of -24, what does this mean? It's just the predicted height of an individual with the weight of 0 log-kg. Beta shows the predicted increase (41 cm) for a 1 log-kg increase in weight. The standard deviation of height prediction, sigma, is around 5 cm. We can see that using a transformation for one parameter renders the coefficients less interpretable.  
   
@@ -1111,19 +1120,13 @@ precis(cherry_linear) %>% as_tibble() %>%
   knitr::kable(align = "lcrrr")
 ```
 
-```
-## Warning in class(x) <- c(setdiff(subclass, tibble_class), tibble_class): Setze
-## class(x) auf mehrere Zeichenketten("tbl_df", "tbl", ...); das Ergebnis ist kein
-## S4 Objekt mehr
-```
-
 
 
 |parameter |    mean    |        sd|      lower|      upper|
 |:---------|:----------:|---------:|----------:|----------:|
-|a         | 104.921717 | 0.2106636| 104.585036| 105.258398|
-|b         | -2.990224  | 0.3078718|  -3.482263|  -2.498185|
-|sigma     |  5.910001  | 0.1489653|   5.671926|   6.148077|
+|a         | 104.921601 | 0.2106748| 104.584902| 105.258300|
+|b         | -2.990052  | 0.3078881|  -3.482117|  -2.497987|
+|sigma     |  5.910315  | 0.1489851|   5.672208|   6.148422|
   
 The intercept is around day 105. The relationship is indeed negative: With every degree celsius warmer, the day of blossom is 3 days earlier on average. The confidence intervals are negative as well, showing that this relationship is somewhat strong (puhh, I almost said *significant*).  
 Let's look at the 89% prediction intervals:  
@@ -1159,20 +1162,275 @@ We can see the (coloured) negative trend line. The darker shaded interval around
   
 **Simulate the prior predictive distribution for the cherry blossom spline in the chapter. Adjust the prior on the weights and observe what happens. What do you think the prior on the weight is doing?**  
   
-Again, as we want to tinker with the priors, we should make a function. 
+I had quite a hard time to wrap my head around this question. I think that we are supposed to simulate the prior predictive distribution for `doy` (Day in year), wich is the outcome variable of the linear model. This was quite easy in previous examples, as we just had to sample from each prior distribution and combine the results. In this case, however, we have to implement the basis functions.  
+But let's first load the data again.  
+  
+
+```r
+data("cherry_blossoms")
+
+cherry_blossoms <- cherry_blossoms %>%
+  as_tibble() %>% 
+  select(doy, year) %>% 
+  drop_na(doy)
+```
+  
+Now let's recreate the knots and the basis functions for the spline:  
+  
+
+```r
+# number of knots
+nr_knots <- 15
+
+knot_list <- cherry_blossoms$year %>% 
+  quantile(probs = seq(0, 1, length.out = nr_knots)) 
+
+# construct basis functions
+B <- cherry_blossoms$year %>% 
+  bs(knots = knot_list, degree = 3, intercept = TRUE) 
+```
+  
+And here the hard part begins. The linear model is given on page 117:  
+`mu <- a + B %*% w`.  
+  
+We have to multiply each element of w by each value in the corresponding row of B and then sum each result, and add it to a. 
+
+Now let's first calculate the prior predictive distribution with the prior used in the chapter. For this, we sample from the priors and calculate the trend line using the linear model equation. Note that we use the basis functions calculated above (B).  
+Let's first do it once by sampling a and w and then calculating mu:  
 
 
+```r
+N <- dim(B)[2]
 
+a <- rnorm(N, 100, 10)
+w <- rnorm(N, 0, 1)
+    
+mu <- purrr::map(1:dim(B)[1], ~ a + sum(B[.x, ]*w))
+```
+  
+mu is a list with 827 elements (one for each year observation in the data), and each element contains 19 estimates for mu (one for each knot/ basis function). We can get the mean estimate for each knot by applying the `mean` function to each element in mu:  
+  
 
+```r
+mu <- map_dbl(mu, mean)
+```
+  
+Now mu is a vector with length 827, giving us the mean estimate for one spline trend line:  
+  
 
+```r
+cherry_blossoms %>% 
+  ggplot() + 
+  geom_point(aes(year, doy), colour = "steelblue2", alpha = 0.7) +
+  geom_path(aes(year, value), 
+            data = mu %>% as_tibble() %>% 
+              add_column(year = cherry_blossoms$year), 
+            colour = "coral", size = 1.3) +
+  labs(x = "Day in year") +
+  theme_minimal()
+```
 
+![](chapter4_files/figure-html/question 4H6 part 5-1.png)<!-- -->
+  
+This is just one guess of the model for mean doy without seeing any data. But for a proper prior predictive simulation, we want to see many guesses of the model to get the overall distribution. For this, we need to write our sampling into a function with i as an argument. i will be later used to replicate the function.  
+  
 
+```r
+mu_sampler <- function(i){
+    a <- rnorm(N, 100, 10)
+    w <- rnorm(N, 0, 1)
+    
+    mu <- purrr::map(1:827, ~ a + sum(B[.x, ]*w)) %>% 
+      map_dbl(mean)
+  }
+```
+  
+Now we can simulate 1,000 runs using `replicate`.  
+  
 
+```r
+mu2 <- replicate(1e3, mu_sampler()) %>% 
+  as.vector() %>% 
+  as_tibble() 
+  
+  
+ggplot(mu2) +
+  geom_density(aes(value)) +
+  theme_minimal() +
+  labs(title = paste0("w ~ dnorm(", 0, ",", 1, ")"), 
+         x = "Day in year")
+```
 
+![](chapter4_files/figure-html/question 4H6 part 7-1.png)<!-- -->
 
+This is the prior predictive distribution for `doy` with the prior on w used in the chapter. The model predicts `doy` to be normally distributed around the day 100. 
+But we are supposed to play around with the prior on w and see the effect on the prior predictive distribution. So let's make a function from the above code dependent on the prior values:  
+  
 
+```r
+prior_weight <- function(w_mean, w_sd) {
+  
+  mu_sampler <- function(i){
+    a <- rnorm(N, 100, 10)
+    w <- rnorm(N, w_mean, w_sd)
+    
+    mu <- purrr::map(1:827, ~ a + sum(B[.x, ]*w)) %>% 
+      map_dbl(mean)
+  }
+  
+  mu2 <- replicate(1e3, mu_sampler()) %>% 
+    as.vector() %>% 
+    as_tibble() 
+  
+  
+  ggplot(mu2) +
+    geom_density(aes(value)) +
+    theme_minimal() +
+    labs(title = paste0("w ~ dnorm(", w_mean, ",", w_sd, ")"), 
+         x = "Day in year")
+}
+```
+  
+Now what happens if we increase the standard deviaton of w?  
+  
 
+```r
+prior_weight(0, 10)
+```
 
+![](chapter4_files/figure-html/question 4H6 part 9-1.png)<!-- -->
+Obviously, not much. Let's see what happens if we increase the mean instead:  
+  
 
+```r
+prior_weight(10, 1)
+```
+
+![](chapter4_files/figure-html/question 4H6 part 10-1.png)<!-- -->
+We shift the distribution to the right. So to be honest I am not sure what w is doing precisely, as it is quite hard to read that from the prior predictive distribution where all knots are combined. Instead, let's try a prior predictive simulation for each knot.  
+First, set up a function that calculates the mean `doy`for each knot based on the priors used in the chapter:  
+  
+
+```r
+knot_sampler <- function(i){
+  a <- rnorm(N, 100, 10)
+  w <- rnorm(N, 0, 1)
+  
+  mu <- purrr::map(1:dim(B)[1], ~ a + sum(B[.x, ]*w)) %>% 
+    map_dbl(mean)
+}
+```
+  
+Now repeat the sampling for `doy` for each knot a thousand times:  
+  
+
+```r
+mu2 <- replicate(1e3, knot_sampler()) %>% 
+  as_tibble() %>% 
+  magrittr::set_colnames(1:1e3)
+```
+  
+Let's calculate the mean and the PI for each knot from these thousand samples:  
+  
+
+```r
+mu2_rep <- mu2 %>% 
+  add_column(year = cherry_blossoms$year) %>% 
+  pivot_longer(cols = -year, 
+               names_to = "trial", values_to = "doy") %>% 
+  group_by(year) %>% 
+  summarise(mean_doy = mean(doy), 
+            lower_val = PI(doy)[1], 
+            upper_val = PI(doy)[2]) 
+```
+
+```
+## `summarise()` ungrouping output (override with `.groups` argument)
+```
+  
+And plot it:  
+  
+
+```r
+ggplot(data = mu2_rep) + 
+  geom_point(aes(year, doy), 
+             colour = "steelblue2", alpha = 0.7, 
+             data = cherry_blossoms,) +
+  geom_ribbon(aes(x = year, ymin = lower_val, ymax = upper_val),
+                alpha = 0.3) +
+  geom_path(aes(year, mean_doy), 
+            colour = "coral", size = 1.3) +
+  labs(title = paste0("w ~ dnorm(", 0, ",", 1, ")"), 
+       y = "Day in year") +
+  theme_minimal()
+```
+
+![](chapter4_files/figure-html/question 4H6 part 14-1.png)<!-- -->
+  
+We can see that we assign the same prior distribution for each knot (flat line of the mean and the percentile interval borders). Now let's tinker with w. First, we again make a function dependent on w:  
+  
+
+```r
+prior_knot <- function(w_mean, w_sd) {
+  knot_sampler <- function(i){
+  a <- rnorm(N, 100, 10)
+  w <- rnorm(N, w_mean, w_sd)
+  
+  mu <- purrr::map(1:dim(B)[1], ~ a + sum(B[.x, ]*w)) %>% 
+    map_dbl(mean)
+  }
+  
+  mu2 <- replicate(1e3, knot_sampler()) %>%
+    as_tibble() %>% 
+    magrittr::set_colnames(1:1e3)
+  
+  mu2_rep <- mu2 %>% 
+    add_column(year = cherry_blossoms$year) %>% 
+    pivot_longer(cols = -year, 
+               names_to = "trial", values_to = "doy") %>% 
+    group_by(year) %>% 
+    summarise(mean_doy = mean(doy), 
+            lower_val = PI(doy)[1], 
+            upper_val = PI(doy)[2])
+  
+  ggplot(data = mu2_rep) + 
+    geom_point(aes(year, doy), 
+             colour = "steelblue2", alpha = 0.7, 
+             data = cherry_blossoms,) +
+    geom_ribbon(aes(x = year, ymin = lower_val, ymax = upper_val),
+                alpha = 0.3) +
+    geom_path(aes(year, mean_doy), 
+            colour = "coral", size = 1.3) +
+    labs(title = paste0("w ~ dnorm(", w_mean, ",", w_sd, ")"), 
+       y = "Day in year") +
+    theme_minimal()
+}
+```
+
+And now let's increase the standard deviation:  
+  
+
+```r
+prior_knot(0, 10)
+```
+
+```
+## `summarise()` ungrouping output (override with `.groups` argument)
+```
+
+![](chapter4_files/figure-html/question 4H6 part 16-1.png)<!-- -->
+Increasing the sd for w increases the spread of the percentile interval, while the mean stays the same. What happens when we increase the mean of w?  
+  
+
+```r
+prior_knot(10, 1)
+```
+
+```
+## `summarise()` ungrouping output (override with `.groups` argument)
+```
+
+![](chapter4_files/figure-html/question 4H6 part 17-1.png)<!-- -->
+Now we increase the overall estimate for `doy`. It seems that w acts on each knot equally. It further seems to drive the overall estimate for `doy`. 
 
 
