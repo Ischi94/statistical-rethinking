@@ -1,16 +1,22 @@
 ---
 title: "Rethinking Chapter 4"
 author: "Gregor Mathes"
-date: "2020-01-08"
+date: "2021-01-01"
+slug: Rethinking Chapter 4
+categories: []
+tags: [Rethinking, Bayes, Statistics]
+subtitle: ''
+summary: 'This is the third part of a series where I work through the practice questions of the second edition of Richard McElreaths Statistical Rethinking'
+authors: [Gregor Mathes]
+lastmod: '2021-01-01T12:07:04+02:00'
+featured: no
+projects: [Rethinking]
 output:
-  html_document: 
+  blogdown::html_page:
     toc: true
-    toc_float: true
-    number_sections: true  
-    theme: journal
-    keep_md: true
-editor_options: 
-  chunk_output_type: console
+    toc_depth: 1
+    number_sections: true
+    fig_width: 6
 ---
 
 ```{r setup, include=FALSE}
