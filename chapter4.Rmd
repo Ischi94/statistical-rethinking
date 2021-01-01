@@ -1316,7 +1316,12 @@ mu_mean %>%
   
 To be honest, that looks pretty convincing to me. And it obviously worked fine, so I will not change anything.  
   
-
+--------------------------------------------------------------------------------
+  
+  
+```{r session info}
+sessionInfo()
+```
 
 
 
