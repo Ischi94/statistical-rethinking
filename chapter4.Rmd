@@ -1056,7 +1056,7 @@ Let's first do it once by sampling a and w and then calculating mu:
 N <- dim(B)[2]
 
 a <- rnorm(N, 100, 10)
-w <- rnorm(N, 0, 1)
+w <- rnorm(N, 0, 10)
     
 mu <- purrr::map(1:dim(B)[1], ~ a + sum(B[.x, ]*w))
 ```  
@@ -1081,12 +1081,12 @@ cherry_blossoms %>%
   theme_minimal()
 ```
   
-This is just one guess of the model for mean doy without seeing any data. But for a proper prior predictive simulation, we want to see many guesses of the model to get the overall distribution. For this, we need to write our sampling into a function with i as an argument. i will be later used to replicate the function.  
+This is just one guess of the model for mean `doy` without seeing any data. But for a proper prior predictive simulation, we want to see many guesses of the model to get the overall distribution. For this, we need to write our sampling into a function with i as an argument. i will be later used to replicate the function.  
   
 ```{r question 4H6 part 6}
 mu_sampler <- function(i){
     a <- rnorm(N, 100, 10)
-    w <- rnorm(N, 0, 1)
+    w <- rnorm(N, 0, 10)
     
     mu <- purrr::map(1:827, ~ a + sum(B[.x, ]*w)) %>% 
       map_dbl(mean)
@@ -1104,7 +1104,7 @@ mu2 <- replicate(1e3, mu_sampler()) %>%
 ggplot(mu2) +
   geom_density(aes(value)) +
   theme_minimal() +
-  labs(title = paste0("w ~ dnorm(", 0, ",", 1, ")"), 
+  labs(title = paste0("w ~ dnorm(", 0, ",", 10, ")"), 
          x = "Day in year")
 ```
 
@@ -1137,30 +1137,32 @@ prior_weight <- function(w_mean, w_sd) {
   
 Now what happens if we increase the standard deviaton of w?  
   
-```{r question 4H6 part 9}
-prior_weight(0, 10)
-```
-Obviously, not much. Let's see what happens if we increase the mean instead:  
+```{r question 4H6 part 9, message=FALSE}
+prior_weight(0, 20)
+```  
   
-```{r question 4H6 part 10}
-prior_weight(10, 1)
-```
+We get more uncertainty for `doy`. Let's see what happens if we increase the mean instead:  
+  
+```{r question 4H6 part 10, message=FALSE}
+prior_weight(10, 10)
+```  
+  
 We shift the distribution to the right. So to be honest I am not sure what w is doing precisely, as it is quite hard to read that from the prior predictive distribution where all knots are combined. Instead, let's try a prior predictive simulation for each knot.  
 First, set up a function that calculates the mean `doy`for each knot based on the priors used in the chapter:  
   
 ```{r question 4H6 part 11}
 knot_sampler <- function(i){
   a <- rnorm(N, 100, 10)
-  w <- rnorm(N, 0, 1)
+  w <- rnorm(N, 0, 10)
   
   mu <- purrr::map(1:dim(B)[1], ~ a + sum(B[.x, ]*w)) %>% 
     map_dbl(mean)
 }
-```
+```  
   
 Now repeat the sampling for `doy` for each knot a thousand times:  
   
-```{r question 4H6 part 12}
+```{r question 4H6 part 12, message=FALSE}
 mu2 <- replicate(1e3, knot_sampler()) %>% 
   as_tibble() %>% 
   magrittr::set_colnames(1:1e3)
@@ -1168,7 +1170,7 @@ mu2 <- replicate(1e3, knot_sampler()) %>%
   
 Let's calculate the mean and the PI for each knot from these thousand samples:  
   
-```{r question 4H6 part 13}
+```{r question 4H6 part 13, message=FALSE}
 mu2_rep <- mu2 %>% 
   add_column(year = cherry_blossoms$year) %>% 
   pivot_longer(cols = -year, 
@@ -1190,12 +1192,12 @@ ggplot(data = mu2_rep) +
                 alpha = 0.3) +
   geom_path(aes(year, mean_doy), 
             colour = "coral", size = 1.3) +
-  labs(title = paste0("w ~ dnorm(", 0, ",", 1, ")"), 
+  labs(title = paste0("w ~ dnorm(", 0, ",", 10, ")"), 
        y = "Day in year") +
   theme_minimal()
 ```  
   
-We can see that we assign the same prior distribution for each knot (flat line of the mean and the percentile interval borders). Now let's tinker with w. First, we again make a function dependent on w:  
+We can see that we assign the same prior distribution for each knot (flat line of the mean and the percentile interval borders), but with some edge effects. Now let's tinker with w. First, we again make a function dependent on w:  
   
 ```{r question 4H6 part 15}
 prior_knot <- function(w_mean, w_sd) {
@@ -1236,14 +1238,34 @@ prior_knot <- function(w_mean, w_sd) {
 
 And now let's increase the standard deviation:  
   
-```{r question 4H6 part 16}
-prior_knot(0, 10)
-```
+```{r question 4H6 part 16, message=FALSE}
+prior_knot(0, 20)
+```  
+  
 Increasing the sd for w increases the spread of the percentile interval, while the mean stays the same. What happens when we increase the mean of w?  
   
-```{r question 4H6 part 17}
-prior_knot(10, 1)
+```{r question 4H6 part 17, message=FALSE}
+prior_knot(10, 10)
+```  
+  
+Now we increase the overall estimate for `doy`. It seems that w acts on each knot equally. It further seems to drive the overall estimate for `doy`.  
+  
+## Question 4H7  
+  
+**The cherry blossom spline in the chapter used an intercept a, but technically it doesn't require one. The first basis function could substitute for the intercept. Try refitting the cherry blossom spline without the intercept. What else about the model do you need to change to make this work?**  
+  
+Let's just try it without an intercept:  
+  
+```{r question 4H7 part 1}
+no_int <- quap(
+  alist(
+    D ~ dnorm(mu, sigma), 
+    mu <- B %*% w, 
+    w ~ dnorm(0, 10), 
+    sigma
+  )
+)
 ```
-Now we increase the overall estimate for `doy`. It seems that w acts on each knot equally. It further seems to drive the overall estimate for `doy`. 
+
 
 
