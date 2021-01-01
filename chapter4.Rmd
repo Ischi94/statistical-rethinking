@@ -23,7 +23,7 @@ library(rethinking)
 
 This is the third part of a series where I work through the practice questions of the second edition of Richard McElreaths [Statistical Rethinking](https://xcelab.net/rm/statistical-rethinking/). Each post covers a new chapter. There are already some awesome sources for this book online like [Jeffrey Girard](https://jmgirard.com/statistical-rethinking-ch2/) working through the exercises of the first edition, or [Solomon Kurz](https://bookdown.org/ajkurz/Statistical_Rethinking_recoded/) leading through each example of the book with the *brms* and the *tidyverse* packages. You can even watch the [lectures of McElreath](https://www.youtube.com/playlist?list=PLDcUM9US4XdNM4Edgs7weiyIguLSToZRI) on Youtube and work through the [homework and solutions](https://github.com/rmcelreath/statrethinking_winter2019/tree/master/homework).
 However, so far I couldn't find a source providing solutions for the practice questions of the second edition, or the homework practices, in a tidy(-verse) way. My aim here is therefore to provide solutions for each homework and practice question of the second edition, using the *tidyverse* and the *rethinking* packages. The third part of the series will cover chapter 4, which corresponds to week 2 of the lectures and homework.  
-McElreath himself states that chapter 4 is provides the foundation for most of the examples of the later chapters. So I will spend a bit more time on this chapter and go a bit more into detail.  
+McElreath himself states that chapter 4 provides the foundation for most of the examples of the later chapters. So I will spend a bit more time on this chapter and go a bit more into detail.  
   
 
 # Homework
@@ -1053,12 +1053,12 @@ Now let's first calculate the prior predictive distribution with the prior used 
 Let's first do it once by sampling a and w and then calculating mu:  
 
 ```{r question 4H6 part 3}
-N <- dim(B)[2]
+N <- ncol(B)
 
 a <- rnorm(N, 100, 10)
 w <- rnorm(N, 0, 10)
     
-mu <- purrr::map(1:dim(B)[1], ~ a + sum(B[.x, ]*w))
+mu <- purrr::map(1:nrow(B), ~ a + sum(B[.x, ]*w))
 ```  
   
 mu is a list with 827 elements (one for each year observation in the data), and each element contains 19 estimates for mu (one for each knot/ basis function). We can get the mean estimate for each knot by applying the `mean` function to each element in mu:  
@@ -1088,7 +1088,7 @@ mu_sampler <- function(i){
     a <- rnorm(N, 100, 10)
     w <- rnorm(N, 0, 10)
     
-    mu <- purrr::map(1:827, ~ a + sum(B[.x, ]*w)) %>% 
+    mu <- purrr::map(1:nrow(B), ~ a + sum(B[.x, ]*w)) %>% 
       map_dbl(mean)
   }
 ```  
@@ -1118,7 +1118,7 @@ prior_weight <- function(w_mean, w_sd) {
     a <- rnorm(N, 100, 10)
     w <- rnorm(N, w_mean, w_sd)
     
-    mu <- purrr::map(1:827, ~ a + sum(B[.x, ]*w)) %>% 
+    mu <- purrr::map(1:nrow(B), ~ a + sum(B[.x, ]*w)) %>% 
       map_dbl(mean)
   }
   
@@ -1155,7 +1155,7 @@ knot_sampler <- function(i){
   a <- rnorm(N, 100, 10)
   w <- rnorm(N, 0, 10)
   
-  mu <- purrr::map(1:dim(B)[1], ~ a + sum(B[.x, ]*w)) %>% 
+  mu <- purrr::map(1:nrow(B), ~ a + sum(B[.x, ]*w)) %>% 
     map_dbl(mean)
 }
 ```  
@@ -1205,7 +1205,7 @@ prior_knot <- function(w_mean, w_sd) {
   a <- rnorm(N, 100, 10)
   w <- rnorm(N, w_mean, w_sd)
   
-  mu <- purrr::map(1:dim(B)[1], ~ a + sum(B[.x, ]*w)) %>% 
+  mu <- purrr::map(1:nrow(B), ~ a + sum(B[.x, ]*w)) %>% 
     map_dbl(mean)
   }
   
@@ -1257,15 +1257,62 @@ Now we increase the overall estimate for `doy`. It seems that w acts on each kno
 Let's just try it without an intercept:  
   
 ```{r question 4H7 part 1}
-no_int <- quap(
-  alist(
+no_int <- alist(
     D ~ dnorm(mu, sigma), 
     mu <- B %*% w, 
     w ~ dnorm(0, 10), 
-    sigma
-  )
-)
-```
+    sigma ~ dexp(1)) %>% 
+  quap(
+   data = list(D = cherry_blossoms$doy, B = B), 
+   start = list(w = rep(0, ncol(B))))
+  
+```  
+  
+Let's see what the model says by sampling from the posterior distribution.  
+  
+```{r question 4H7 part 2}
+mu <- link(no_int)
+
+# calculate mean
+mu_mean <- mu %>% 
+  as_tibble() %>%
+  purrr::map_dbl(mean) %>% 
+  enframe(name = "year", value = "mean_doy") %>% 
+  mutate(year = cherry_blossoms$year)
+
+# calculate 89% posterior interval
+mu_pi <- mu %>% 
+  as_tibble() %>%
+  purrr::map(PI) %>% 
+  enframe(name = "year", value = "PI") %>% 
+  mutate(lower_val = map_dbl(PI, 1), 
+         upper_val = map_dbl(PI, 2), 
+         year = cherry_blossoms$year) %>% 
+  select(-PI) 
+```  
+  
+We can combine the mean and the pi and plot it:  
+  
+```{r question 4H7 part 3, message=FALSE}
+mu_mean %>% 
+  left_join(mu_pi) %>% 
+  ggplot() +
+  geom_point(aes(year, doy), 
+             colour = "steelblue2", alpha = 0.3, 
+             data = cherry_blossoms) +
+  geom_ribbon(aes(x = year, ymin = lower_val, ymax = upper_val), 
+              alpha = 0.3) +
+  geom_path(aes(year, mean_doy), 
+            colour = "coral", alpha = 0.95, size = 1) +
+  labs(title = "Model with no intercept", y = "Day in year") +
+  theme_minimal()
+```  
+  
+To be honest, that looks pretty convincing to me. And it obviously worked fine, so I will not change anything.  
+  
+
+
+
 
 
 

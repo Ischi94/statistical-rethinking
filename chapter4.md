@@ -19,7 +19,7 @@ editor_options:
 
 This is the third part of a series where I work through the practice questions of the second edition of Richard McElreaths [Statistical Rethinking](https://xcelab.net/rm/statistical-rethinking/). Each post covers a new chapter. There are already some awesome sources for this book online like [Jeffrey Girard](https://jmgirard.com/statistical-rethinking-ch2/) working through the exercises of the first edition, or [Solomon Kurz](https://bookdown.org/ajkurz/Statistical_Rethinking_recoded/) leading through each example of the book with the *brms* and the *tidyverse* packages. You can even watch the [lectures of McElreath](https://www.youtube.com/playlist?list=PLDcUM9US4XdNM4Edgs7weiyIguLSToZRI) on Youtube and work through the [homework and solutions](https://github.com/rmcelreath/statrethinking_winter2019/tree/master/homework).
 However, so far I couldn't find a source providing solutions for the practice questions of the second edition, or the homework practices, in a tidy(-verse) way. My aim here is therefore to provide solutions for each homework and practice question of the second edition, using the *tidyverse* and the *rethinking* packages. The third part of the series will cover chapter 4, which corresponds to week 2 of the lectures and homework.  
-McElreath himself states that chapter 4 is provides the foundation for most of the examples of the later chapters. So I will spend a bit more time on this chapter and go a bit more into detail.  
+McElreath himself states that chapter 4 provides the foundation for most of the examples of the later chapters. So I will spend a bit more time on this chapter and go a bit more into detail.  
   
 
 # Homework
@@ -102,11 +102,11 @@ table_height
 
 | individual | weight | expected |    lower|    upper|
 |:----------:|:------:|:--------:|--------:|--------:|
-|     1      | 46.95  | 158.2903 | 157.4678| 159.0789|
-|     2      | 43.72  | 152.5933 | 151.8567| 153.3026|
-|     3      | 64.78  | 189.7384 | 188.3885| 191.1626|
-|     4      | 32.59  | 132.9625 | 132.3085| 133.5688|
-|     5      | 54.63  | 171.8361 | 170.8114| 172.8606|
+|     1      | 46.95  | 158.2807 | 157.4564| 159.0854|
+|     2      | 43.72  | 152.5826 | 151.8264| 153.3015|
+|     3      | 64.78  | 189.7351 | 188.2880| 191.1646|
+|     4      | 32.59  | 132.9479 | 132.3530| 133.6969|
+|     5      | 54.63  | 171.8292 | 170.6655| 172.7682|
 
 ## Question 2
 
@@ -152,8 +152,8 @@ precis(m_log) %>% as_tibble() %>%
 
 |parameter |    mean    |        sd|      lower|      upper|
 |:---------|:----------:|---------:|----------:|----------:|
-|a         | -22.874311 | 1.3342911| -25.006766| -20.741856|
-|b         | 46.817788  | 0.3823240|  46.206760|  47.428815|
+|a         | -22.874314 | 1.3342910| -25.006768| -20.741859|
+|b         | 46.817789  | 0.3823240|  46.206761|  47.428816|
 |sigma     |  5.137088  | 0.1558847|   4.887954|   5.386222|
 
 Instead of trying to read these estimates, we can just visualise our model. Let's calculate the predicted mean height as a function of weight, the 97% PI for the mean, and the 97% PI for predicted heights as explained on page 108.  
@@ -871,11 +871,11 @@ table_height
 
 | individual | weight | expected |    lower|    upper|
 |:----------:|:------:|:--------:|--------:|--------:|
-|     1      | 46.95  | 158.2903 | 157.4678| 159.0789|
-|     2      | 43.72  | 152.5933 | 151.8567| 153.3026|
-|     3      | 64.78  | 189.7384 | 188.3885| 191.1626|
-|     4      | 32.59  | 132.9625 | 132.3085| 133.5688|
-|     5      | 54.63  | 171.8361 | 170.8114| 172.8606|
+|     1      | 46.95  | 158.2807 | 157.4564| 159.0854|
+|     2      | 43.72  | 152.5826 | 151.8264| 153.3015|
+|     3      | 64.78  | 189.7351 | 188.2880| 191.1646|
+|     4      | 32.59  | 132.9479 | 132.3530| 133.6969|
+|     5      | 54.63  | 171.8292 | 170.6655| 172.7682|
   
 And we can see that it actually makes a big difference, especially for those with a large weight (*individual 3*), or with a particularly low weight (*individual 4*).  
   
@@ -1200,12 +1200,12 @@ Let's first do it once by sampling a and w and then calculating mu:
 
 
 ```r
-N <- dim(B)[2]
+N <- ncol(B)
 
 a <- rnorm(N, 100, 10)
-w <- rnorm(N, 0, 1)
+w <- rnorm(N, 0, 10)
     
-mu <- purrr::map(1:dim(B)[1], ~ a + sum(B[.x, ]*w))
+mu <- purrr::map(1:nrow(B), ~ a + sum(B[.x, ]*w))
 ```
   
 mu is a list with 827 elements (one for each year observation in the data), and each element contains 19 estimates for mu (one for each knot/ basis function). We can get the mean estimate for each knot by applying the `mean` function to each element in mu:  
@@ -1232,15 +1232,15 @@ cherry_blossoms %>%
 
 ![](chapter4_files/figure-html/question 4H6 part 5-1.png)<!-- -->
   
-This is just one guess of the model for mean doy without seeing any data. But for a proper prior predictive simulation, we want to see many guesses of the model to get the overall distribution. For this, we need to write our sampling into a function with i as an argument. i will be later used to replicate the function.  
+This is just one guess of the model for mean `doy` without seeing any data. But for a proper prior predictive simulation, we want to see many guesses of the model to get the overall distribution. For this, we need to write our sampling into a function with i as an argument. i will be later used to replicate the function.  
   
 
 ```r
 mu_sampler <- function(i){
     a <- rnorm(N, 100, 10)
-    w <- rnorm(N, 0, 1)
+    w <- rnorm(N, 0, 10)
     
-    mu <- purrr::map(1:827, ~ a + sum(B[.x, ]*w)) %>% 
+    mu <- purrr::map(1:nrow(B), ~ a + sum(B[.x, ]*w)) %>% 
       map_dbl(mean)
   }
 ```
@@ -1257,7 +1257,7 @@ mu2 <- replicate(1e3, mu_sampler()) %>%
 ggplot(mu2) +
   geom_density(aes(value)) +
   theme_minimal() +
-  labs(title = paste0("w ~ dnorm(", 0, ",", 1, ")"), 
+  labs(title = paste0("w ~ dnorm(", 0, ",", 10, ")"), 
          x = "Day in year")
 ```
 
@@ -1274,7 +1274,7 @@ prior_weight <- function(w_mean, w_sd) {
     a <- rnorm(N, 100, 10)
     w <- rnorm(N, w_mean, w_sd)
     
-    mu <- purrr::map(1:827, ~ a + sum(B[.x, ]*w)) %>% 
+    mu <- purrr::map(1:nrow(B), ~ a + sum(B[.x, ]*w)) %>% 
       map_dbl(mean)
   }
   
@@ -1295,18 +1295,20 @@ Now what happens if we increase the standard deviaton of w?
   
 
 ```r
-prior_weight(0, 10)
+prior_weight(0, 20)
 ```
 
 ![](chapter4_files/figure-html/question 4H6 part 9-1.png)<!-- -->
-Obviously, not much. Let's see what happens if we increase the mean instead:  
+  
+We get more uncertainty for `doy`. Let's see what happens if we increase the mean instead:  
   
 
 ```r
-prior_weight(10, 1)
+prior_weight(10, 10)
 ```
 
 ![](chapter4_files/figure-html/question 4H6 part 10-1.png)<!-- -->
+  
 We shift the distribution to the right. So to be honest I am not sure what w is doing precisely, as it is quite hard to read that from the prior predictive distribution where all knots are combined. Instead, let's try a prior predictive simulation for each knot.  
 First, set up a function that calculates the mean `doy`for each knot based on the priors used in the chapter:  
   
@@ -1314,9 +1316,9 @@ First, set up a function that calculates the mean `doy`for each knot based on th
 ```r
 knot_sampler <- function(i){
   a <- rnorm(N, 100, 10)
-  w <- rnorm(N, 0, 1)
+  w <- rnorm(N, 0, 10)
   
-  mu <- purrr::map(1:dim(B)[1], ~ a + sum(B[.x, ]*w)) %>% 
+  mu <- purrr::map(1:nrow(B), ~ a + sum(B[.x, ]*w)) %>% 
     map_dbl(mean)
 }
 ```
@@ -1343,10 +1345,6 @@ mu2_rep <- mu2 %>%
             lower_val = PI(doy)[1], 
             upper_val = PI(doy)[2]) 
 ```
-
-```
-## `summarise()` ungrouping output (override with `.groups` argument)
-```
   
 And plot it:  
   
@@ -1360,14 +1358,14 @@ ggplot(data = mu2_rep) +
                 alpha = 0.3) +
   geom_path(aes(year, mean_doy), 
             colour = "coral", size = 1.3) +
-  labs(title = paste0("w ~ dnorm(", 0, ",", 1, ")"), 
+  labs(title = paste0("w ~ dnorm(", 0, ",", 10, ")"), 
        y = "Day in year") +
   theme_minimal()
 ```
 
 ![](chapter4_files/figure-html/question 4H6 part 14-1.png)<!-- -->
   
-We can see that we assign the same prior distribution for each knot (flat line of the mean and the percentile interval borders). Now let's tinker with w. First, we again make a function dependent on w:  
+We can see that we assign the same prior distribution for each knot (flat line of the mean and the percentile interval borders), but with some edge effects. Now let's tinker with w. First, we again make a function dependent on w:  
   
 
 ```r
@@ -1376,7 +1374,7 @@ prior_knot <- function(w_mean, w_sd) {
   a <- rnorm(N, 100, 10)
   w <- rnorm(N, w_mean, w_sd)
   
-  mu <- purrr::map(1:dim(B)[1], ~ a + sum(B[.x, ]*w)) %>% 
+  mu <- purrr::map(1:nrow(B), ~ a + sum(B[.x, ]*w)) %>% 
     map_dbl(mean)
   }
   
@@ -1411,26 +1409,89 @@ And now let's increase the standard deviation:
   
 
 ```r
-prior_knot(0, 10)
-```
-
-```
-## `summarise()` ungrouping output (override with `.groups` argument)
+prior_knot(0, 20)
 ```
 
 ![](chapter4_files/figure-html/question 4H6 part 16-1.png)<!-- -->
+  
 Increasing the sd for w increases the spread of the percentile interval, while the mean stays the same. What happens when we increase the mean of w?  
   
 
 ```r
-prior_knot(10, 1)
-```
-
-```
-## `summarise()` ungrouping output (override with `.groups` argument)
+prior_knot(10, 10)
 ```
 
 ![](chapter4_files/figure-html/question 4H6 part 17-1.png)<!-- -->
-Now we increase the overall estimate for `doy`. It seems that w acts on each knot equally. It further seems to drive the overall estimate for `doy`. 
+  
+Now we increase the overall estimate for `doy`. It seems that w acts on each knot equally. It further seems to drive the overall estimate for `doy`.  
+  
+## Question 4H7  
+  
+**The cherry blossom spline in the chapter used an intercept a, but technically it doesn't require one. The first basis function could substitute for the intercept. Try refitting the cherry blossom spline without the intercept. What else about the model do you need to change to make this work?**  
+  
+Let's just try it without an intercept:  
+  
+
+```r
+no_int <- alist(
+    D ~ dnorm(mu, sigma), 
+    mu <- B %*% w, 
+    w ~ dnorm(0, 10), 
+    sigma ~ dexp(1)) %>% 
+  quap(
+   data = list(D = cherry_blossoms$doy, B = B), 
+   start = list(w = rep(0, ncol(B))))
+```
+  
+Let's see what the model says by sampling from the posterior distribution.  
+  
+
+```r
+mu <- link(no_int)
+
+# calculate mean
+mu_mean <- mu %>% 
+  as_tibble() %>%
+  purrr::map_dbl(mean) %>% 
+  enframe(name = "year", value = "mean_doy") %>% 
+  mutate(year = cherry_blossoms$year)
+
+# calculate 89% posterior interval
+mu_pi <- mu %>% 
+  as_tibble() %>%
+  purrr::map(PI) %>% 
+  enframe(name = "year", value = "PI") %>% 
+  mutate(lower_val = map_dbl(PI, 1), 
+         upper_val = map_dbl(PI, 2), 
+         year = cherry_blossoms$year) %>% 
+  select(-PI) 
+```
+  
+We can combine the mean and the pi and plot it:  
+  
+
+```r
+mu_mean %>% 
+  left_join(mu_pi) %>% 
+  ggplot() +
+  geom_point(aes(year, doy), 
+             colour = "steelblue2", alpha = 0.3, 
+             data = cherry_blossoms) +
+  geom_ribbon(aes(x = year, ymin = lower_val, ymax = upper_val), 
+              alpha = 0.3) +
+  geom_path(aes(year, mean_doy), 
+            colour = "coral", alpha = 0.95, size = 1) +
+  labs(title = "Model with no intercept", y = "Day in year") +
+  theme_minimal()
+```
+
+![](chapter4_files/figure-html/question 4H7 part 3-1.png)<!-- -->
+  
+To be honest, that looks pretty convincing to me. And it obviously worked fine, so I will not change anything.  
+  
+
+
+
+
 
 
