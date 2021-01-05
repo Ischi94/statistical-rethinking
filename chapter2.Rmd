@@ -8,7 +8,7 @@ output:
     toc_float: true
     number_sections: true  
     theme: journal
-    keep_md: true
+    keep_md: false
 ---
 
 ```{r setup, include=FALSE}
