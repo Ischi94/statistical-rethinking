@@ -98,8 +98,8 @@ ggplot(post_single) +
   
 ## now let's add all parameters to the model (except group), for a multiple regression
 m_foxes_all <- alist(weight ~ dnorm(mu, sigma),
-                 mu <- a[group] + Bfood*avgfood + Bsize*groupsize + Barea*area,
-                 a[group] ~ dnorm(0, 0.25),
+                 mu <- a + Bfood*avgfood + Bsize*groupsize + Barea*area,
+                 a ~ dnorm(0, 0.25),
                  Bfood ~ dnorm(0, 0.5),
                  Bsize ~ dnorm(0, 0.5),
                  Barea ~ dnorm(0, 0.5),
@@ -146,3 +146,65 @@ ggplot(mod_comp) +
     y = NULL, x = "Estimate") +
   theme_minimal()
 
+
+# homework 2 --------------------------------------------------------------
+
+
+# Now infer the causal impact of adding food ( avgfood ) to a territory.
+# Would this make foxes heavier? Which covariates do you need to adjust
+# for to estimate the total causal influence of food? 
+
+# following the dag, we need to adjust for area, as it acts on avgfood
+m_count <- alist(
+  
+  ## area -> food -> weight <- size
+  weight ~ dnorm(mu, sigma),
+  mu <- a + Barea*area + Bfood*avgfood + Bsize*groupsize,
+  a ~ dnorm(0, 0.2),
+  Barea ~ dnorm(0, 0.5),
+  Bfood ~ dnorm(0, 0.5),
+  Bsize ~ dnorm(0, 0.5),
+  sigma ~ dexp(1), 
+  
+  ## food -> size
+  groupsize ~ dnorm(mu_S, sigma_S),
+  mu_S <- aS + bFS*avgfood,
+  aS ~ dnorm(0, 0.2),
+  bFS ~ dnorm(0, 0.5 ),
+  sigma_S ~ dexp(1), 
+  
+  ## area -> food
+  avgfood ~ dnorm(mu_F, sigma_F),
+  mu_F <- aF + bAF*area,
+  aF ~ dnorm(0, 0.2),
+  bAF ~ dnorm(0, 0.5),
+  sigma_F ~ dnorm(0, 0.5)) %>% 
+  quap(., data = foxes_std)
+
+s <- seq(from = -2, to = 2, length.out = 30) 
+
+data_count <- s %>%
+  tibble(avgfood = .) %>%
+  sim(m_count, data = ., vars = c("area", "weight", "groupsize")) %>% 
+  map(as_tibble) %>% 
+  pluck("weight") %>% 
+  pivot_longer(cols = everything(), values_to = "weight_count") %>%
+  group_by(name) %>% 
+  nest() %>% 
+  mutate(weight_lst = map(data, "weight_count"), 
+         weight_count = map_dbl(weight_lst, mean), 
+         weight_pi = map(weight_lst, PI), 
+         lower_pi = map_dbl(weight_pi, pluck(1)), 
+         upper_pi = map_dbl(weight_pi, pluck(2))) %>% 
+  ungroup() %>% 
+  select(weight_count, lower_pi, upper_pi) %>% 
+  add_column(food_man = s)
+
+ggplot(data_count) +
+  geom_ribbon(aes(x = food_man, ymin = lower_pi, ymax = upper_pi), 
+              fill = "grey60") +
+  geom_line(aes(food_man, weight_count), 
+            colour = "orange", size = 1.3) +
+  labs(title = "Total counterfactual effect of avgfood on weight", 
+       y = "Counterfactual weight", x = "Manipulated average food") +
+  theme_minimal()
