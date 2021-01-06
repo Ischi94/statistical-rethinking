@@ -55,8 +55,8 @@ N <- 100
 # extract samples from the prior
 m_poly_prior <- extract.prior(m_foxes, n = N)
 
-# now apply the polynomial equation to the priors to get predicted heights
-m_poly_mu <- link(
+# now apply the linear equation to the priors to get predicted heights
+post_mu <- link(
   m_foxes,
   post = m_poly_prior,
   data = foxes_std) %>%
@@ -67,7 +67,7 @@ m_poly_mu <- link(
              type = rep(as.character(1:N), each = length(foxes_std$area)))
 
 # plot it
-ggplot(m_poly_mu) +
+ggplot(post_mu) +
   geom_line(aes(area, weight_pred, group = type), alpha = 0.5) +
   geom_point(aes(area, weight), shape = 21,
              fill = "firebrick", colour = "grey20", size = 2) +
@@ -75,38 +75,31 @@ ggplot(m_poly_mu) +
   theme_minimal()
 
 # now take a look at the posterior
-post_mean <- link(m_foxes, foxes_std) %>%
-  as_tibble() %>%
-  summarise(across(everything(), mean)) %>%
-  pivot_longer(cols = everything(), values_to = "weight_pred") %>% 
-  add_column(join_col = 1:length(foxes_std$area)) %>% 
-  select(-name)
-
-post_pi <- link(m_foxes, foxes_std) %>%
+post_single <- link(m_foxes, foxes_std) %>% 
   as_tibble() %>% 
-  summarise(across(everything(), PI)) %>%
-  add_column(type = c("lower", "upper")) %>% 
-  pivot_longer(cols = -type, values_to = "intervals") %>% 
-  pivot_wider(names_from = type, values_from = intervals) %>% 
-  select(-name) %>% 
-  add_column(join_col = 1:length(foxes_std$area))
+  pivot_longer(cols = everything()) %>% 
+  group_by(name) %>% 
+  nest() %>% 
+  mutate(data = map(data, "value"), 
+         mean_pred = map_dbl(data, mean), 
+         pi_pred = map(data, PI), 
+         pi_low = map_dbl(pi_pred, pluck(1)), 
+         pi_high = map_dbl(pi_pred, pluck(2))) %>% 
+  select(mean_pred, pi_low, pi_high) %>% 
+  add_column(area = foxes_std$area, weight = foxes_std$weight)
 
-post_mean %>% 
-  left_join(post_pi, by = "join_col") %>% 
-  add_column(weight = foxes_std$weight, 
-             area = foxes_std$area) %>% 
-  ggplot() +
-  geom_ribbon(aes(x = area, ymin = lower, ymax = upper), fill = "grey60") +
-  geom_line(aes(area, weight_pred), colour = "orange") +
+ggplot(post_single) +
+  geom_ribbon(aes(x = area, ymin = pi_low, ymax = pi_high), fill = "grey60") +
+  geom_line(aes(area, mean_pred), colour = "orange") +
   geom_point(aes(area, weight), shape = 21,
              fill = "firebrick", colour = "grey20", size = 2) +
   labs(title = "Posterior predictions", x = "Area (std)", y = "Weight (std)") +
   theme_minimal()
   
 ## now let's add all parameters to the model (except group), for a multiple regression
-m_foxes <- alist(weight ~ dnorm(mu, sigma),
+m_foxes_all <- alist(weight ~ dnorm(mu, sigma),
                  mu <- a[group] + Bfood*avgfood + Bsize*groupsize + Barea*area,
-                 a[group] ~ dnorm(0, 0.5),
+                 a[group] ~ dnorm(0, 0.25),
                  Bfood ~ dnorm(0, 0.5),
                  Bsize ~ dnorm(0, 0.5),
                  Barea ~ dnorm(0, 0.5),
@@ -114,8 +107,8 @@ m_foxes <- alist(weight ~ dnorm(mu, sigma),
   quap(., data = foxes_std)
 
 # check priors
-prior <- extract.prior(m_foxes, n = N)
-mu <- link(m_foxes, post = prior, data = foxes_std) %>%
+prior <- extract.prior(m_foxes_all, n = N)
+mu <- link(m_foxes_all, post = prior, data = foxes_std) %>%
   as_tibble() %>%
   pivot_longer(cols = everything(), values_to = "weight_pred") %>%
   add_column(area = rep(foxes_std$area, N), 
@@ -133,45 +126,23 @@ ggplot(mu) +
   labs(title = "Prior predictive simulation", x = "Area (std)", y = "Weight (std)") +
   theme_minimal()
 
-# this is an improved version to get the posterior mean and pi 
-post <- link(m_foxes, foxes_std)
-post1 <- post %>% 
-  as_tibble() %>% 
-  pivot_longer(cols = everything()) %>% 
-  group_by(name) %>% 
-  nest() %>% 
-  mutate(data = map(data, "value"), 
-         mean_pred = map_dbl(data, mean), 
-         pi_pred = map(data, PI), 
-         pi_low = map_dbl(pi_pred, pluck(1)), 
-         pi_high = map_dbl(pi_pred, pluck(2)))
-  
-map_dbl(data = c(value))
+# get the total causal influence of area on weight
+mod_comp <- precis(m_foxes) %>% 
+  as_tibble(rownames = "estimate") %>% 
+  add_row(
+    precis(m_foxes_all) %>% 
+      as_tibble(rownames = "estimate") %>% 
+      filter(estimate == "Barea")
+    ) %>% 
+  filter(estimate %in% c("B", "Barea")) %>% 
+  add_column(m_type = c("Single linear model", "Multiple linear model"), .before = "estimate") %>% 
+  select(m_type, mean, sd, lower_pi = "5.5%", upper_pi = "94.5%")
 
-post_mean <- link(m_foxes, foxes_std) %>%
-  as_tibble() %>%
-  summarise(across(everything(), mean)) %>%
-  pivot_longer(cols = everything(), values_to = "weight_pred") %>% 
-  add_column(join_col = 1:length(foxes_std$area)) %>% 
-  select(-name)
-
-post_pi <- link(m_foxes, foxes_std) %>%
-  as_tibble() %>% 
-  summarise(across(everything(), PI)) %>%
-  add_column(type = c("lower", "upper")) %>% 
-  pivot_longer(cols = -type, values_to = "intervals") %>% 
-  pivot_wider(names_from = type, values_from = intervals) %>% 
-  select(-name) %>% 
-  add_column(join_col = 1:length(foxes_std$area))
-
-post_mean %>% 
-  left_join(post_pi, by = "join_col") %>% 
-  add_column(weight = foxes_std$weight, 
-             area = foxes_std$area) %>% 
-  ggplot() +
-  geom_ribbon(aes(x = area, ymin = lower, ymax = upper), fill = "grey60") +
-  geom_line(aes(area, weight_pred), colour = "orange") +
-  geom_point(aes(area, weight), shape = 21,
-             fill = "firebrick", colour = "grey20", size = 2) +
-  labs(title = "Posterior predictions", x = "Area (std)", y = "Weight (std)") +
+ggplot(mod_comp) +
+  geom_vline(xintercept = 0, colour = "salmon", size = 0.8) +
+  geom_pointrange(aes(x = mean, xmin = lower_pi, xmax = upper_pi, y = m_type), 
+                  colour = "grey20", size = 0.6) +
+  labs(title = "Total causal influence of area on weight",
+    y = NULL, x = "Estimate") +
   theme_minimal()
+
