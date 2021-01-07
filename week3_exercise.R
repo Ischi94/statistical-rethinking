@@ -107,22 +107,24 @@ m_foxes_all <- alist(weight ~ dnorm(mu, sigma),
   quap(., data = foxes_std)
 
 # check priors
-prior <- extract.prior(m_foxes_all, n = N)
-mu <- link(m_foxes_all, post = prior, data = foxes_std) %>%
+# define range for area
+a_seq <- seq(from = -2, to = 2, by = 0.5)
+
+# sample from prior
+mu <- extract.prior(m_foxes_all, n = N) %>% 
+  link(m_foxes_all, post = ., 
+           data = list(area = a_seq, 
+                       avgfood = 0, groupsize = 0)) %>%
   as_tibble() %>%
-  pivot_longer(cols = everything(), values_to = "weight_pred") %>%
-  add_column(area = rep(foxes_std$area, N), 
-             avgfood = rep(foxes_std$avgfood, N), 
-             groupsize = rep(foxes_std$groupsize, N), 
-             group = rep(foxes_std$group, N),
-             weight = rep(foxes_std$weight, N), 
-             type = rep(as.character(1:N), each = length(foxes_std$area)))
+  magrittr::set_colnames(a_seq) %>% 
+  pivot_longer(cols = everything(), 
+               values_to = "weight_pred", names_to = "area") %>%
+  mutate(area = as.numeric(area)) %>% 
+  add_column(type = rep(as.character(1:N), each = length(a_seq))) 
 
 # plot it
 ggplot(mu) +
   geom_line(aes(area, weight_pred, group = type), alpha = 0.5) +
-  geom_point(aes(area, weight), shape = 21,
-             fill = "firebrick", colour = "grey20", size = 2) +
   labs(title = "Prior predictive simulation", x = "Area (std)", y = "Weight (std)") +
   theme_minimal()
 
@@ -155,39 +157,45 @@ ggplot(mod_comp) +
 # for to estimate the total causal influence of food? 
 
 # following the dag, we need to adjust for area, as it acts on avgfood
-m_count <- alist(
-  
-  ## area -> food -> weight <- size
-  weight ~ dnorm(mu, sigma),
-  mu <- a + Barea*area + Bfood*avgfood + Bsize*groupsize,
-  a ~ dnorm(0, 0.2),
-  Barea ~ dnorm(0, 0.5),
-  Bfood ~ dnorm(0, 0.5),
-  Bsize ~ dnorm(0, 0.5),
-  sigma ~ dexp(1), 
-  
-  ## food -> size
-  groupsize ~ dnorm(mu_S, sigma_S),
-  mu_S <- aS + bFS*avgfood,
-  aS ~ dnorm(0, 0.2),
-  bFS ~ dnorm(0, 0.5 ),
-  sigma_S ~ dexp(1), 
-  
-  ## area -> food
-  avgfood ~ dnorm(mu_F, sigma_F),
-  mu_F <- aF + bAF*area,
-  aF ~ dnorm(0, 0.2),
-  bAF ~ dnorm(0, 0.5),
-  sigma_F ~ dnorm(0, 0.5)) %>% 
-  quap(., data = foxes_std)
+while(!exists("m_count")){
+  tryCatch({
+  m_count <- alist(
+    
+    ## area -> food -> weight <- size
+    weight ~ dnorm(mu, sigma),
+    mu <- a + Barea*area + Bfood*avgfood + Bsize*groupsize,
+    a ~ dnorm(0, 0.2),
+    Barea ~ dnorm(0, 0.5),
+    Bfood ~ dnorm(0, 0.5),
+    Bsize ~ dnorm(0, 0.5),
+    sigma ~ dexp(1), 
+    
+    ## food -> size
+    groupsize ~ dnorm(mu_S, sigma_S),
+    mu_S <- aS + bFS*avgfood,
+    aS ~ dnorm(0, 0.2),
+    bFS ~ dnorm(0, 0.5 ),
+    sigma_S ~ dexp(1), 
+    
+    ## area -> food
+    avgfood ~ dnorm(mu_F, sigma_F),
+    mu_F <- aF + bAF*area,
+    aF ~ dnorm(0, 0.2),
+    bAF ~ dnorm(0, 0.5),
+    sigma_F ~ dnorm(0, 0.5)) %>% 
+    quap(., data = foxes_std)
+  }, error = function(e){
+  }, finally = {})
+}
+
+
 
 s <- seq(from = -2, to = 2, length.out = 30) 
 
 data_count <- s %>%
-  tibble(avgfood = .) %>%
-  sim(m_count, data = ., vars = c("area", "weight", "groupsize")) %>% 
-  map(as_tibble) %>% 
-  pluck("weight") %>% 
+  tibble(avgfood = ., area = 0, groupsize = 0) %>%
+  sim(m_count, data = ., vars = c("weight")) %>% 
+  as_tibble() %>% 
   pivot_longer(cols = everything(), values_to = "weight_count") %>%
   group_by(name) %>% 
   nest() %>% 
@@ -207,4 +215,95 @@ ggplot(data_count) +
             colour = "orange", size = 1.3) +
   labs(title = "Total counterfactual effect of avgfood on weight", 
        y = "Counterfactual weight", x = "Manipulated average food") +
+  theme_minimal()
+
+
+# Now infer the causal impact of group size. Which covariates do you need
+# to adjust for? Looking at the posterior distribution of the resulting model,
+# what do you think explains these data? That is, can you explain the estimates
+# for all three problems? How do they make sense together? 
+
+# we can use the same model as above, where we included all causal links inferred from the dag
+data_count2 <- s %>%
+  tibble(groupsize = ., area = 0, avgfood = 0) %>%
+  sim(m_count, data = ., vars = c("weight")) %>% 
+  as_tibble() %>% 
+  pivot_longer(cols = everything(), values_to = "weight_count") %>%
+  group_by(name) %>% 
+  nest() %>% 
+  mutate(weight_lst = map(data, "weight_count"), 
+         weight_count = map_dbl(weight_lst, mean), 
+         weight_pi = map(weight_lst, PI), 
+         lower_pi = map_dbl(weight_pi, pluck(1)), 
+         upper_pi = map_dbl(weight_pi, pluck(2))) %>% 
+  ungroup() %>% 
+  select(weight_count, lower_pi, upper_pi) %>% 
+  add_column(group_man = s)
+
+ggplot(data_count2) +
+  geom_ribbon(aes(x = group_man, ymin = lower_pi, ymax = upper_pi), 
+              fill = "grey60") +
+  geom_line(aes(group_man, weight_count), 
+            colour = "orange", size = 1.3) +
+  labs(title = "Total counterfactual effect of groupsize on weight", 
+       y = "Counterfactual weight", x = "Manipulated group size") +
+  theme_minimal()
+
+# it seems like weight increases with food (obviously)
+# weight increases with area
+# weight decreases with groupsize
+
+
+# for fun -----------------------------------------------------------------
+
+# let's see the effect of area on average food, just for fun and for me to understand
+data_count3 <- s %>%
+  tibble(area = ., groupsize = 0, weight = 0) %>%
+  sim(m_count, data = ., vars = c("avgfood")) %>% 
+  as_tibble() %>% 
+  pivot_longer(cols = everything(), values_to = "food_count") %>%
+  group_by(name) %>% 
+  nest() %>% 
+  mutate(weight_lst = map(data, "food_count"), 
+         food_count = map_dbl(weight_lst, mean), 
+         weight_pi = map(weight_lst, PI), 
+         lower_pi = map_dbl(weight_pi, pluck(1)), 
+         upper_pi = map_dbl(weight_pi, pluck(2))) %>% 
+  ungroup() %>% 
+  select(food_count, lower_pi, upper_pi) %>% 
+  add_column(area_man = s)
+
+ggplot(data_count3) +
+  geom_ribbon(aes(x = area_man, ymin = lower_pi, ymax = upper_pi), 
+              fill = "grey60") +
+  geom_line(aes(area_man, food_count), 
+            colour = "orange", size = 1.3) +
+  labs(title = "Total counterfactual effect of area on average food", 
+       y = "Counterfactual food", x = "Manipulated area") +
+  theme_minimal()
+
+# same for average food on group size
+data_count4 <- s %>%
+  tibble(avgfood = ., area = 0, weight = 0) %>%
+  sim(m_count, data = ., vars = c("groupsize")) %>% 
+  as_tibble() %>% 
+  pivot_longer(cols = everything(), values_to = "group_count") %>%
+  group_by(name) %>% 
+  nest() %>% 
+  mutate(weight_lst = map(data, "group_count"), 
+         group_count = map_dbl(weight_lst, mean), 
+         weight_pi = map(weight_lst, PI), 
+         lower_pi = map_dbl(weight_pi, pluck(1)), 
+         upper_pi = map_dbl(weight_pi, pluck(2))) %>% 
+  ungroup() %>% 
+  select(group_count, lower_pi, upper_pi) %>% 
+  add_column(avgfood_man = s)
+
+ggplot(data_count4) +
+  geom_ribbon(aes(x = avgfood_man, ymin = lower_pi, ymax = upper_pi), 
+              fill = "grey60") +
+  geom_line(aes(avgfood_man, group_count), 
+            colour = "orange", size = 1.3) +
+  labs(title = "Total counterfactual effect of average food on groupsize", 
+       y = "Counterfactual groupsize", x = "Manipulated average food") +
   theme_minimal()
