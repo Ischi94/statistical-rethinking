@@ -21,7 +21,7 @@ coordinates(dag_foxes) <- list(x = c(area = 1, avgfood = 0, groupsize = 2, weigh
                                y = c(area = 0, avgfood = 1, groupsize = 1, weight = 2))
 drawdag(dag_foxes)
 
-
+impliedConditionalIndependencies(dag_foxes)
 
 # homework 1 --------------------------------------------------------------
 
@@ -37,13 +37,13 @@ data(foxes)
 # standardise data
 foxes_std <- foxes %>% 
   as_tibble() %>% 
-  mutate(across(-group, standardize))
+  mutate(across(-group, scale))
 
 # let's start with a simple linear regression of area on weight
 m_foxes <- alist(weight ~ dnorm(mu, sigma),
                   mu <- a + B * area,
-                  a ~ dnorm(0, 1),
-                  B ~ dnorm(0, 1),
+                  a ~ dnorm(0, 0.2),
+                  B ~ dnorm(0, 0.5),
                   sigma ~ dexp(1)) %>%
   quap(., data = foxes_std)
   
