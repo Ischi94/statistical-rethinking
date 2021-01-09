@@ -385,3 +385,80 @@ ggplot(data_count4) +
 # because they each allow the computation of each other’s posterior distribution
 # (e.g., each category’s intercept and difference from each other category).
 
+
+# medium questions --------------------------------------------------------
+
+
+### 5M1 ###
+
+# Invent your own example of a spurious correlation. An outcome variable should
+# be correlated with both predictor variables. But when both predictors are
+# entered in the same model, the correlation between the outcome and one of the
+# predictors should mostly vanish (or at least be greatly reduced).
+
+N <-  1000
+dfr <- tibble(pred_1 = rnorm(100), 
+       pred_2 = rnorm(100, -pred_1), 
+       out_var = rnorm(100, pred_1)) %>% 
+  mutate(across(everything(), scale))
+
+# outcome and predictor 1 are positively correlated in a bivariate regression
+m1 <- alist(out_var ~ dnorm(mu, sigma),
+      mu <- a + B1*pred_1,
+      a ~ dnorm(0, 0.2), 
+      B1 ~ dnorm(0, 0.5),
+      sigma ~ dexp(1)) %>% 
+  quap(., data = dfr) %>% 
+  precis() %>% 
+  as_tibble(rownames = "estimate")
+
+
+
+# outcome and predictor 2 are negatively correlated in a bivariate regression
+m2 <- alist(out_var ~ dnorm(mu, sigma),
+            mu <- a + B2*pred_2,
+            a ~ dnorm(0, 0.2), 
+            B2 ~ dnorm(0, 0d.5),
+            sigma ~ dexp(1)) %>% 
+  quap(., data = dfr) %>% 
+  precis() %>% 
+  as_tibble(rownames = "estimate")
+
+
+
+# now the multiple linear regression 
+m3 <- alist(out_var ~ dnorm(mu, sigma),
+            mu <- a + B1*pred_1 + B2*pred_2,
+            a ~ dnorm(0, 0.2),
+            B1 ~ dnorm(0, 0.5),
+            B2 ~ dnorm(0, 0.5),
+            sigma ~ dexp(1)) %>% 
+  quap(., data = dfr) %>% 
+  precis() %>% 
+  as_tibble(rownames = "estimate")
+
+# build data frame for comparison
+full_join(m1, m2) %>% 
+  full_join(m3) %>% 
+  add_column(model = rep(paste("Model", 1:3), c(3, 3, 4))) %>% 
+  filter(estimate %in% c("B1", "B2")) %>% 
+  mutate(combined = str_c(model, estimate, sep = ": ")) %>% 
+  rename(lower_pi = '5.5%', upper_pi = '94.5%') %>% 
+  ggplot() +
+  geom_pointrange(aes(x = mean, xmin = lower_pi, xmax = upper_pi,  
+                      combined, colour = estimate), size = 1, 
+                  show.legend = FALSE) +
+  geom_hline(yintercept = 2.5, linetype = "dashed", colour = "grey40") +
+  scale_color_manual(values = c("firebrick", "steelblue")) +
+  labs(y = NULL, x = "Estimate") +
+  theme_classic()
+
+# let's make a dag for this
+dag_5M1 <- dagitty( "dag {
+                      Predictor1 -> Predictor2 -> Outcome
+                      Predictor1 -> Outcome
+                      }") 
+coordinates(dag_5M1) <- list(x = c(Predictor1 = 0, Predictor2 = 2, Outcome = 1),
+                             y = c(Predictor1 = 0, Predictor2 = 0, Outcome = 1))
+drawdag(dag_5M1)
+                     
