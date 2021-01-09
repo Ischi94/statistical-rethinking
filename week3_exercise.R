@@ -396,10 +396,10 @@ ggplot(data_count4) +
 # entered in the same model, the correlation between the outcome and one of the
 # predictors should mostly vanish (or at least be greatly reduced).
 
-N <-  1000
-dfr <- tibble(pred_1 = rnorm(100), 
-       pred_2 = rnorm(100, -pred_1), 
-       out_var = rnorm(100, pred_1)) %>% 
+N <- 100
+dfr <- tibble(pred_1 = rnorm(N), 
+       pred_2 = rnorm(N, -pred_1), 
+       out_var = rnorm(N, pred_1)) %>% 
   mutate(across(everything(), scale))
 
 # outcome and predictor 1 are positively correlated in a bivariate regression
@@ -448,7 +448,8 @@ full_join(m1, m2) %>%
   geom_pointrange(aes(x = mean, xmin = lower_pi, xmax = upper_pi,  
                       combined, colour = estimate), size = 1, 
                   show.legend = FALSE) +
-  geom_hline(yintercept = 2.5, linetype = "dashed", colour = "grey40") +
+  geom_vline(xintercept = 0, colour = "grey20", 
+             linetype = "dashed", alpha = 0.5) +
   scale_color_manual(values = c("firebrick", "steelblue")) +
   labs(y = NULL, x = "Estimate") +
   theme_classic()
