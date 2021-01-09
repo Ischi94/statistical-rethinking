@@ -2,6 +2,10 @@ library(rethinking)
 library(tidyverse)
 library(dagitty)
 
+
+# homework ----------------------------------------------------------------
+
+
 # week 3 homework: 
 # https://github.com/rmcelreath/stat_rethinking_2020/blob/main/homework/week03/week03.pdf
 
@@ -307,3 +311,77 @@ ggplot(data_count4) +
   labs(title = "Total counterfactual effect of average food on groupsize", 
        y = "Counterfactual groupsize", x = "Manipulated average food") +
   theme_minimal()
+
+
+
+# easy questions ----------------------------------------------------------
+
+### 5E1 ###
+
+# Which of the linear models below are multiple linear regressions?
+
+# (1) $$\mu_i = \alpha + \beta_xi$$
+# (2) $$\mu_i = \beta_x x_i + \beta_z z_i$$
+# (3) $$\mu_i = \alpha + \beta(x_i – z_i)$$
+# (4) $$\mu_i = \alpha + \beta_x x_i + \beta_z z_i$$
+
+## (1) contains only one predictor variable ($$\beta_xi$$) and is therefore a bivariate linear regression. 
+## (2) has two predictor variables and is a multiple linear regression without an intercept ($$\alpha$$).
+## (3) the right side can written as $$\alpha + \beta x_i - \beta z_i$$ which looks like a weird multiple 
+# regression with negatively correlated slopes for each predictor.
+## (4) is a perfectly looking multiple linear regression. 
+
+
+### 5E2 ###
+
+# Write down a multiple regression to evaluate the claim: Animal diversity is
+# linearly related to latitude, but only after controlling for plant diversity.
+# You just need to write down the model definition.
+
+##  Let $$\mu_i$$ be the mean animal diversity, **L** latitude, and **P** plant diversity.
+## Then $$\mu_i = \alpha + \beta_L L_i + \beta_P P_i$$
+
+
+### 5E3 ###  
+
+# Write down a multiple regression to evaluate the claim: Neither the amount of
+# funding nor size of laboratory is by itself a good predictor of time to PhD
+# degree; but together these variables are both positively associated with time
+# to degree. Write down the model definition and indicate which side of zero
+# each slope parameter should be on.
+
+## Let $$\mu_i$$ be the time to PhD, **F** the amount of funding, and **S** the size of laboratory.
+## Then $$\mu_i = \alpha + \beta_F F_i + \beta_S S_i$$ 
+## Where both $$beta_F$$ & $$beta_S > 0$$ 
+
+
+### 5E4 ### 
+
+# Suppose you have a single categorical predictor with 4 levels (unique values),
+# labeled A, B, C, and D. Let Ai be an indicator variable that is 1 where case i
+# is in category A. Also suppose Bi, Ci, and Di for the other categories. Now
+# which of the following linear models are inferentially equivalent ways to
+# include the categorical variable in a regression? Models are inferentially
+# equivalent when it’s possible to compute one posterior distribution from the
+# posterior distribution of another model.
+
+# (1) $$\mu_i = \alpha + \beta_A A_i + \beta_B B_i + \beta_D D_i$$
+# (2) $$\mu_i = \alpha + \beta_A A_i + \beta_B B_i + \beta_C C_i + \beta_D D_i$$
+# (3) $$\mu_i = \alpha + \beta_B B_i + \beta_C C_i + \beta_D D_i$$
+# (4) $$\mu_i = \alpha_A A_i + \alpha_B B_i + \alpha_C C_i + \alpha_D D_i$$
+# (5) $$\mu_i = \alpha_A (1 – B_i – C_i – D_i) + \alpha_B B_i + \alpha_C C_i + \alpha_D D_i$$
+
+# This question was a bit to complicated for me and I just copied over the
+# answer from [Jeffrey Girard]():
+
+# The first model includes a single intercept (for category C) and slopes for A,
+# B, and D. The second model is non-identifiable because it includes a slope for
+# all possible categories (page 156). The third model includes a single
+# intercept (for category A) and slopes for B, C, and D. The fourth model uses
+# the unique index approach to provide a separate intercept for each category
+# (and no slopes). The fifth model uses the reparameterized approach on pages
+# 154 and 155 to multiply the intercept for category A times 1 when in category
+# A and times 0 otherwise. Models 1, 3, 4, and 5 are inferentially equivalent
+# because they each allow the computation of each other’s posterior distribution
+# (e.g., each category’s intercept and difference from each other category).
+
