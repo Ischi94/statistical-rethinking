@@ -634,10 +634,12 @@ precis(m_lds) %>%
   geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.5) +
   geom_pointrange(aes(x = mean, xmin = lower_pi, xmax = upper_pi, estimate),
                   colour = "grey25", size = 0.7, show.legend = FALSE) +
-  labs(x = "Estimate", y = NULL) +
+  labs(x = "Estimate", y = NULL, title = "Outcome = Divorce rate") +
   theme_classic()
 
-# the magnitude in percentage of LDS per state is negatively related to divorce rate. 
-# there is no longer a consistent trend for marriage rate. 
-# age at marriage is still negatively related to divorce rate. 
-                        
+# the magnitude in percentage of LDS per state is negatively related to divorce
+# rate. there is no longer a consistent trend for marriage rate. age at marriage
+# is still negatively related to divorce rate.
+
+# states were people were getting married at a higher age as well as states with
+# higher percentages of Mormons have lower divorce rates
