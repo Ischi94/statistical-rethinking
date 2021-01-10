@@ -643,3 +643,28 @@ precis(m_lds) %>%
 
 # states were people were getting married at a higher age as well as states with
 # higher percentages of Mormons have lower divorce rates
+
+
+### 5M5 ###
+
+# One way to reason through multiple causation hypotheses is to imagine detailed
+# mechanisms through which predictor variables may influence outcomes. For
+# example, it is sometimes argued that the price of gasoline (predictor
+# variable) is positively associated with lower obesity rates (outcome
+# variable). However, there are at least two important mechanisms by which the
+# price of gas could reduce obesity. First, it could lead to less driving and
+# therefore more exercise. Second, it could lead to less driving, which leads to
+# less eating out, which leads to less consumption of huge restaurant meals. Can
+# you outline one or more multiple regressions that address these two
+# mechanisms? Assume you can have any predictor data you need.
+
+# One could use a multiple regression framework with three predictors, the first
+# one being price of gasoline. For the second one, we need to track the time
+# spent walking of each individual to measure the effect of driving less. For
+# the third one, we need to track the frequency of meals consumed at restaurants
+# for each individual. a potential model could hence be:
+
+# $$\mu_i = \alpha + \beta_g G_i + \beta_w W_i + \beta_f  F_i$$
+# where mu is the mean obesity rate, G the price of gasoline, W the walking rate
+# (per day), and F the amount of restaurant food
+
