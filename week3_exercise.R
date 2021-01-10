@@ -418,7 +418,7 @@ m1 <- alist(out_var ~ dnorm(mu, sigma),
 m2 <- alist(out_var ~ dnorm(mu, sigma),
             mu <- a + B2*pred_2,
             a ~ dnorm(0, 0.2), 
-            B2 ~ dnorm(0, 0d.5),
+            B2 ~ dnorm(0, 0.5),
             sigma ~ dexp(1)) %>% 
   quap(., data = dfr) %>% 
   precis() %>% 
@@ -463,3 +463,181 @@ coordinates(dag_5M1) <- list(x = c(Predictor1 = 0, Predictor2 = 2, Outcome = 1),
                              y = c(Predictor1 = 0, Predictor2 = 0, Outcome = 1))
 drawdag(dag_5M1)
                      
+
+### 5M2 ###
+
+# Invent your own example of a masked relationship. An outcome variable should
+# be correlated with both predictor variables, but in opposite directions. And
+# the two predictor variables should be correlated with one another.
+
+N <- 100
+dfr <- tibble(pred_1 = rnorm(N, sd = 3), 
+              pred_2 = rnorm(N, pred_1, sd = 0.5), 
+              out_var = rnorm(N, pred_1 - pred_2)) %>% 
+  mutate(across(everything(), scale))
+
+# outcome and predictor 1 are positively correlated in a bivariate regression
+m1 <- alist(out_var ~ dnorm(mu, sigma),
+            mu <- a + B1*pred_1,
+            a ~ dnorm(0, 0.2), 
+            B1 ~ dnorm(0, 0.5),
+            sigma ~ dexp(1)) %>% 
+  quap(., data = dfr) %>% 
+  precis() %>% 
+  as_tibble(rownames = "estimate")
+
+
+
+# outcome and predictor 2 are negatively correlated in a bivariate regression
+m2 <- alist(out_var ~ dnorm(mu, sigma),
+            mu <- a + B2*pred_2,
+            a ~ dnorm(0, 0.2), 
+            B2 ~ dnorm(0, 0.5),
+            sigma ~ dexp(1)) %>% 
+  quap(., data = dfr) %>% 
+  precis() %>% 
+  as_tibble(rownames = "estimate")
+
+
+
+# now the multiple linear regression 
+m3 <- alist(out_var ~ dnorm(mu, sigma),
+            mu <- a + B1*pred_1 + B2*pred_2,
+            a ~ dnorm(0, 0.2),
+            B1 ~ dnorm(0, 0.5),
+            B2 ~ dnorm(0, 0.5),
+            sigma ~ dexp(1)) %>% 
+  quap(., data = dfr) %>% 
+  precis() %>% 
+  as_tibble(rownames = "estimate")
+
+# build data frame for comparison
+full_join(m1, m2) %>% 
+  full_join(m3) %>% 
+  add_column(model = rep(paste("Model", 1:3), c(3, 3, 4))) %>% 
+  filter(estimate %in% c("B1", "B2")) %>% 
+  mutate(combined = str_c(model, estimate, sep = ": ")) %>% 
+  rename(lower_pi = '5.5%', upper_pi = '94.5%') %>% 
+  ggplot() +
+  geom_pointrange(aes(x = mean, xmin = lower_pi, xmax = upper_pi,  
+                      combined, colour = estimate), size = 1, 
+                  show.legend = FALSE) +
+  geom_vline(xintercept = 0, colour = "grey20", 
+             linetype = "dashed", alpha = 0.5) +
+  scale_color_manual(values = c("firebrick", "steelblue")) +
+  labs(y = NULL, x = "Estimate") +
+  theme_classic()
+
+# let's make a dag for this
+dag_5M2 <- dagitty( "dag {
+                      Predictor1 <-  Unobserved -> Predictor2
+                      Predictor1 -> Outcome <- Predictor2
+                      }") 
+coordinates(dag_5M2) <- list(x = c(Predictor1 = 0, Outcome = 1, Unobserved = 1, Predictor2 = 2),
+                             y = c(Predictor1 = 0, Unobserved = 0, Predictor2 = 0, Outcome = 1))
+drawdag(dag_5M2)
+
+
+### 5M3 ### 
+
+# It is sometimes observed that the best predictor of fire risk is the presence
+# of firefighters—States and localities with many firefighters also have more
+# fires. Presumably firefighters do not cause fires. Nevertheless, this is not a
+# spurious correlation. Instead fires cause firefighters. Consider the same
+# reversal of causal inference in the context of the divorce and marriage data.
+# How might a high divorce rate cause a higher marriage rate? Can you think of a
+# way to evaluate this relationship, using multiple regression?
+
+# after a divorce, there are two new individuals on the "wedding market".
+# Divorce rate could hence be related to marriage rate by increasing the pool of
+# potential individuals one can marry. This could be tested by tracking each
+# individual after a divorce to see whether they get re-married again. This
+# re-marriage rate could then be used in a multiple linear regression framework,
+# where marriage rate is the outcome, and divorce rate and re-marriage rate are
+# the predictors. If divorce rate was related to marriage rate in a bivariate
+# regression framework, but not when adding re-marriage rate in a multiple
+# regression, then re-marriage is the driving force for the spurious correlation
+# between divorce and marriage rate.
+
+
+### 5M4 ###
+
+# In the divorce data, States with high numbers of Mormons (members of The
+# Church of Jesus Christ of Latter-day Saints, LDS) have much lower divorce
+# rates than the regression models expected. Find a list of LDS population by
+# State and use those numbers as a predictor variable, predicting divorce rate
+# using marriage rate, median age at marriage, and percent LDS population
+# (possibly standardized). You may want to consider transformations of the raw
+# percent LDS variable.
+
+data("WaffleDivorce")
+
+d_waffle <- WaffleDivorce %>% 
+  as_tibble() %>% 
+  select(marriage = Marriage, age_marriage = MedianAgeMarriage, 
+         divorce = Divorce, loc = Loc)
+
+# using the downloadable csv data from worldpoulationreview:
+# https://worldpopulationreview.com/state-rankings/mormon-population-by-state
+mormons <- read_csv(file = "mormons.csv") %>% 
+  mutate(lds = mormonPop/Pop) %>% 
+  select(loc = State, lds)
+
+# load state data contained in base r (datasets)
+data("state")
+
+state <- tibble(abbr = state.abb, loc = state.name)
+
+# bind with mormons data by loc
+d_waffle_sd <- mormons %>% 
+  full_join(state) %>% 
+  select(-loc, loc = abbr) %>% 
+  # bind with marriage data by loc
+  full_join(d_waffle) %>% 
+  drop_na() %>% 
+  # standardise to z-scores
+  mutate(across(is.numeric, standardize))
+
+# already the first value for lds shows a z-value above 6 for utah. This data is too skewed 
+# and I am going to use the log of lds instead
+
+d_waffle_sd <- mormons %>% 
+  full_join(state) %>% 
+  select(-loc, loc = abbr) %>% 
+  # bind with marriage data by loc
+  full_join(d_waffle) %>% 
+  drop_na() %>% 
+  # log transform lds
+  mutate(log_lds = log(lds)) %>% 
+  # standardise to z-scores
+  mutate(across(is.numeric, standardize))
+
+
+m_lds <- alist(divorce ~ dnorm(mu, sigma), 
+      mu <- a + Ba*age_marriage + Bm*marriage + Bl*log_lds, 
+      a ~ dnorm(0, 0.2), 
+      Ba ~ dnorm(0, 0.5), 
+      Bm ~ dnorm(0, 0.5), 
+      Bl ~ dnorm(0, 0.5),
+      sigma ~ dexp(1)) %>% 
+  quap(., data = d_waffle_sd)
+
+precis(m_lds)
+
+# make a plot
+precis(m_lds) %>% 
+  as_tibble(rownames = "estimate") %>% 
+  filter(str_detect(estimate, "^B")) %>% 
+  rename(lower_pi = '5.5%', upper_pi = '94.5%') %>% 
+  mutate(estimate = c("Age at marriage", "Marriage rate", "Log Mormons [%]")) %>% 
+  ggplot() +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.5) +
+  geom_pointrange(aes(x = mean, xmin = lower_pi, xmax = upper_pi, estimate),
+                  colour = "grey25", size = 0.7, show.legend = FALSE) +
+  labs(x = "Estimate", y = NULL) +
+  theme_classic()
+
+# the magnitude in percentage of LDS per state is negatively related to divorce rate. 
+# there is no longer a consistent trend for marriage rate. 
+# age at marriage is still negatively related to divorce rate. 
+                        
