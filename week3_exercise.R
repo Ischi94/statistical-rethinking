@@ -1017,23 +1017,63 @@ m_5H2 <- alist(
 
 m_5H2 %>% precis()
 
-sim_m <- sim(m_5H2, data = list(marriage = d_waffle_sd$marriage),
-             vars = c("age_marriage", "divorce")) %>% 
-  pluck("divorce") %>% 
-  as_tibble() %>% 
-  pivot_longer(cols = everything(), values_to = "divorce") %>% 
-  group_by(name) %>% 
-  nest() %>% 
-  add_column(double_m = double_M %>% pull(marriage), 
-             divorce = d_waffle_sd$divorce) %>% 
-  mutate(divorce_pred = map(data, pluck("divorce")), 
-         divorce_mean = map_dbl(divorce_pred, mean), 
-         divorce_pi = map(divorce_pred, PI), 
-         lower_pi = map_dbl(divorce_pi, pluck(1)), 
-         upper_pi = map_dbl(divorce_pi, pluck(2))) %>% 
-  ungroup() %>% 
-  select(divorce, double_m, divorce_mean, lower_pi, upper_pi)
 
-ggplot(sim_m) +
-  geom_point(aes(double_m, divorce)) +
-  geom_ribbon(aes(x = double_m, ymin = lower_pi, ymax = upper_pi))
+# build function to produce counterfactual plots
+count_plot <- function(sim_output, outcome, predictor) {
+  sim_output %>%
+    as_tibble() %>%
+    pivot_longer(cols = everything(), values_to = "{{predictor}}") %>%
+    group_by(name) %>%
+    nest() %>%
+    add_column("{{outcome}}" := s) %>%
+    ungroup() %>%
+    mutate(predictor_pred = map(data, pluck("{{predictor}}")),
+           predictor_mean = map_dbl(predictor_pred, mean),
+           predictor_pi = map(predictor_pred, PI),
+           lower_pi = map_dbl(predictor_pi, pluck(1)),
+           upper_pi = map_dbl(predictor_pi, pluck(2))) %>%
+    ungroup() %>%
+    select({{outcome}}, predictor_mean, lower_pi, upper_pi) %>%
+    ggplot() +
+    geom_ribbon(aes(x = {{outcome}}, ymin = lower_pi, ymax = upper_pi),
+                fill = "grey40", alpha = 0.85) +
+    geom_line(aes({{outcome}}, predictor_mean),
+              size = 1.5, colour = "orange") +
+    labs(title = paste("Total counterfactual effect of",
+                       as_label(expr({{predictor}})), "on",
+                       as_label(expr({{outcome}}))),
+         x = paste("manipulated", as_label(expr({{predictor}}))),
+         y = paste("counterfactual", as_label(expr({{outcome}})))) +
+    theme_minimal()
+}
+
+# M -> A
+sim_1 <- sim(m_5H2, data = list(marriage = s),
+             vars = c("age_marriage", "divorce"))  %>% 
+  pluck("age_marriage") 
+
+count_plot(sim_1, age_marriage, marriage)
+
+# increasing M decreases A
+
+# A -> D
+sim_2 <- sim(m_5H2, data = list(age_marriage = s),
+             vars = c("marriage", "divorce"))  %>% 
+  pluck("divorce") 
+
+count_plot(sim_2, divorce, age_marriage)
+
+# decreasing A increases D
+
+# M -> D
+sim_3 <- sim(m_5H2, data = list(marriage = s),
+             vars = c("age_marriage", "divorce"))  %>% 
+  pluck("divorce") 
+
+count_plot(sim_3, divorce, marriage)
+
+# in other words, increasing M increases D
+
+
+
+
