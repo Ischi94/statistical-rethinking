@@ -1075,5 +1075,56 @@ count_plot(sim_3, divorce, marriage)
 # in other words, increasing M increases D
 
 
+### 5H3 ###
+
+# Return to the milk energy model, m5.7. Suppuse that the true causal
+# relationship among the variables is:
+milk_dag <- dagitty('dag{ M -> K <- N 
+                    M -> N}')
 
 
+coordinates(milk_dag) <- list(x = c(M = 0, K = 1, N = 2), 
+                             y = c(M = 0, K = 1, N = 0))
+
+drawdag(milk_dag)
+
+# Now compute the counterfactual effect on K of doubling M. You will need to
+# account for both the direct and indirect paths of causation. Use the
+# counterfactual example from the chapter (starting at page 140) as a template.
+
+data(milk)
+
+milk_std <- milk %>% 
+  as_tibble() %>% 
+  select(mass, kcal.per.g, neocortex.perc) %>% 
+  drop_na() %>% 
+  mutate(across(everything(), standardize))
+
+m_milk <- alist(
+  # M -> K <- N
+  kcal.per.g ~ dnorm(mu, sigma) ,
+  mu <- a + bN*neocortex.perc + bM*mass,
+  a ~ dnorm(0, 0.2),
+  bN ~ dnorm(0 ,0.5),
+  bM ~ dnorm(0, 0.5),
+  sigma ~ dexp(1),
+
+  ## M -> N
+  neocortex.perc ~ dnorm(mu_N, sigma_N),
+  mu_N <- aN + bMN*mass,
+  aN ~ dnorm(0, 0.2),
+  bMN ~ dnorm(0, 0.5),
+  sigma_N ~ dexp(1)) %>% 
+  quap(., data = milk_std) 
+
+precis(m_milk)
+
+
+# now the function defined above comes in handy
+sim_m1 <- sim(m_milk, data = list(mass = s),
+             vars = c("neocortex.perc", "kcal.per.g"))  %>% 
+  pluck("kcal.per.g") 
+
+count_plot(sim_m1, kcal.per.g, mass)
+
+# doubling M would decrease K, but the relationship is not totally consistent
