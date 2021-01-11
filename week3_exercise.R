@@ -841,3 +841,110 @@ list(groupsize = s, area = 0) %>%
 # and the predictors.
 
 
+### 5H3 ###
+
+# Finally, consider the avgfood variable. Fit two more multiple regressions: (1)
+# body weight as an additive function of avgfood and groupsize, and (2) body
+# weight as an additive function of all three variables,avgfood and groupsize
+# and area. Compare the results of these models to the previous models you’ve
+# fit, in the first two exercises. 
+
+
+m_4 <- alist(weight ~ dnorm(mu, sigma), 
+             mu <- a + Bf*avgfood + Bg*groupsize, 
+             a ~ dnorm(0, 0.2), 
+             Bf ~ dnorm(0, 0.5), 
+             Bg ~ dnorm(0, 0.5), 
+             sigma ~ dexp(1)) %>% 
+  quap(. , data = foxes_std)
+
+
+m_5 <- alist(weight ~ dnorm(mu, sigma), 
+             mu <- a + Bf*avgfood + Bg*groupsize + Ba*area, 
+             a ~ dnorm(0, 0.2), 
+             Bf ~ dnorm(0, 0.5), 
+             Bg ~ dnorm(0, 0.5), 
+             Ba ~ dnorm(0, 0.5),
+             sigma ~ dexp(1)) %>% 
+  quap(. , data = foxes_std)
+
+# define function to get tidy coefficient estimates from precis()
+
+tidy_coef <- function(model_input) {
+  suppressWarnings(
+    
+    model_input %>% 
+      precis(.) %>% 
+      as_tibble(rownames = "estimate") %>% 
+      filter(str_detect(estimate, "^B"))
+  
+    )
+}
+
+list(m_1, m_2, m_3, m_4, m_5) %>% 
+  map(tidy_coef) %>% 
+  enframe(name = "model") %>%
+  unnest(value) %>% 
+  mutate(coef_mod = str_c("Model", model, sep = " "), 
+         coef_mod = str_c(coef_mod, estimate, sep = ": ")) %>% 
+  rename(lower_pi = '5.5%', upper_pi = '94.5%')  %>%  
+  ggplot() +
+  geom_vline(xintercept = 0, colour = "grey40")  +
+  geom_pointrange(aes(x = mean, xmin = lower_pi, xmax = upper_pi, y = coef_mod, 
+                  colour = estimate)) +
+  scale_colour_discrete(name = "Predictor", labels = c("Area", "Food", "Groupsize")) +
+  scale_y_discrete(labels = c("Model 1", "Model 2", "", "Model 3", 
+                              "", "Model 4", "", "", "Model 5")) +
+  geom_hline(yintercept = c(0.5, 1.5, 2.5, 4.5, 6.5, 9.5),
+             linetype = "dotted", colour = "grey80") +
+  labs(x = "Estimate", y = NULL) +
+  theme_minimal() + 
+  theme(panel.grid.major.y = element_blank())
+
+# food is positively related to weight in a model with avgfood and groupsize as
+# predictors. This relationship is lost when adding groupsize as a predictor to
+# the model
+
+
+# (a) Is avgfood or area a better predictor of bodyweight? If you had to choose
+# one or the other to include in a model, which would it be? Support your
+# assessment with any tables or plots you choose.
+
+# Comparing Model 3, 4, and 5 (see plot above) shows that avgfood generally has
+# a higher effect on weight than area, even if the uncertainty is a bit higher.
+# I would therefore choose avgfood.
+
+# However, I think that this really depends on the research question and what is
+# already known about fox behaviour. Looking at the coefficient estimates, both
+# are positively related to weight, but effects are reduced when they are in the
+# same model (see b below) Assuming that more area for a fox group increases
+# their access to food, I would use area as it is the direct causal variable.
+# But it could as well be that more food increases the area you can roam as a
+# fox, as you have more power. In this case, I would use food as a predictor.
+
+
+# (b) When both avgfood or area are in the same model, their effects are reduced
+# (closer to zero) and their standard errors are larger than when they are
+# included in separate models. Can you explain this result?
+
+# Area and avgfood are strongly correlated: 
+ggplot(foxes_std) +
+  geom_point(aes(area, avgfood), size = 2, colour = "grey30") +
+  labs(y = "Food", x = "Area") +
+  theme_minimal()
+
+# this phenomen is called multicollinearity. When adding both parameters as
+# predictors in a multiple regression, the partial effect of each becomes
+# smaller after controlling for the other (this is what we can see when
+# comparing Model 3, 4, and 5). It could be that both parameters share a common
+# unobserved cause, or that one parameter causes the other. Either way, it would
+# be wiser to include only one of these parameter (food OR area) in the final
+# model.
+
+
+
+# hard question print -----------------------------------------------------
+
+### 5H1 ###
+
+# In the divorce example, suppose the DAG 
