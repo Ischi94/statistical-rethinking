@@ -929,7 +929,8 @@ list(m_1, m_2, m_3, m_4, m_5) %>%
 
 # Area and avgfood are strongly correlated: 
 ggplot(foxes_std) +
-  geom_point(aes(area, avgfood), size = 2, colour = "grey30") +
+  geom_point(aes(area, avgfood), size = 2.5, shape = 21, 
+             fill = "grey50", colour = "grey20") +
   labs(y = "Food", x = "Area") +
   theme_minimal()
 
@@ -947,4 +948,53 @@ ggplot(foxes_std) +
 
 ### 5H1 ###
 
-# In the divorce example, suppose the DAG 
+# In the divorce example, suppose the DAG is: M -> A -> D. What are the implied
+# conditional independencies of the graph? Are the data consistent with it?
+
+# let's make a dag
+DMA_dag <- dagitty('dag{ M -> A -> D }')
+
+
+coordinates(DMA_dag) <- list(x = c(M = 0, A = 1, D = 2), 
+                             y = c(M = 1, A = 1, D = 1))
+
+drawdag(DMA_dag)
+
+impliedConditionalIndependencies(DMA_dag)
+# D _||_ M | A 
+
+# D is independent of M after conditioning on A
+# so let's condition on A
+
+m_1 <- alist(divorce ~ dnorm(mu, sigma), 
+             mu <- a + BM*marriage + BA*age_marriage, 
+             a ~ dnorm(0, 0.2), 
+             BM ~ dnorm(0, 0.5), 
+             BA ~ dnorm(0, 0.5), 
+             sigma ~ dexp(1)) %>% 
+  quap(. , data = d_waffle_sd)
+
+# we can use s and N defined above
+list(marriage = s, age_marriage = 0) %>% 
+  link(m_1, data = ., n = N) %>% 
+  as_tibble() %>% 
+  pivot_longer(cols = everything(), values_to = "divorce") %>% 
+  add_column(marriage = rep(s, N)) %>% 
+  group_by(marriage) %>% 
+  nest() %>% 
+  mutate(divorce = map(data, "divorce"), 
+         mean_divorce = map_dbl(divorce, mean), 
+         pi = map(divorce, PI), 
+         lower_pi = map_dbl(pi, pluck(1)), 
+         upper_pi = map_dbl(pi, pluck(2))) %>% 
+  select(marriage, mean_divorce, lower_pi, upper_pi) %>% 
+  ggplot() +
+  geom_ribbon(aes(marriage, ymin = lower_pi, ymax = upper_pi), 
+              fill = "grey40", alpha = 0.85) +
+  geom_line(aes(marriage, mean_divorce), 
+            size = 1.5, colour = "orange") +
+  labs(title = "Age = 0", x = "Manipulated Marriage Rate", 
+       y = "Counterfactual Divorce Rate") +
+  theme_minimal()
+
+# Indeed,  D is independent of M after conditioning on A
