@@ -41,7 +41,7 @@ data(foxes)
 # standardise data
 foxes_std <- foxes %>% 
   as_tibble() %>% 
-  mutate(across(-group, scale))
+  mutate(across(-group, standardize))
 
 # let's start with a simple linear regression of area on weight
 m_foxes <- alist(weight ~ dnorm(mu, sigma),
@@ -667,4 +667,177 @@ precis(m_lds) %>%
 # $$\mu_i = \alpha + \beta_g G_i + \beta_w W_i + \beta_f  F_i$$
 # where mu is the mean obesity rate, G the price of gasoline, W the walking rate
 # (per day), and F the amount of restaurant food
+
+
+
+# hard question online ----------------------------------------------------
+
+
+# All three exercises below use the same data,data(foxes)(part of
+# rethinking).The urban fox (Vulpes vulpes) is a successful exploiter of human
+# habitat. Since urban foxes move in packs and defend territories, data on
+# habitat quality and population density is also included. The data frame has
+# five columns:
+
+# - (1) group: Number of the social group the individual fox belongs to
+# - (2) avgfood: The average amount of food available in the territory
+# - (3) groupsize: The number of foxes in the social group
+# - (4) area: Size of the territory
+# - (5) weight: Body weight of the individual fox
+
+
+### 5H1 ###
+
+
+# Fit two bivariate Gaussian regressions, using quap: (1) body weight as a
+# linear function of territory size (area), and (2) body weight as a linear
+# function of groupsize. Plot the results of these regressions, displaying the
+# MAP regression line and the 95% interval of the mean. Is either variable
+# important for predicting fox body weight?
+
+# data is already loaded in homework
+# with standarised predictors
+foxes_std
+
+m_1 <- alist(weight ~ dnorm(mu, sigma), 
+      mu <- a + Ba*area, 
+      a ~ dnorm(0, 0.2), 
+      Ba ~ dnorm(0, 0.5), 
+      sigma ~ dexp(1)) %>% 
+  quap(., data = foxes_std)
+
+s <- seq(-2, 2, 0.1)
+N <- 1e3
+
+m_1 %>% 
+  link(data = list(area = s), n = N) %>% 
+  as_tibble() %>% 
+  pivot_longer(cols = everything(), values_to = "pred_weight") %>% 
+  add_column(area = rep(s, N)) %>% 
+  group_by(area) %>% 
+  nest() %>% 
+  mutate(pred_weight = map(data, "pred_weight"), 
+         mean_weight = map_dbl(pred_weight, mean), 
+         pi = map(pred_weight, PI), 
+         lower_pi = map_dbl(pi, pluck(1)), 
+         upper_pi = map_dbl(pi, pluck(2))) %>% 
+  select(area, mean_weight, lower_pi, upper_pi) %>% 
+  ggplot() +
+  geom_ribbon(aes(area, ymin = lower_pi, ymax = upper_pi), 
+              fill = "grey40", alpha = 0.85) +
+  geom_line(aes(area, mean_weight), 
+            size = 1.5, colour = "orange") +
+  labs(title = "Weight ~ Area", x = "Area", y = "Weight") +
+  theme_minimal()
+
+precis(m_1)
+
+# second part
+m_2 <- alist(weight ~ dnorm(mu, sigma), 
+             mu <- a + Bg*groupsize, 
+             a ~ dnorm(0, 0.2), 
+             Bg ~ dnorm(0, 0.5), 
+             sigma ~ dexp(1)) %>% 
+  quap(., data = foxes_std)
+
+
+m_2 %>% 
+  link(data = list(groupsize = s), n = N) %>% 
+  as_tibble() %>% 
+  pivot_longer(cols = everything(), values_to = "pred_weight") %>% 
+  add_column(groupsize = rep(s, N)) %>% 
+  group_by(groupsize) %>% 
+  nest() %>% 
+  mutate(pred_weight = map(data, "pred_weight"), 
+         mean_weight = map_dbl(pred_weight, mean), 
+         pi = map(pred_weight, PI), 
+         lower_pi = map_dbl(pi, pluck(1)), 
+         upper_pi = map_dbl(pi, pluck(2))) %>% 
+  select(groupsize, mean_weight, lower_pi, upper_pi) %>% 
+  ggplot() +
+  geom_ribbon(aes(groupsize, ymin = lower_pi, ymax = upper_pi), 
+              fill = "grey40", alpha = 0.85) +
+  geom_line(aes(groupsize, mean_weight), 
+            size = 1.5, colour = "orange") +
+  labs(title = "Weight ~ Groupsize", x = "Groupsize", y = "Weight") +
+  theme_minimal()
+
+precis(m_2)
+
+# groupsize shows a consistent and negative relationship with weight
+
+
+### 5H2 ###
+
+
+# Now fit a multiple linear regression with weight as the outcome and both area
+# and groupsize as predictor variables. Plot the predictions of the model for
+# each predictor, holding the other predictor constant at its mean. What does
+# this model say about the importance of each variable? Why do you get different
+# results than you got in the exercise just above?
+
+m_3 <- alist(weight ~ dnorm(mu, sigma), 
+             mu <- a + Ba*area + Bg*groupsize, 
+             a ~ dnorm(0, 0.2), 
+             Ba ~ dnorm(0, 0.5), 
+             Bg ~ dnorm(0, 0.5), 
+             sigma ~ dexp(1)) %>% 
+  quap(., data = foxes_std)
+
+# one advantage of standardising the predictor variables is that we know that
+# their mean is approximately zero
+near(mean(foxes_std$area), 0)
+
+# weight vs area while groupsize = 0
+# use s and N defined above
+list(area = s, groupsize = 0) %>% 
+  link(m_3, data = ., n = N) %>% 
+  as_tibble() %>% 
+  pivot_longer(cols = everything(), values_to = "pred_weight") %>% 
+  add_column(area = rep(s, N)) %>% 
+  group_by(area) %>% 
+  nest() %>% 
+  mutate(pred_weight = map(data, "pred_weight"), 
+         mean_weight = map_dbl(pred_weight, mean), 
+         pi = map(pred_weight, PI), 
+         lower_pi = map_dbl(pi, pluck(1)), 
+         upper_pi = map_dbl(pi, pluck(2))) %>% 
+  select(area, mean_weight, lower_pi, upper_pi) %>% 
+  ggplot() +
+  geom_ribbon(aes(area, ymin = lower_pi, ymax = upper_pi), 
+              fill = "grey40", alpha = 0.85) +
+  geom_line(aes(area, mean_weight), 
+            size = 1.5, colour = "orange") +
+  labs(title = "Groupsize = 0", x = "Manipulated Area", 
+       y = "Counterfactual weight") +
+  theme_minimal()
+
+# same for weight vs groupsize while area = 0
+list(groupsize = s, area = 0) %>% 
+  link(m_3, data = ., n = N) %>% 
+  as_tibble() %>% 
+  pivot_longer(cols = everything(), values_to = "pred_weight") %>% 
+  add_column(groupsize = rep(s, N)) %>% 
+  group_by(groupsize) %>% 
+  nest() %>% 
+  mutate(pred_weight = map(data, "pred_weight"), 
+         mean_weight = map_dbl(pred_weight, mean), 
+         pi = map(pred_weight, PI), 
+         lower_pi = map_dbl(pi, pluck(1)), 
+         upper_pi = map_dbl(pi, pluck(2))) %>% 
+  select(groupsize, mean_weight, lower_pi, upper_pi) %>% 
+  ggplot() +
+  geom_ribbon(aes(groupsize, ymin = lower_pi, ymax = upper_pi), 
+              fill = "grey40", alpha = 0.85) +
+  geom_line(aes(groupsize, mean_weight), 
+            size = 1.5, colour = "orange") +
+  labs(title = "Area = 0", x = "Manipulated Groupsize", 
+       y = "Counterfactual Weight") +
+  theme_minimal()
+
+# simple example of a masked relationship. Area is positively related to weight,
+# while groupsize is negatively related, cancelling each other out. The multiple
+# regression can unmask this, showing the real relationships between the outcome
+# and the predictors.
+
 
