@@ -222,6 +222,7 @@ ggplot(data_count) +
   theme_minimal()
 
 
+
 # Now infer the causal impact of group size. Which covariates do you need
 # to adjust for? Looking at the posterior distribution of the resulting model,
 # what do you think explains these data? That is, can you explain the estimates
@@ -727,7 +728,7 @@ m_1 %>%
               fill = "grey40", alpha = 0.85) +
   geom_line(aes(area, mean_weight), 
             size = 1.5, colour = "orange") +
-  labs(title = "Weight ~ Area", x = "Area", y = "Weight") +
+  labs(title = "Weight ~ Area", x = "Area (std)", y = "Weight (std)") +
   theme_minimal()
 
 precis(m_1)
@@ -759,7 +760,7 @@ m_2 %>%
               fill = "grey40", alpha = 0.85) +
   geom_line(aes(groupsize, mean_weight), 
             size = 1.5, colour = "orange") +
-  labs(title = "Weight ~ Groupsize", x = "Groupsize", y = "Weight") +
+  labs(title = "Weight ~ Groupsize", x = "Groupsize (std)", y = "Weight (std)") +
   theme_minimal()
 
 precis(m_2)
@@ -808,8 +809,8 @@ list(area = s, groupsize = 0) %>%
               fill = "grey40", alpha = 0.85) +
   geom_line(aes(area, mean_weight), 
             size = 1.5, colour = "orange") +
-  labs(title = "Groupsize = 0", x = "Manipulated Area", 
-       y = "Counterfactual weight") +
+  labs(title = "Groupsize (std) = 0", x = "Area (std)", 
+       y = "Weight (std)") +
   theme_minimal()
 
 # same for weight vs groupsize while area = 0
@@ -831,8 +832,8 @@ list(groupsize = s, area = 0) %>%
               fill = "grey40", alpha = 0.85) +
   geom_line(aes(groupsize, mean_weight), 
             size = 1.5, colour = "orange") +
-  labs(title = "Area = 0", x = "Manipulated Groupsize", 
-       y = "Counterfactual Weight") +
+  labs(title = "Area (std) = 0", x = "Groupsize (std)", 
+       y = "Weight (std)") +
   theme_minimal()
 
 # simple example of a masked relationship. Area is positively related to weight,
@@ -964,37 +965,75 @@ impliedConditionalIndependencies(DMA_dag)
 # D _||_ M | A 
 
 # D is independent of M after conditioning on A
-# so let's condition on A
+# so let's condition on A by using a multiple linear regression, 
+# asking: After I already know age at marriage, 
+# what additional value is there in also knowing marriage rate?
 
-m_1 <- alist(divorce ~ dnorm(mu, sigma), 
+# reload data for safety
+d_waffle_sd <- d_waffle %>% 
+  mutate(across(is.numeric, standardize))
+
+alist(divorce ~ dnorm(mu, sigma), 
              mu <- a + BM*marriage + BA*age_marriage, 
              a ~ dnorm(0, 0.2), 
              BM ~ dnorm(0, 0.5), 
              BA ~ dnorm(0, 0.5), 
              sigma ~ dexp(1)) %>% 
-  quap(. , data = d_waffle_sd)
+  quap(. , data = d_waffle_sd) %>% 
+  precis() %>% 
+  as_tibble(rownames = "estimate") %>% 
+  filter(estimate == "BM") 
 
-# we can use s and N defined above
-list(marriage = s, age_marriage = 0) %>% 
-  link(m_1, data = ., n = N) %>% 
+# Indeed, D is independent of M after conditioning on A, as there is no
+# consistent relationship between M and D in the model. 
+
+
+### 5H2 ###
+
+# Assuming that the Dag for the divorce example is indeed M -> A -> D, fit a new
+# model and use it to estimate the counterfactual effect of halving a State's
+# marriage rate M. Use the counterfactual example from the chapter (starting on
+# page 140) as a template.
+
+
+# let's build a model that corresponds to our dag
+m_5H2 <- alist(
+  # M -> A
+  age_marriage ~ dnorm(muA, sigmaA), 
+  muA <- aA + BM*marriage, 
+  aA ~ dnorm(0, 0.2), 
+  BM ~ dnorm(0, 0.5), 
+  sigmaA ~ dexp(1), 
+  
+  # A -> D
+  divorce ~ dnorm(muD, sigmaD), 
+  muD <- aD + BA*age_marriage, 
+  aD ~ dnorm(0, 0.2), 
+  BA ~ dnorm(0, 0.5), 
+  sigmaD ~ dexp(1)
+  ) %>% 
+  quap(., data = d_waffle_sd)
+
+
+m_5H2 %>% precis()
+
+sim_m <- sim(m_5H2, data = list(marriage = d_waffle_sd$marriage),
+             vars = c("age_marriage", "divorce")) %>% 
+  pluck("divorce") %>% 
   as_tibble() %>% 
   pivot_longer(cols = everything(), values_to = "divorce") %>% 
-  add_column(marriage = rep(s, N)) %>% 
-  group_by(marriage) %>% 
+  group_by(name) %>% 
   nest() %>% 
-  mutate(divorce = map(data, "divorce"), 
-         mean_divorce = map_dbl(divorce, mean), 
-         pi = map(divorce, PI), 
-         lower_pi = map_dbl(pi, pluck(1)), 
-         upper_pi = map_dbl(pi, pluck(2))) %>% 
-  select(marriage, mean_divorce, lower_pi, upper_pi) %>% 
-  ggplot() +
-  geom_ribbon(aes(marriage, ymin = lower_pi, ymax = upper_pi), 
-              fill = "grey40", alpha = 0.85) +
-  geom_line(aes(marriage, mean_divorce), 
-            size = 1.5, colour = "orange") +
-  labs(title = "Age = 0", x = "Manipulated Marriage Rate", 
-       y = "Counterfactual Divorce Rate") +
-  theme_minimal()
+  add_column(double_m = double_M %>% pull(marriage), 
+             divorce = d_waffle_sd$divorce) %>% 
+  mutate(divorce_pred = map(data, pluck("divorce")), 
+         divorce_mean = map_dbl(divorce_pred, mean), 
+         divorce_pi = map(divorce_pred, PI), 
+         lower_pi = map_dbl(divorce_pi, pluck(1)), 
+         upper_pi = map_dbl(divorce_pi, pluck(2))) %>% 
+  ungroup() %>% 
+  select(divorce, double_m, divorce_mean, lower_pi, upper_pi)
 
-# Indeed,  D is independent of M after conditioning on A
+ggplot(sim_m) +
+  geom_point(aes(double_m, divorce)) +
+  geom_ribbon(aes(x = double_m, ymin = lower_pi, ymax = upper_pi))
