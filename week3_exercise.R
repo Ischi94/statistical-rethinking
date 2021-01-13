@@ -3,6 +3,14 @@ library(tidyverse)
 library(dagitty)
 
 
+
+# colour scheme -----------------------------------------------------------
+
+red <- "#B74F35"
+yellow <- "#FFB81C"
+blue <- "#0E345E"
+lighblue <- "#85ACA9"
+
 # homework ----------------------------------------------------------------
 
 
@@ -72,9 +80,10 @@ post_mu <- link(
 
 # plot it
 ggplot(post_mu) +
-  geom_line(aes(area, weight_pred, group = type), alpha = 0.5) +
+  geom_line(aes(area, weight_pred, group = type), 
+            colour = blue, alpha = 0.5) +
   geom_point(aes(area, weight), shape = 21,
-             fill = "firebrick", colour = "grey20", size = 2) +
+             fill = red, colour = "grey20", size = 2) +
   labs(title = "Prior predictive simulation", x = "Area (std)", y = "Weight (std)") +
   theme_minimal()
 
@@ -93,10 +102,11 @@ post_single <- link(m_foxes, foxes_std) %>%
   add_column(area = foxes_std$area, weight = foxes_std$weight)
 
 ggplot(post_single) +
-  geom_ribbon(aes(x = area, ymin = pi_low, ymax = pi_high), fill = "grey60") +
-  geom_line(aes(area, mean_pred), colour = "orange") +
+  geom_ribbon(aes(x = area, ymin = pi_low, ymax = pi_high), 
+              fill = yellow, alpha = 0.3) +
+  geom_line(aes(area, mean_pred), colour = blue, size = 1.3) +
   geom_point(aes(area, weight), shape = 21,
-             fill = "firebrick", colour = "grey20", size = 2) +
+             fill = red, colour = "grey20", size = 2) +
   labs(title = "Posterior predictions", x = "Area (std)", y = "Weight (std)") +
   theme_minimal()
   
@@ -128,7 +138,8 @@ mu <- extract.prior(m_foxes_all, n = N) %>%
 
 # plot it
 ggplot(mu) +
-  geom_line(aes(area, weight_pred, group = type), alpha = 0.5) +
+  geom_line(aes(area, weight_pred, group = type), 
+            colour = blue, alpha = 0.5) +
   labs(title = "Prior predictive simulation", x = "Area (std)", y = "Weight (std)") +
   theme_minimal()
 
@@ -145,7 +156,7 @@ mod_comp <- precis(m_foxes) %>%
   select(m_type, mean, sd, lower_pi = "5.5%", upper_pi = "94.5%")
 
 ggplot(mod_comp) +
-  geom_vline(xintercept = 0, colour = "salmon", size = 0.8) +
+  geom_vline(xintercept = 0, colour = yellow, size = 0.8) +
   geom_pointrange(aes(x = mean, xmin = lower_pi, xmax = upper_pi, y = m_type), 
                   colour = "grey20", size = 0.6) +
   labs(title = "Total causal influence of area on weight",
@@ -214,9 +225,9 @@ data_count <- s %>%
 
 ggplot(data_count) +
   geom_ribbon(aes(x = food_man, ymin = lower_pi, ymax = upper_pi), 
-              fill = "grey60") +
+              fill = yellow, alpha = 0.3) +
   geom_line(aes(food_man, weight_count), 
-            colour = "orange", size = 1.3) +
+            colour = blue, size = 1.3) +
   labs(title = "Total counterfactual effect of avgfood on weight", 
        y = "Counterfactual weight", x = "Manipulated average food") +
   theme_minimal()
@@ -247,9 +258,9 @@ data_count2 <- s %>%
 
 ggplot(data_count2) +
   geom_ribbon(aes(x = group_man, ymin = lower_pi, ymax = upper_pi), 
-              fill = "grey60") +
+              fill = yellow, alpha = 0.3) +
   geom_line(aes(group_man, weight_count), 
-            colour = "orange", size = 1.3) +
+            colour = blue, size = 1.3) +
   labs(title = "Total counterfactual effect of groupsize on weight", 
        y = "Counterfactual weight", x = "Manipulated group size") +
   theme_minimal()
@@ -280,9 +291,9 @@ data_count3 <- s %>%
 
 ggplot(data_count3) +
   geom_ribbon(aes(x = area_man, ymin = lower_pi, ymax = upper_pi), 
-              fill = "grey60") +
+              fill = yellow, alpha = 0.3) +
   geom_line(aes(area_man, food_count), 
-            colour = "orange", size = 1.3) +
+            colour = blue, size = 1.3) +
   labs(title = "Total counterfactual effect of area on average food", 
        y = "Counterfactual food", x = "Manipulated area") +
   theme_minimal()
@@ -306,9 +317,9 @@ data_count4 <- s %>%
 
 ggplot(data_count4) +
   geom_ribbon(aes(x = avgfood_man, ymin = lower_pi, ymax = upper_pi), 
-              fill = "grey60") +
+              fill = yellow, alpha = 0.3) +
   geom_line(aes(avgfood_man, group_count), 
-            colour = "orange", size = 1.3) +
+            colour = blue, size = 1.3) +
   labs(title = "Total counterfactual effect of average food on groupsize", 
        y = "Counterfactual groupsize", x = "Manipulated average food") +
   theme_minimal()
@@ -446,12 +457,12 @@ full_join(m1, m2) %>%
   mutate(combined = str_c(model, estimate, sep = ": ")) %>% 
   rename(lower_pi = '5.5%', upper_pi = '94.5%') %>% 
   ggplot() +
+  geom_vline(xintercept = 0, colour = "grey20", alpha = 0.5, 
+             linetype = "dashed") +
   geom_pointrange(aes(x = mean, xmin = lower_pi, xmax = upper_pi,  
                       combined, colour = estimate), size = 1, 
                   show.legend = FALSE) +
-  geom_vline(xintercept = 0, colour = "grey20", 
-             linetype = "dashed", alpha = 0.5) +
-  scale_color_manual(values = c("firebrick", "steelblue")) +
+  scale_color_manual(values = c(red, blue)) +
   labs(y = NULL, x = "Estimate") +
   theme_classic()
 
@@ -525,7 +536,7 @@ full_join(m1, m2) %>%
                   show.legend = FALSE) +
   geom_vline(xintercept = 0, colour = "grey20", 
              linetype = "dashed", alpha = 0.5) +
-  scale_color_manual(values = c("firebrick", "steelblue")) +
+  scale_color_manual(values = c(red, blue)) +
   labs(y = NULL, x = "Estimate") +
   theme_classic()
 
@@ -576,23 +587,16 @@ data("WaffleDivorce")
 d_waffle <- WaffleDivorce %>% 
   as_tibble() %>% 
   select(marriage = Marriage, age_marriage = MedianAgeMarriage, 
-         divorce = Divorce, loc = Loc)
+         divorce = Divorce, location = Location)
 
 # using the downloadable csv data from worldpoulationreview:
 # https://worldpopulationreview.com/state-rankings/mormon-population-by-state
 mormons <- read_csv(file = "mormons.csv") %>% 
   mutate(lds = mormonPop/Pop) %>% 
-  select(loc = State, lds)
-
-# load state data contained in base r (datasets)
-data("state")
-
-state <- tibble(abbr = state.abb, loc = state.name)
+  select(location = State, lds)
 
 # bind with mormons data by loc
 d_waffle_sd <- mormons %>% 
-  full_join(state) %>% 
-  select(-loc, loc = abbr) %>% 
   # bind with marriage data by loc
   full_join(d_waffle) %>% 
   drop_na() %>% 
@@ -603,8 +607,6 @@ d_waffle_sd <- mormons %>%
 # and I am going to use the log of lds instead
 
 d_waffle_sd <- mormons %>% 
-  full_join(state) %>% 
-  select(-loc, loc = abbr) %>% 
   # bind with marriage data by loc
   full_join(d_waffle) %>% 
   drop_na() %>% 
@@ -633,8 +635,9 @@ precis(m_lds) %>%
   mutate(estimate = c("Age at marriage", "Marriage rate", "Log Mormons [%]")) %>% 
   ggplot() +
   geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.5) +
-  geom_pointrange(aes(x = mean, xmin = lower_pi, xmax = upper_pi, estimate),
-                  colour = "grey25", size = 0.7, show.legend = FALSE) +
+  geom_pointrange(aes(x = mean, xmin = lower_pi, xmax = upper_pi, estimate,
+                  colour = estimate), size = 0.7, show.legend = FALSE) +
+  scale_colour_manual(values = c(blue, red, yellow)) +
   labs(x = "Estimate", y = NULL, title = "Outcome = Divorce rate") +
   theme_classic()
 
@@ -725,9 +728,9 @@ m_1 %>%
   select(area, mean_weight, lower_pi, upper_pi) %>% 
   ggplot() +
   geom_ribbon(aes(area, ymin = lower_pi, ymax = upper_pi), 
-              fill = "grey40", alpha = 0.85) +
+              fill = yellow, alpha = 0.3) +
   geom_line(aes(area, mean_weight), 
-            size = 1.5, colour = "orange") +
+            size = 1.5, colour = blue) +
   labs(title = "Weight ~ Area", x = "Area (std)", y = "Weight (std)") +
   theme_minimal()
 
@@ -757,9 +760,9 @@ m_2 %>%
   select(groupsize, mean_weight, lower_pi, upper_pi) %>% 
   ggplot() +
   geom_ribbon(aes(groupsize, ymin = lower_pi, ymax = upper_pi), 
-              fill = "grey40", alpha = 0.85) +
+              fill = yellow, alpha = 0.3) +
   geom_line(aes(groupsize, mean_weight), 
-            size = 1.5, colour = "orange") +
+            size = 1.5, colour = blue) +
   labs(title = "Weight ~ Groupsize", x = "Groupsize (std)", y = "Weight (std)") +
   theme_minimal()
 
@@ -806,9 +809,9 @@ list(area = s, groupsize = 0) %>%
   select(area, mean_weight, lower_pi, upper_pi) %>% 
   ggplot() +
   geom_ribbon(aes(area, ymin = lower_pi, ymax = upper_pi), 
-              fill = "grey40", alpha = 0.85) +
+              fill = yellow, alpha = 0.3) +
   geom_line(aes(area, mean_weight), 
-            size = 1.5, colour = "orange") +
+            size = 1.5, colour = blue) +
   labs(title = "Groupsize (std) = 0", x = "Area (std)", 
        y = "Weight (std)") +
   theme_minimal()
@@ -829,9 +832,9 @@ list(groupsize = s, area = 0) %>%
   select(groupsize, mean_weight, lower_pi, upper_pi) %>% 
   ggplot() +
   geom_ribbon(aes(groupsize, ymin = lower_pi, ymax = upper_pi), 
-              fill = "grey40", alpha = 0.85) +
+              fill = yellow, alpha = 0.3) +
   geom_line(aes(groupsize, mean_weight), 
-            size = 1.5, colour = "orange") +
+            size = 1.5, colour = blue) +
   labs(title = "Area (std) = 0", x = "Groupsize (std)", 
        y = "Weight (std)") +
   theme_minimal()
@@ -877,7 +880,7 @@ tidy_coef <- function(model_input) {
     model_input %>% 
       precis(.) %>% 
       as_tibble(rownames = "estimate") %>% 
-      filter(str_detect(estimate, "^B"))
+      filter(str_detect(estimate, "^b|B" ) )
   
     )
 }
@@ -893,7 +896,9 @@ list(m_1, m_2, m_3, m_4, m_5) %>%
   geom_vline(xintercept = 0, colour = "grey40")  +
   geom_pointrange(aes(x = mean, xmin = lower_pi, xmax = upper_pi, y = coef_mod, 
                   colour = estimate)) +
-  scale_colour_discrete(name = "Predictor", labels = c("Area", "Food", "Groupsize")) +
+  scale_colour_discrete(name = "Predictor", 
+                        labels = c("Area", "Food", "Groupsize"), 
+                        type = c(red, blue, yellow)) +
   scale_y_discrete(labels = c("Model 1", "Model 2", "", "Model 3", 
                               "", "Model 4", "", "", "Model 5")) +
   geom_hline(yintercept = c(0.5, 1.5, 2.5, 4.5, 6.5, 9.5),
@@ -931,7 +936,7 @@ list(m_1, m_2, m_3, m_4, m_5) %>%
 # Area and avgfood are strongly correlated: 
 ggplot(foxes_std) +
   geom_point(aes(area, avgfood), size = 2.5, shape = 21, 
-             fill = "grey50", colour = "grey20") +
+             fill = red, colour = "grey20") +
   labs(y = "Food", x = "Area") +
   theme_minimal()
 
@@ -1036,9 +1041,9 @@ count_plot <- function(sim_output, outcome, predictor) {
     select({{outcome}}, predictor_mean, lower_pi, upper_pi) %>%
     ggplot() +
     geom_ribbon(aes(x = {{outcome}}, ymin = lower_pi, ymax = upper_pi),
-                fill = "grey40", alpha = 0.85) +
+                fill = yellow, alpha = 0.3) +
     geom_line(aes({{outcome}}, predictor_mean),
-              size = 1.5, colour = "orange") +
+              size = 1.5, colour = blue) +
     labs(title = paste("Total counterfactual effect of",
                        as_label(expr({{predictor}})), "on",
                        as_label(expr({{outcome}}))),
@@ -1077,7 +1082,7 @@ count_plot(sim_3, divorce, marriage)
 
 ### 5H3 ###
 
-# Return to the milk energy model, m5.7. Suppuse that the true causal
+# Return to the milk energy model, m5.7. Suppose that the true causal
 # relationship among the variables is:
 milk_dag <- dagitty('dag{ M -> K <- N 
                     M -> N}')
@@ -1128,3 +1133,77 @@ sim_m1 <- sim(m_milk, data = list(mass = s),
 count_plot(sim_m1, kcal.per.g, mass)
 
 # doubling M would decrease K, but the relationship is not totally consistent
+
+
+### 5H4 ###
+  
+# Here is an open practice problem to engage your imagination. In the divorce
+# data, States in the souther United States have many of the highest divorce
+# rates. Add the South indicator variable to the analysis. First, draw one or
+# more DAGs that represent your ideas for how Southern American culture might
+# influence any of the other three variables (D, M or A). Then list the testable
+# implications of your DAGs, if there are any, and fit one or more models to
+# evaluate the implications. What do you think the influence of "Southerness"
+# is?
+divorce_std <- WaffleDivorce %>% 
+  as_tibble() %>% 
+  select(D = Divorce, M = Marriage, A = MedianAgeMarriage, 
+         S = South, SL = PropSlaves1860) %>% 
+  mutate(across(-S, standardize), 
+         S = if_else(S == 0, 1, 2))
+
+# draw dag
+# Southerness could drive A (medium age at marriage), as a cultural thing. If it
+# is related to culture, it could directly influence D as well. Further, we
+# found in the chapter that A influences both M and D, and M has low influence
+# on D. We can therefore remove M
+divorce_dag <- dagitty('dag{ 
+                    S -> A
+                    A -> D <- S}')
+
+coordinates(divorce_dag) <- list(x = c(S = 0, A = 2, D = 1), 
+                              y = c(S = 0, A = 0, D = 1))
+
+drawdag(divorce_dag)
+
+impliedConditionalIndependencies(divorce_dag)
+
+# all are dependent, check with cor()
+divorce_std %>% 
+  select(D, A, S) %>% 
+  as.matrix() %>% 
+  cor()
+
+# more or less 
+
+# make a model
+m_divorce1 <- alist(
+  D ~ dnorm(mu, sigma), 
+  mu <- a[S] + bA*A , 
+  a[S] ~ dnorm(0, 0.5),
+  bA ~ dnorm(0 ,0.5),
+  sigma ~ dexp(1)) %>% 
+  quap(., data = divorce_std)
+
+
+# southern states have a consistently lower divorce rate than nonsouthern states
+extract.samples(m_divorce1) %>% 
+  as_tibble() %>% 
+  mutate(south_diff = a[,2] - a[,1]) %>% 
+  precis() %>% 
+  as_tibble(rownames = "estimate") %>% 
+  filter(estimate != "sigma") %>% 
+  rename(lower_pi = '5.5%', upper_pi = '94.5%')  %>%  
+  ggplot() +
+  geom_vline(xintercept = 0, colour = "grey40")  +
+  geom_pointrange(aes(x = mean, xmin = lower_pi, xmax = upper_pi, 
+                      y = fct_reorder(estimate, desc(estimate)), 
+                      colour = estimate)) +
+  scale_colour_discrete(name = "Predictor", 
+                        labels = c("Southern State", "Non-Southern State",  
+                                   "Age at Marriage", "Non-Southern minus Southern"), 
+                        type = c(red, blue, yellow, lighblue)) +
+  labs(title = "Outcome = Divorce rate", x = "Estimate", y = NULL) +
+  theme_minimal() + 
+  theme(panel.grid.major.y = element_blank())
+
