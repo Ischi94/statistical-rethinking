@@ -541,11 +541,11 @@ full_join(m1, m2) %>%
   theme_classic()
 
 # let's make a dag for this
-dag_5M2 <- dagitty( "dag {
+dag_5M2 <- dagitty::dagitty( "dag {
                       Predictor1 <-  Unobserved -> Predictor2
                       Predictor1 -> Outcome <- Predictor2
                       }") 
-coordinates(dag_5M2) <- list(x = c(Predictor1 = 0, Outcome = 1, Unobserved = 1, Predictor2 = 2),
+dagitty::coordinates(dag_5M2) <- list(x = c(Predictor1 = 0, Outcome = 1, Unobserved = 1, Predictor2 = 2),
                              y = c(Predictor1 = 0, Unobserved = 0, Predictor2 = 0, Outcome = 1))
 drawdag(dag_5M2)
 

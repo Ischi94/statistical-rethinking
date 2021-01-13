@@ -23,7 +23,7 @@ output:
 knitr::opts_chunk$set(echo = TRUE, fig.dim=c(7,4), warning=FALSE)
 library(tidyverse)
 library(rethinking)
-library(dagitty)
+library(ggdag)
 ```
 
 # Introduction 
@@ -168,7 +168,7 @@ full_join(m1, m2) %>%
 ```  
   
 We can see that bivariate regressions falsely estimates that the second predictor is related to the outcome. But in a multiple regression framework, we get the right answer: There is no new information included in the second predictor, once we know about the first predictor.  
-We can make a directed acyclic graph (DAG) for this. 
+We can make a directed acyclic graph (DAG) using the `ggdad` package for this. 
 
 ```{r 5M1 part 6}
 tibble(name = c("Outcome", "Predictor1", "Predictor2"),
@@ -178,11 +178,106 @@ dagify(Outcome ~ Predictor1,
        Predictor2 ~ Predictor1,
          coords = .) %>% 
   ggplot(aes(x = x, y = y, xend = xend, yend = yend)) +
-  geom_dag_node(color = red) +
+  geom_dag_node(color = red, alpha = 0.5) +
   geom_dag_text(aes(label = abbreviate(name)), color = blue) +
   geom_dag_edges(edge_color = blue) +
   theme_void()
-```
+```  
+  
+## Question 5M2  
+  
+**Invent your own example of a masked relationship. An outcome variable should be correlated with both predictor variables, but in opposite directions. And the two predictor variables should be correlated with one another.**  
+We can use the same steps as in 5M1:  
+First we simulate the data. We create the first predictor from a normal distribution and let the second predictor be correlated to the first one by simulating from the means of `pred_1`. The outcome is then simulated whit a positive correlation to `pred_1` and negatively correlated to `pred_2`. 
+  
+```{r 5M2 part 1}
+N <- 100
+dfr <- tibble(pred_1 = rnorm(N, sd = 3), 
+              pred_2 = rnorm(N, pred_1, sd = 0.5), 
+              out_var = rnorm(N, pred_1 - pred_2)) %>% 
+  mutate(across(everything(), scale))
+```  
+  
+Now we approximate two bivariate and one multiple regressions from the data. The model estimates are then tidied.   
+  
+```{r 5M2 part 2}
+# bivariate regression of predictor 1 on the outcome
+m1 <- alist(out_var ~ dnorm(mu, sigma),
+            mu <- a + B1*pred_1,
+            a ~ dnorm(0, 0.2), 
+            B1 ~ dnorm(0, 0.5),
+            sigma ~ dexp(1)) %>% 
+  quap(., data = dfr) %>% 
+  precis() %>% 
+  as_tibble(rownames = "estimate")
+
+
+
+# bivariate regression of predictor 2 on the outcome
+m2 <- alist(out_var ~ dnorm(mu, sigma),
+            mu <- a + B2*pred_2,
+            a ~ dnorm(0, 0.2), 
+            B2 ~ dnorm(0, 0.5),
+            sigma ~ dexp(1)) %>% 
+  quap(., data = dfr) %>% 
+  precis() %>% 
+  as_tibble(rownames = "estimate")
+
+
+
+# multiple linear regression of predictor 1 and predictor 2 on the outcome
+m3 <- alist(out_var ~ dnorm(mu, sigma),
+            mu <- a + B1*pred_1 + B2*pred_2,
+            a ~ dnorm(0, 0.2),
+            B1 ~ dnorm(0, 0.5),
+            B2 ~ dnorm(0, 0.5),
+            sigma ~ dexp(1)) %>% 
+  quap(., data = dfr) %>% 
+  precis() %>% 
+  as_tibble(rownames = "estimate")
+```  
+  
+Now we combine all estimates from the model in a data frame, wrangle and plot it.  
+  
+```{r 5M2 part 3}
+full_join(m1, m2) %>% 
+  full_join(m3) %>% 
+  add_column(model = rep(paste("Model", 1:3), c(3, 3, 4))) %>% 
+  filter(estimate %in% c("B1", "B2")) %>% 
+  mutate(combined = str_c(model, estimate, sep = ": ")) %>% 
+  rename(lower_pi = '5.5%', upper_pi = '94.5%') %>% 
+  ggplot() +
+  geom_pointrange(aes(x = mean, xmin = lower_pi, xmax = upper_pi,  
+                      combined, colour = estimate), size = 1, 
+                  show.legend = FALSE) +
+  geom_vline(xintercept = 0, colour = "grey20", 
+             linetype = "dashed", alpha = 0.5) +
+  scale_color_manual(values = c(red, blue)) +
+  labs(y = NULL, x = "Estimate") +
+  theme_classic()
+```  
+  
+We can see that the relationship between the outcome and each predictor is masked in a bivariate regression, but emerges in a multiple regression. As the first and the second predictor are correlated, they probably share a cause that is unobserved. Let's build a DAG for this as well.  
+  
+```{r 5M2 part 4}
+tibble(name = c("Outcome", "Pred1", "Pred2", "Unobserved"),
+         x    = c(1, 0, 2, 1),
+         y    = c(0, 1, 1, 1.5)) %>% 
+dagify(Outcome ~ Pred1 + Pred2,
+       Pred1 ~ Unobserved,
+       Pred2 ~ Unobserved,
+       coords = .) %>% 
+  ggplot(aes(x = x, y = y, xend = xend, yend = yend)) +
+  geom_dag_node(color = red, alpha = 0.5) +
+  geom_dag_text(color = blue) +
+  geom_dag_edges(edge_color = blue) +
+  theme_void()
+```  
+  
+
+
+
+
 
 
 
