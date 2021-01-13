@@ -274,7 +274,27 @@ dagify(Outcome ~ Pred1 + Pred2,
   theme_void()
 ```  
   
-
+  
+## Question 5M3  
+  
+**It is sometimes observed that the best predictor of fire risk is the presence of firefighters—States and localities with many firefighters also have more fires. Presumably firefighters do not cause fires. Nevertheless, this is not a spurious correlation. Instead fires cause firefighters. Consider the same reversal of causal inference in the context of the divorce and marriage data. How might a high divorce rate cause a higher marriage rate? Can you think of a way to evaluate this relationship, using multiple regression?**  
+  
+After a divorce, there are two new individuals on the "wedding market". Divorce rate *D* could hence be related to marriage rate *M* by increasing the pool of potential individuals one can marry. This could be tested by tracking each individual after a divorce to see whether they get re-married again. This re-marriage rate *R* could then be used in a multiple linear regression framework, where marriage rate is the outcome, and divorce rate and re-marriage rate are the predictors. If divorce rate was related to marriage rate in a bivariate regression framework, but not when adding re-marriage rate in a multiple regression, then re-marriage is the driving force for the spurious correlation between divorce and marriage rate.  
+  
+```{r 5M3 part 1}
+tibble(name = c("M", "D", "R"),
+         x    = c(1, 0, 2),
+         y    = c(0, 1, 1)) %>% 
+dagify(M ~ R,
+       R ~ D,
+       coords = .) %>% 
+  ggplot(aes(x = x, y = y, xend = xend, yend = yend)) +
+  geom_dag_node(color = red, alpha = 0.5) +
+  geom_dag_text(color = blue) +
+  geom_dag_edges(edge_color = blue) +
+  theme_void()
+```  
+  
 
 
 
