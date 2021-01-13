@@ -88,6 +88,44 @@ Notice that I used priors that are not flat but instead are within a realistic r
   quap(., data = dfr) %&gt;% 
   precis() %&gt;% 
   as_tibble(rownames = &quot;estimate&quot;)</code></pre>
+<p>Let’s do the same for the second predictor and the outcome, using similar priors. This is the predictor which is not causally related to the outcome.</p>
+<pre class="r"><code>m2 &lt;- alist(out_var ~ dnorm(mu, sigma),
+            mu &lt;- a + B2*pred_2,
+            a ~ dnorm(0, 0.2), 
+            B2 ~ dnorm(0, 0.5),
+            sigma ~ dexp(1)) %&gt;% 
+  quap(., data = dfr) %&gt;% 
+  precis() %&gt;% 
+  as_tibble(rownames = &quot;estimate&quot;)</code></pre>
+<p>And finally putting both predictors in a multiple linear regression, which should showcase the true relationships.</p>
+<pre class="r"><code>m3 &lt;- alist(out_var ~ dnorm(mu, sigma),
+            mu &lt;- a + B1*pred_1 + B2*pred_2,
+            a ~ dnorm(0, 0.2),
+            B1 ~ dnorm(0, 0.5),
+            B2 ~ dnorm(0, 0.5),
+            sigma ~ dexp(1)) %&gt;% 
+  quap(., data = dfr) %&gt;% 
+  precis() %&gt;% 
+  as_tibble(rownames = &quot;estimate&quot;)</code></pre>
+<p>Now we can add the <span class="math display">\[\beta\]</span> estimates of each model, that capture the relationship between each predictor and the outcome, in a dataframe and plot it.</p>
+<pre class="r"><code>full_join(m1, m2) %&gt;% 
+  full_join(m3) %&gt;% 
+  add_column(model = rep(paste(&quot;Model&quot;, 1:3), c(3, 3, 4))) %&gt;% 
+  filter(estimate %in% c(&quot;B1&quot;, &quot;B2&quot;)) %&gt;% 
+  mutate(combined = str_c(model, estimate, sep = &quot;: &quot;)) %&gt;% 
+  rename(lower_pi = &#39;5.5%&#39;, upper_pi = &#39;94.5%&#39;) %&gt;% 
+  ggplot() +
+  geom_vline(xintercept = 0, colour = &quot;grey20&quot;, alpha = 0.5, 
+             linetype = &quot;dashed&quot;) +
+  geom_pointrange(aes(x = mean, xmin = lower_pi, xmax = upper_pi,  
+                      combined, colour = estimate), size = 1, 
+                  show.legend = FALSE) +
+  scale_color_manual(values = c(red, blue)) +
+  labs(y = NULL, x = &quot;Estimate&quot;) +
+  theme_classic()</code></pre>
+<pre><code>## Joining, by = c(&quot;estimate&quot;, &quot;mean&quot;, &quot;sd&quot;, &quot;5.5%&quot;, &quot;94.5%&quot;)
+## Joining, by = c(&quot;estimate&quot;, &quot;mean&quot;, &quot;sd&quot;, &quot;5.5%&quot;, &quot;94.5%&quot;)</code></pre>
+<p><img src="chapter5_files/figure-html/5M1%20part%205-1.png" width="672" /></p>
 <hr />
 <pre class="r"><code>sessionInfo()</code></pre>
 <pre><code>## R version 4.0.3 (2020-10-10)
@@ -123,17 +161,18 @@ Notice that I used priors that are not flat but instead are within a realistic r
 ## [13] glue_1.4.2         digest_0.6.27      rvest_0.3.6        colorspace_2.0-0  
 ## [17] htmltools_0.5.0    pkgconfig_2.0.3    broom_0.7.2        haven_2.3.1       
 ## [21] bookdown_0.21      mvtnorm_1.1-1      scales_1.1.1       processx_3.4.5    
-## [25] generics_0.1.0     ellipsis_0.3.1     withr_2.3.0        cli_2.2.0         
-## [29] magrittr_2.0.1     crayon_1.3.4       readxl_1.3.1       evaluate_0.14     
-## [33] ps_1.4.0           fs_1.5.0           fansi_0.4.1        MASS_7.3-53       
-## [37] xml2_1.3.2         pkgbuild_1.1.0     blogdown_0.21      tools_4.0.3       
-## [41] loo_2.3.1          prettyunits_1.1.1  hms_0.5.3          lifecycle_0.2.0   
-## [45] matrixStats_0.57.0 V8_3.2.0           munsell_0.5.0      reprex_0.3.0      
-## [49] callr_3.5.1        compiler_4.0.3     rlang_0.4.9        grid_4.0.3        
-## [53] rstudioapi_0.13    rmarkdown_2.5      gtable_0.3.0       codetools_0.2-18  
-## [57] inline_0.3.16      DBI_1.1.0          curl_4.3           R6_2.5.0          
-## [61] gridExtra_2.3      lubridate_1.7.9    knitr_1.30         shape_1.4.5       
-## [65] stringi_1.5.3      Rcpp_1.0.5         vctrs_0.3.5        dbplyr_1.4.4      
-## [69] tidyselect_1.1.0   xfun_0.19          coda_0.19-4</code></pre>
+## [25] farver_2.0.3       generics_0.1.0     ellipsis_0.3.1     withr_2.3.0       
+## [29] cli_2.2.0          magrittr_2.0.1     crayon_1.3.4       readxl_1.3.1      
+## [33] evaluate_0.14      ps_1.4.0           fs_1.5.0           fansi_0.4.1       
+## [37] MASS_7.3-53        xml2_1.3.2         pkgbuild_1.1.0     blogdown_0.21     
+## [41] tools_4.0.3        loo_2.3.1          prettyunits_1.1.1  hms_0.5.3         
+## [45] lifecycle_0.2.0    matrixStats_0.57.0 V8_3.2.0           munsell_0.5.0     
+## [49] reprex_0.3.0       callr_3.5.1        compiler_4.0.3     rlang_0.4.9       
+## [53] grid_4.0.3         rstudioapi_0.13    labeling_0.4.2     rmarkdown_2.5     
+## [57] gtable_0.3.0       codetools_0.2-18   inline_0.3.16      DBI_1.1.0         
+## [61] curl_4.3           R6_2.5.0           gridExtra_2.3      lubridate_1.7.9   
+## [65] knitr_1.30         shape_1.4.5        stringi_1.5.3      Rcpp_1.0.5        
+## [69] vctrs_0.3.5        dbplyr_1.4.4       tidyselect_1.1.0   xfun_0.19         
+## [73] coda_0.19-4</code></pre>
 </div>
 </div>

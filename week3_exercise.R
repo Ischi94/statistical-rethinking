@@ -331,17 +331,17 @@ ggplot(data_count4) +
 ### 5E1 ###
 
 # Which of the linear models below are multiple linear regressions?
-
+# 
 # (1) $$\mu_i = \alpha + \beta_xi$$
 # (2) $$\mu_i = \beta_x x_i + \beta_z z_i$$
 # (3) $$\mu_i = \alpha + \beta(x_i – z_i)$$
 # (4) $$\mu_i = \alpha + \beta_x x_i + \beta_z z_i$$
 
-## (1) contains only one predictor variable ($$\beta_xi$$) and is therefore a bivariate linear regression. 
-## (2) has two predictor variables and is a multiple linear regression without an intercept ($$\alpha$$).
-## (3) the right side can written as $$\alpha + \beta x_i - \beta z_i$$ which looks like a weird multiple 
+# (1) contains only one predictor variable ($$\beta_xi$$) and is therefore a bivariate linear regression.
+# (2) has two predictor variables and is a multiple linear regression without an intercept ($$\alpha$$).
+# (3) the right side can written as $$\alpha + \beta x_i - \beta z_i$$ which looks like a weird multiple
 # regression with negatively correlated slopes for each predictor.
-## (4) is a perfectly looking multiple linear regression. 
+# (4) is a perfectly looking multiple linear regression.
 
 
 ### 5E2 ###
@@ -350,8 +350,8 @@ ggplot(data_count4) +
 # linearly related to latitude, but only after controlling for plant diversity.
 # You just need to write down the model definition.
 
-##  Let $$\mu_i$$ be the mean animal diversity, **L** latitude, and **P** plant diversity.
-## Then $$\mu_i = \alpha + \beta_L L_i + \beta_P P_i$$
+#  Let $$\mu_i$$ be the mean animal diversity, **L** latitude, and **P** plant diversity.
+# Then $$\mu_i = \alpha + \beta_L L_i + \beta_P P_i$$
 
 
 ### 5E3 ###  
@@ -362,9 +362,9 @@ ggplot(data_count4) +
 # to degree. Write down the model definition and indicate which side of zero
 # each slope parameter should be on.
 
-## Let $$\mu_i$$ be the time to PhD, **F** the amount of funding, and **S** the size of laboratory.
-## Then $$\mu_i = \alpha + \beta_F F_i + \beta_S S_i$$ 
-## Where both $$beta_F$$ & $$beta_S > 0$$ 
+# Let $$\mu_i$$ be the time to PhD, **F** the amount of funding, and **S** the size of laboratory.
+# Then $$\mu_i = \alpha + \beta_F F_i + \beta_S S_i$$
+# Where both $$beta_F$$ & $$beta_S > 0$$
 
 
 ### 5E4 ### 
