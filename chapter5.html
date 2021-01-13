@@ -1,0 +1,139 @@
+<script src="chapter5_files/header-attrs-2.5/header-attrs.js"></script>
+<link href="chapter5_files/anchor-sections-1.0/anchor-sections.css" rel="stylesheet" />
+<script src="chapter5_files/anchor-sections-1.0/anchor-sections.js"></script>
+
+<div id="TOC">
+<ul>
+<li><a href="#introduction"><span class="toc-section-number">1</span> Introduction</a></li>
+<li><a href="#easy-practices"><span class="toc-section-number">2</span> Easy practices</a></li>
+<li><a href="#medium-practices"><span class="toc-section-number">3</span> Medium practices</a></li>
+</ul>
+</div>
+
+<div id="introduction" class="section level1" number="1">
+<h1><span class="header-section-number">1</span> Introduction</h1>
+<p>This is the fourth part of a series where I work through the practice questions of the second edition of Richard McElreaths <a href="https://xcelab.net/rm/statistical-rethinking/">Statistical Rethinking</a>. Each post covers a new chapter and you can see the posts on previous chapters <a href="https://gregor-mathes.netlify.app/tags/rethinking/">here</a>.<br />
+The third part of the series will cover chapter 5, which corresponds to the first part of week 3 of the lectures and homework (which you can find <a href="https://github.com/rmcelreath/stat_rethinking_2020">here</a>). The homework of week 3 will be covered in the next part about chapter 6.<br />
+From now on, I will set a given colour scheme for each chapter. This is mostly for me to see which colours play nice together, but will make the look of the blog posts more consistent.<br />
+The colours for this blog post are:</p>
+<pre class="r"><code>red &lt;- &quot;#B74F35&quot;
+yellow &lt;- &quot;#FFB81C&quot;
+blue &lt;- &quot;#0E345E&quot;
+lighblue &lt;- &quot;#85ACA9&quot;</code></pre>
+</div>
+<div id="easy-practices" class="section level1" number="2">
+<h1><span class="header-section-number">2</span> Easy practices</h1>
+<div id="question-5e1" class="section level2" number="2.1">
+<h2><span class="header-section-number">2.1</span> Question 5E1</h2>
+<p><strong>Which of the linear models below are multiple linear regressions?</strong></p>
+<ol style="list-style-type: decimal">
+<li><p><span class="math display">\[\mu_i = \alpha + \beta_xi\]</span></p></li>
+<li><p><span class="math display">\[\mu_i = \beta_x x_i + \beta_z z_i\]</span></p></li>
+<li><p><span class="math display">\[\mu_i = \alpha + \beta(x_i – z_i)\]</span></p></li>
+<li><p><span class="math display">\[\mu_i = \alpha + \beta_x x_i + \beta_z z_i\]</span></p></li>
+<li><p>contains only one predictor variable (<span class="math display">\[\beta_xi\]</span>) and is therefore a bivariate linear regression.<br />
+</p></li>
+<li><p>has two predictor variables and is a multiple linear regression without an intercept (<span class="math display">\[\alpha\]</span>).<br />
+</p></li>
+<li><p>the right side can written as <span class="math display">\[\alpha + \beta x_i - \beta z_i\]</span> which looks like a weird multiple regression with negatively correlated slopes for each predictor.<br />
+</p></li>
+<li><p>is a perfectly looking multiple linear regression.</p></li>
+</ol>
+</div>
+<div id="question-5e2" class="section level2" number="2.2">
+<h2><span class="header-section-number">2.2</span> Question 5E2</h2>
+<p><strong>Write down a multiple regression to evaluate the claim: Animal diversity is linearly related to latitude, but only after controlling for plant diversity. You just need to write down the model definition.</strong></p>
+<p>Let <span class="math display">\[\mu_i\]</span> be the mean animal diversity, <strong>L</strong> latitude, and <strong>P</strong> plant diversity.<br />
+Then <span class="math display">\[\mu_i = \alpha + \beta_L L_i + \beta_P P_i\]</span>.</p>
+</div>
+<div id="question-5e3" class="section level2" number="2.3">
+<h2><span class="header-section-number">2.3</span> Question 5E3</h2>
+<p><strong>Write down a multiple regression to evaluate the claim: Neither the amount of funding nor size of laboratory is by itself a good predictor of time to PhD degree; but together these variables are both positively associated with time to degree. Write down the model definition and indicate which side of zero each slope parameter should be on.</strong></p>
+<p>Let <span class="math display">\[\mu_i\]</span> be the time to PhD, <strong>F</strong> the amount of funding, and <strong>S</strong> the size of laboratory.<br />
+Then <span class="math display">\[\mu_i = \alpha + \beta_F F_i + \beta_S S_i\]</span>
+Where both <span class="math display">\[beta_F\]</span> &amp; <span class="math display">\[beta_S &gt; 0\]</span></p>
+</div>
+<div id="question-5e4" class="section level2" number="2.4">
+<h2><span class="header-section-number">2.4</span> Question 5E4</h2>
+<p><strong>Suppose you have a single categorical predictor with 4 levels (unique values), labeled A, B, C, and D. Let Ai be an indicator variable that is 1 where case i is in category A. Also suppose Bi, Ci, and Di for the other categories. Now which of the following linear models are inferentially equivalent ways to include the categorical variable in a regression? Models are inferentially equivalent when it’s possible to compute one posterior distribution from the posterior distribution of another model.</strong></p>
+<ol style="list-style-type: decimal">
+<li><span class="math display">\[\mu_i = \alpha + \beta_A A_i + \beta_B B_i + \beta_D D_i\]</span></li>
+<li><span class="math display">\[\mu_i = \alpha + \beta_A A_i + \beta_B B_i + \beta_C C_i + \beta_D D_i\]</span></li>
+<li><span class="math display">\[\mu_i = \alpha + \beta_B B_i + \beta_C C_i + \beta_D D_i\]</span></li>
+<li><span class="math display">\[\mu_i = \alpha_A A_i + \alpha_B B_i + \alpha_C C_i + \alpha_D D_i\]</span></li>
+<li><span class="math display">\[\mu_i = \alpha_A (1 – B_i – C_i – D_i) + \alpha_B B_i + \alpha_C C_i + \alpha_D D_i\]</span></li>
+</ol>
+<p>This question was a bit to complicated for me and I just copied over the answer from <a href="">Jeffrey Girard</a>:</p>
+<p><em>The first model includes a single intercept (for category C) and slopes for A, B, and D. The second model is non-identifiable because it includes a slope for all possible categories (page 156). The third model includes a single intercept (for category A) and slopes for B, C, and D. The fourth model uses the unique index approach to provide a separate intercept for each category (and no slopes). The fifth model uses the reparameterized approach on pages 154 and 155 to multiply the intercept for category A times 1 when in category A and times 0 otherwise. Models 1, 3, 4, and 5 are inferentially equivalent because they each allow the computation of each other’s posterior distribution (e.g., each category’s intercept and difference from each other category).</em></p>
+</div>
+</div>
+<div id="medium-practices" class="section level1" number="3">
+<h1><span class="header-section-number">3</span> Medium practices</h1>
+<div id="question-5m1" class="section level2" number="3.1">
+<h2><span class="header-section-number">3.1</span> Question 5M1</h2>
+<p><strong>Invent your own example of a spurious correlation. An outcome variable should be correlated with both predictor variables. But when both predictors are entered in the same model, the correlation between the outcome and one of the predictors should mostly vanish (or at least be greatly reduced).</strong></p>
+<p>Let’s directly enter each simulation in a dataframe. For each variable, we sample 100 values from a normal distribution. The outcome variable is only related to the first predictor, but the second predictor is as well dependent on the first predictor. To make the selections of priors easier, I transform each variable into z-scores using the <code>scale()</code>.</p>
+<pre class="r"><code>N &lt;- 100
+dfr &lt;- tibble(pred_1 = rnorm(N), 
+       pred_2 = rnorm(N, -pred_1), 
+       out_var = rnorm(N, pred_1)) %&gt;% 
+  mutate(across(everything(), scale))</code></pre>
+<p>Now let’s see how the outcome is related to the first predictor within a linear regression using quadratic approximation:<br />
+Notice that I used priors that are not flat but instead are within a realistic realm. <span class="math display">\[\alpha\]</span> must be pretty close to 0 when we standardise the outcome and the predictor. The prior on the slope <span class="math display">\[\beta\]</span> is a bit more wider but still only captures realistic relationships as seen in prior predictive simulations throughout the chapter.</p>
+<pre class="r"><code>m1 &lt;- alist(out_var ~ dnorm(mu, sigma),
+      mu &lt;- a + B1*pred_1,
+      a ~ dnorm(0, 0.2), 
+      B1 ~ dnorm(0, 0.5),
+      sigma ~ dexp(1)) %&gt;% 
+  quap(., data = dfr) %&gt;% 
+  precis() %&gt;% 
+  as_tibble(rownames = &quot;estimate&quot;)</code></pre>
+<hr />
+<pre class="r"><code>sessionInfo()</code></pre>
+<pre><code>## R version 4.0.3 (2020-10-10)
+## Platform: x86_64-pc-linux-gnu (64-bit)
+## Running under: Linux Mint 20.1
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.9.0
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.9.0
+## 
+## locale:
+##  [1] LC_CTYPE=de_DE.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=de_DE.UTF-8        LC_COLLATE=de_DE.UTF-8    
+##  [5] LC_MONETARY=de_DE.UTF-8    LC_MESSAGES=de_DE.UTF-8   
+##  [7] LC_PAPER=de_DE.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=de_DE.UTF-8 LC_IDENTIFICATION=C       
+## 
+## attached base packages:
+## [1] parallel  stats     graphics  grDevices utils     datasets  methods  
+## [8] base     
+## 
+## other attached packages:
+##  [1] rethinking_2.13      rstan_2.21.2         StanHeaders_2.21.0-6
+##  [4] forcats_0.5.0        stringr_1.4.0        dplyr_1.0.2         
+##  [7] purrr_0.3.4          readr_1.4.0          tidyr_1.1.2         
+## [10] tibble_3.0.4         ggplot2_3.3.2        tidyverse_1.3.0     
+## 
+## loaded via a namespace (and not attached):
+##  [1] httr_1.4.2         jsonlite_1.7.1     modelr_0.1.8       RcppParallel_5.0.2
+##  [5] assertthat_0.2.1   stats4_4.0.3       blob_1.2.1         cellranger_1.1.0  
+##  [9] yaml_2.2.1         pillar_1.4.7       backports_1.1.10   lattice_0.20-41   
+## [13] glue_1.4.2         digest_0.6.27      rvest_0.3.6        colorspace_2.0-0  
+## [17] htmltools_0.5.0    pkgconfig_2.0.3    broom_0.7.2        haven_2.3.1       
+## [21] bookdown_0.21      mvtnorm_1.1-1      scales_1.1.1       processx_3.4.5    
+## [25] generics_0.1.0     ellipsis_0.3.1     withr_2.3.0        cli_2.2.0         
+## [29] magrittr_2.0.1     crayon_1.3.4       readxl_1.3.1       evaluate_0.14     
+## [33] ps_1.4.0           fs_1.5.0           fansi_0.4.1        MASS_7.3-53       
+## [37] xml2_1.3.2         pkgbuild_1.1.0     blogdown_0.21      tools_4.0.3       
+## [41] loo_2.3.1          prettyunits_1.1.1  hms_0.5.3          lifecycle_0.2.0   
+## [45] matrixStats_0.57.0 V8_3.2.0           munsell_0.5.0      reprex_0.3.0      
+## [49] callr_3.5.1        compiler_4.0.3     rlang_0.4.9        grid_4.0.3        
+## [53] rstudioapi_0.13    rmarkdown_2.5      gtable_0.3.0       codetools_0.2-18  
+## [57] inline_0.3.16      DBI_1.1.0          curl_4.3           R6_2.5.0          
+## [61] gridExtra_2.3      lubridate_1.7.9    knitr_1.30         shape_1.4.5       
+## [65] stringi_1.5.3      Rcpp_1.0.5         vctrs_0.3.5        dbplyr_1.4.4      
+## [69] tidyselect_1.1.0   xfun_0.19          coda_0.19-4</code></pre>
+</div>
+</div>
