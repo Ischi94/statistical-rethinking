@@ -548,6 +548,82 @@ While `area` shows no consistent trend, `groupsize` seems to be negatively corre
   
 **Now fit a multiple linear regression with weight as the outcome and both area and groupsize as predictor variables. Plot the predictions of the model for each predictor, holding the other predictor constant at its mean. What does this model say about the importance of each variable? Why do you get different results than you got in the exercise just above?**  
   
+Here's the model:  
+  
+```{r 5H2 online part 1}
+m_3 <- alist(weight ~ dnorm(mu, sigma), 
+             mu <- a + Ba*area + Bg*groupsize, 
+             a ~ dnorm(0, 0.2), 
+             Ba ~ dnorm(0, 0.5), 
+             Bg ~ dnorm(0, 0.5), 
+             sigma ~ dexp(1)) %>% 
+  quap(., data = foxes_std)
+```  
+  
+One advantage of standardising the predictor variables (using z-scores) is that we know that their mean is approximately zero:  
+  
+```{r 5H2 online part 2, message=TRUE}
+mean(foxes_std$area) %>% 
+  near(0)
+```  
+  
+This means that we can keep one predictor at 0 while looking at the relationship of the other predictor to the outcome. We start by looking at `weight` ~ `area` while keeping `groupsize` at 0.  
+  
+```{r 5H2 online part 3, fig.cap="*The relationship between weight and area in a muliple regression framework while keeping standardised groupsize at 0*",}
+list(area = s, groupsize = 0) %>% 
+  link(m_3, data = ., n = N) %>% 
+  as_tibble() %>% 
+  pivot_longer(cols = everything(), values_to = "pred_weight") %>% 
+  add_column(area = rep(s, N)) %>% 
+  group_by(area) %>% 
+  nest() %>% 
+  mutate(pred_weight = map(data, "pred_weight"), 
+         mean_weight = map_dbl(pred_weight, mean), 
+         pi = map(pred_weight, PI), 
+         lower_pi = map_dbl(pi, pluck(1)), 
+         upper_pi = map_dbl(pi, pluck(2))) %>% 
+  select(area, mean_weight, lower_pi, upper_pi) %>% 
+  ggplot() +
+  geom_ribbon(aes(area, ymin = lower_pi, ymax = upper_pi), 
+              fill = yellow, alpha = 0.3) +
+  geom_line(aes(area, mean_weight), 
+            size = 1.5, colour = blue) +
+  labs(x = "Area (std)", 
+       y = "Weight (std)") +
+  theme_minimal()
+```  
+  
+The same for `weight` ~ `groupsize` while keeping `area` at 0.  
+  
+```{r 5H2 online part 4, fig.cap="*The relationship between weight and groupsize in a muliple regression framework while keeping standardised area at 0*}
+list(groupsize = s, area = 0) %>% 
+  link(m_3, data = ., n = N) %>% 
+  as_tibble() %>% 
+  pivot_longer(cols = everything(), values_to = "pred_weight") %>% 
+  add_column(groupsize = rep(s, N)) %>% 
+  group_by(groupsize) %>% 
+  nest() %>% 
+  mutate(pred_weight = map(data, "pred_weight"), 
+         mean_weight = map_dbl(pred_weight, mean), 
+         pi = map(pred_weight, PI), 
+         lower_pi = map_dbl(pi, pluck(1)), 
+         upper_pi = map_dbl(pi, pluck(2))) %>% 
+  select(groupsize, mean_weight, lower_pi, upper_pi) %>% 
+  ggplot() +
+  geom_ribbon(aes(groupsize, ymin = lower_pi, ymax = upper_pi), 
+              fill = yellow, alpha = 0.3) +
+  geom_line(aes(groupsize, mean_weight), 
+            size = 1.5, colour = blue) +
+  labs(title = "Area (std) = 0", x = "Groupsize (std)", 
+       y = "Weight (std)") +
+  theme_minimal()
+```  
+  
+This a simple but great example of a masked relationship. Area is positively related to weight, while groupsize is negatively related, canceling each other out. The multiple regression can unmask this, showing the real relationships between the outcome and the predictors.  
+  
+
+
+
 
   
 
