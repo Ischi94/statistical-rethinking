@@ -1004,8 +1004,8 @@ impliedConditionalIndependencies(DMA_dag)
 # D _||_ M | A 
 
 # D is independent of M after conditioning on A
-# so let's condition on A by using a multiple linear regression, 
-# asking: After I already know age at marriage, 
+# so let's condition on A by using a multiple linear regression,
+# asking: After I already know age at marriage,
 # what additional value is there in also knowing marriage rate?
 
 # reload data for safety
@@ -1021,10 +1021,11 @@ alist(divorce ~ dnorm(mu, sigma),
   quap(. , data = d_waffle_sd) %>% 
   precis() %>% 
   as_tibble(rownames = "estimate") %>% 
-  filter(estimate == "BM") 
+  filter(estimate == "BM") %>% 
+  knitr::kable(digits = 2)
 
 # Indeed, D is independent of M after conditioning on A, as there is no
-# consistent relationship between M and D in the model. 
+# consistent relationship between M and D in the model.
 
 
 ### 5H2 ###

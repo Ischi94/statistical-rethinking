@@ -722,9 +722,53 @@ This phenomenon is called multicollinearity (what a word, eh!). When adding both
   
 **In the divorce example, suppose the DAG is: M -> A -> D. What are the implied conditional independencies of the graph? Are the data consistent with it?**  
   
-```{r}
+To get the conditional independencies, we can use the `daggity` package. For plotting, however, I still prefer the ggplot2 extension to it, `ggdad`.  
+  
+```{r 5H1 print part 1, fig.cap="*Directed acyclic graph for marriage rate (M), medium age at marriage (a) and divorce rate (D)*"}
+tibble(name = c("M", "A", "D"),
+       x    = c(0, 1, 2),
+       y    = c(1, 1, 1)) %>% 
+  dagify(D ~ A,
+         A ~ M,
+         coords = .) %>% 
+  ggplot(aes(x = x, y = y, xend = xend, yend = yend)) +
+  geom_dag_node(color = red, alpha = 0.5) +
+  geom_dag_text(aes(label = name), color = blue) +
+  geom_dag_edges(edge_color = blue) +
+  theme_void()
+```  
+  
+So let's see whether there are any implied conditional independencies.  
+  
+```{r 5H1 print part 2, message=TRUE}
+library(dagitty)
 
-```
+dagitty('dag{ M -> A -> D }') %>% 
+  impliedConditionalIndependencies()
+```  
+  
+Our DAG implies that `D` is independent of `M` after conditioning on `A`. So let's condition on `A` by using a multiple linear regression, basically asking: After I already know age at marriage, what additional value is there in also knowing marriage rate?  
+  
+```{r 5H1 print part 3}
+d_waffle_sd <- d_waffle %>% 
+  mutate(across(is.numeric, standardize))
+
+alist(divorce ~ dnorm(mu, sigma), 
+      mu <- a + BM*marriage + BA*age_marriage, 
+      a ~ dnorm(0, 0.2), 
+      BM ~ dnorm(0, 0.5), 
+      BA ~ dnorm(0, 0.5), 
+      sigma ~ dexp(1)) %>% 
+  quap(. , data = d_waffle_sd) %>% 
+  precis() %>% 
+  as_tibble(rownames = "estimate") %>% 
+  filter(estimate == "BM") %>% 
+  knitr::kable(digits = 2)
+```  
+  
+Indeed, D is independent of M after conditioning on A, as there is no consistent relationship between M and D in the model. So up to this point, our assumptions about causal relationships expressed in our DAG still hold.  
+  
+
 
 
 
