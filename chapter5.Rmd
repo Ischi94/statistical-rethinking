@@ -763,11 +763,101 @@ alist(divorce ~ dnorm(mu, sigma),
   precis() %>% 
   as_tibble(rownames = "estimate") %>% 
   filter(estimate == "BM") %>% 
-  knitr::kable(digits = 2)
+  knitr::kable(digits = 2, caption = "Coefficient estimate for marriage rate regressed on divorce rate")
 ```  
   
 Indeed, D is independent of M after conditioning on A, as there is no consistent relationship between M and D in the model. So up to this point, our assumptions about causal relationships expressed in our DAG still hold.  
   
+## Question 5H2  
+  
+Assuming that the DAD for the divorce example is indeed M -> A -> D, fit a new model and use it to estimate the counterfactual effect of halving a State's marriage rate M. Use the counterfactual example from the chapter (starting on page 140) as a template.  
+  
+Let's build a model that corresponds to our DAG.  
+  
+```{r 5H1 print part 4}
+m_5H2 <- alist(
+  # M -> A
+  age_marriage ~ dnorm(muA, sigmaA), 
+  muA <- aA + BM*marriage, 
+  aA ~ dnorm(0, 0.2), 
+  BM ~ dnorm(0, 0.5), 
+  sigmaA ~ dexp(1), 
+  
+  # A -> D
+  divorce ~ dnorm(muD, sigmaD), 
+  muD <- aD + BA*age_marriage, 
+  aD ~ dnorm(0, 0.2), 
+  BA ~ dnorm(0, 0.5), 
+  sigmaD ~ dexp(1)) %>% 
+  quap(., data = d_waffle_sd)
+
+
+m_5H2 %>% 
+  precis() %>% 
+  as_tibble(rownames = "estimate") %>% 
+  knitr::kable(digits = 2, caption = "Coefficient estimates for model m_5H2 corresponding to the DAG M -> A -> D")
+```  
+  
+Just for convenience and as we will do this task iteratively, I will build a function `count_plot()` that takes samples from a model as well the name of the outcome and the predictor as arguments. The function then returns a counterfactual plot. Note that we don't need to wrap the variable names into `""`, as the functions allows tidyeval, making the code more legible.  
+  
+```{r 5H1 print part 5}
+count_plot <- function(sim_output, outcome, predictor) {
+  sim_output %>%
+    as_tibble() %>%
+    pivot_longer(cols = everything(), values_to = "{{predictor}}") %>%
+    group_by(name) %>%
+    nest() %>%
+    add_column("{{outcome}}" := s) %>%
+    ungroup() %>%
+    mutate(predictor_pred = map(data, pluck("{{predictor}}")),
+           predictor_mean = map_dbl(predictor_pred, mean),
+           predictor_pi = map(predictor_pred, PI),
+           lower_pi = map_dbl(predictor_pi, pluck(1)),
+           upper_pi = map_dbl(predictor_pi, pluck(2))) %>%
+    ungroup() %>%
+    select({{outcome}}, predictor_mean, lower_pi, upper_pi) %>%
+    ggplot() +
+    geom_ribbon(aes(x = {{outcome}}, ymin = lower_pi, ymax = upper_pi),
+                fill = yellow, alpha = 0.3) +
+    geom_line(aes({{outcome}}, predictor_mean),
+              size = 1.5, colour = blue) +
+    labs(x = paste("manipulated", as_label(expr({{predictor}}))),
+         y = paste("counterfactual", as_label(expr({{outcome}})))) +
+    theme_minimal()
+}
+```  
+  
+So let's start with the total counterfactual effect of M on A by simulating posterior observations from M for A and D (in this order) and plucking out the results for A.    
+  
+```{r 5H1 print part 6, fig.cap="*Total counterfactual effect of M on A*"}
+sim(m_5H2, data = list(marriage = s),
+    vars = c("age_marriage", "divorce"))  %>% 
+  pluck("age_marriage") %>% 
+  count_plot(age_marriage, marriage)
+```  
+  
+We can see that counterfactually increasing M decreases A. Now for A on D:  
+  
+```{r 5H1 print part 7, fig.cap="*Total counterfactual effect of A on D*"}
+sim(m_5H2, data = list(age_marriage = s),
+    vars = c("marriage", "divorce"))  %>% 
+  pluck("divorce") %>% 
+  count_plot(age_marriage, marriage)
+```  
+  
+When we decrease A, we increase D. So following the DAG from left to right: Increasing M decreases A, which then increases D. We can check this by plotting the total counterfactual effect of M on D.  
+  
+```{r 5H1 print part 8, fig.cap="*Total counterfactual effect of M on D*"}
+sim(m_5H2, data = list(marriage = s),
+    vars = c("age_marriage", "divorce"))  %>% 
+  pluck("divorce") %>% 
+  count_plot(divorce, marriage)
+```  
+  
+So yes, counterfactually increasing M increases D.  
+
+
+
 
 
 
