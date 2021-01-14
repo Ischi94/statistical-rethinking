@@ -12,33 +12,50 @@ lastmod: '2021-01-13T12:07:04+02:00'
 featured: no
 projects: [Rethinking]
 output:
-  blogdown::html_page:
+  html_document:
     toc: true
     toc_depth: 1
     number_sections: true
     fig_width: 6
+    mathjax: "default"
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, fig.dim=c(7,4), warning=FALSE)
+knitr::opts_chunk$set(echo = TRUE, fig.dim=c(7,4), warning=FALSE, message = FALSE)
 library(tidyverse)
 library(rethinking)
 library(ggdag)
+
+map <- purrr::map
 ```
 
 # Introduction 
 
 This is the fourth part of a series where I work through the practice questions of the second edition of Richard McElreaths [Statistical Rethinking](https://xcelab.net/rm/statistical-rethinking/). Each post covers a new chapter and you can see the posts on previous chapters [here](https://gregor-mathes.netlify.app/tags/rethinking/).  
 The third part of the series will cover chapter 5, which corresponds to the first part of week 3 of the lectures and homework (which you can find [here](https://github.com/rmcelreath/stat_rethinking_2020)). The homework of week 3 will be covered in the next part about chapter 6.   
-From now on, I will set a given colour scheme for each chapter. This is mostly for me to see which colours play nice together, but will make the look of the blog posts more consistent.  
+From now on, I will set a given colour scheme for each chapter. This is mostly for me to see which colours play nice together, but additionally will make the appearance of the blog posts more consistent.  
 The colours for this blog post are: 
 
 ```{r colours}
 red <- "#B74F35"
 yellow <- "#FFB81C"
 blue <- "#0E345E"
-lighblue <- "#85ACA9"
-```
+lightblue <- "#85ACA9"
+```  
+  
+```{r colours plot, echo=FALSE, fig.cap="*Colour scheme used throughout each plot for this chapter.*"}
+tibble(colours = c(red, yellow, blue, lightblue)) %>% 
+  ggplot() +
+  geom_bar(aes(y = colours), 
+           fill = c(blue, lightblue, red, yellow)) +
+  geom_text(aes(x = 0.5, y = colours), 
+            label = paste(c(red, yellow, blue, lightblue), 
+                          c("red", "yellow", "blue", "lightblue"), 
+                          sep = " / "), colour = "white") +
+  theme_void()
+```  
+  
+I have joined a Bayes study group established and managed by the brilliant [Erik Kusch](https://www.erikkusch.com/). Erik has given us access to an online version of the second edition of *Statistical Rethinking* and I have noticed that some exercises in this online version differ from the print version. I have indicated from which version a particular exercise is from where relevant, but will work through both versions if feasible.  
 
   
 # Easy practices   
@@ -47,45 +64,45 @@ lighblue <- "#85ACA9"
   
 **Which of the linear models below are multiple linear regressions?**
 
-(1) $$\mu_i = \alpha + \beta_xi$$
-(2) $$\mu_i = \beta_x x_i + \beta_z z_i$$
-(3) $$\mu_i = \alpha + \beta(x_i – z_i)$$
-(4) $$\mu_i = \alpha + \beta_x x_i + \beta_z z_i$$
+(1) $\mu_i = \alpha + \beta_xi$
+(2) $\mu_i = \beta_x x_i + \beta_z z_i$
+(3) $\mu_i = \alpha + \beta(x_i – z_i)$
+(4) $\mu_i = \alpha + \beta_x x_i + \beta_z z_i$
 
-(1) contains only one predictor variable ($$\beta_xi$$) and is therefore a bivariate linear regression.  
-(2) has two predictor variables and is a multiple linear regression without an intercept ($$\alpha$$).  
-(3) the right side can written as $$\alpha + \beta x_i - \beta z_i$$ which looks like a weird multiple regression with negatively correlated slopes for each predictor.  
-(4) is a perfectly looking multiple linear regression.
+`1.` contains only one predictor variable ($\beta_xi$) and is therefore a bivariate linear regression.  
+`2.` has two predictor variables and is a multiple linear regression without an intercept ($\alpha$).  
+`3.` the right side can written as $\alpha + \beta x_i - \beta z_i$ which looks like a weird multiple regression with negatively correlated slopes for each predictor.  
+`4.` is a perfectly looking multiple linear regression.
   
   
 ## Question 5E2  
   
 **Write down a multiple regression to evaluate the claim: Animal diversity is linearly related to latitude, but only after controlling for plant diversity. You just need to write down the model definition.**  
   
-Let $$\mu_i$$ be the mean animal diversity, **L** latitude, and **P** plant diversity.  
-Then $$\mu_i = \alpha + \beta_L L_i + \beta_P P_i$$.   
+Let $\mu_i$ be the mean animal diversity, **L** latitude, and **P** plant diversity,  
+then $\mu_i = \alpha + \beta_L L_i + \beta_P P_i$.   
   
   
 ## Question 5E3  
   
 **Write down a multiple regression to evaluate the claim: Neither the amount of funding nor size of laboratory is by itself a good predictor of time to PhD degree; but together these variables are both positively associated with time to degree. Write down the model definition and indicate which side of zero each slope parameter should be on.**  
   
-Let $$\mu_i$$ be the time to PhD, **F** the amount of funding, and **S** the size of laboratory.  
-Then $$\mu_i = \alpha + \beta_F F_i + \beta_S S_i$$
-Where both $$beta_F$$ & $$beta_S > 0$$  
-  
+Let $\mu_i$ be the time to PhD, **F** the amount of funding, and **S** the size of laboratory,  
+then $\mu_i = \alpha + \beta_F F_i + \beta_S S_i$,  
+where both $beta_F$ & $beta_S > 0$.  
+    
   
 ## Question 5E4  
   
 **Suppose you have a single categorical predictor with 4 levels (unique values), labeled A, B, C, and D. Let Ai be an indicator variable that is 1 where case i is in category A. Also suppose Bi, Ci, and Di for the other categories. Now which of the following linear models are inferentially equivalent ways to include the categorical variable in a regression? Models are inferentially equivalent when it’s possible to compute one posterior distribution from the posterior distribution of another model.**  
   
-(1) $$\mu_i = \alpha + \beta_A A_i + \beta_B B_i + \beta_D D_i$$
-(2) $$\mu_i = \alpha + \beta_A A_i + \beta_B B_i + \beta_C C_i + \beta_D D_i$$
-(3) $$\mu_i = \alpha + \beta_B B_i + \beta_C C_i + \beta_D D_i$$
-(4) $$\mu_i = \alpha_A A_i + \alpha_B B_i + \alpha_C C_i + \alpha_D D_i$$
-(5) $$\mu_i = \alpha_A (1 – B_i – C_i – D_i) + \alpha_B B_i + \alpha_C C_i + \alpha_D D_i$$  
+(1) $\mu_i = \alpha + \beta_A A_i + \beta_B B_i + \beta_D D_i$
+(2) $\mu_i = \alpha + \beta_A A_i + \beta_B B_i + \beta_C C_i + \beta_D D_i$
+(3) $\mu_i = \alpha + \beta_B B_i + \beta_C C_i + \beta_D D_i$
+(4) $\mu_i = \alpha_A A_i + \alpha_B B_i + \alpha_C C_i + \alpha_D D_i$
+(5) $\mu_i = \alpha_A (1 – B_i – C_i – D_i) + \alpha_B B_i + \alpha_C C_i + \alpha_D D_i$  
   
-This question was a bit to complicated for me and I just copied over the answer from [Jeffrey Girard]():  
+This question was a bit to complicated for me and I just copied over the answer from [Jeffrey Girard](https://jmgirard.com/statistical-rethinking-ch5/):  
   
 *The first model includes a single intercept (for category C) and slopes for A, B, and D. The second model is non-identifiable because it includes a slope for all possible categories (page 156). The third model includes a single intercept (for category A) and slopes for B, C, and D. The fourth model uses the unique index approach to provide a separate intercept for each category (and no slopes). The fifth model uses the reparameterized approach on pages 154 and 155 to multiply the intercept for category A times 1 when in category A and times 0 otherwise. Models 1, 3, 4, and 5 are inferentially equivalent because they each allow the computation of each other’s posterior distribution (e.g., each category’s intercept and difference from each other category).*  
   
@@ -96,7 +113,7 @@ This question was a bit to complicated for me and I just copied over the answer 
   
 **Invent your own example of a spurious correlation. An outcome variable should be correlated with both predictor variables. But when both predictors are entered in the same model, the correlation between the outcome and one of the predictors should mostly vanish (or at least be greatly reduced).**  
   
-Let's directly enter each simulation in a dataframe. For each variable, we sample 100 values from a normal distribution. The outcome variable is only related to the first predictor, but the second predictor is as well dependent on the first predictor. To make the selections of priors easier, I transform each variable into z-scores using the `scale()`.  
+Let's directly enter each simulation in a data frame. For each variable, we sample 100 values from a normal distribution. The outcome variable is only related to the first predictor, but the second predictor is as well dependent on the first predictor. To make the selections of priors easier, I transform each variable into z-scores using the `scale()`.  
   
 ```{r 5M1 part 1}
 N <- 100
@@ -107,7 +124,7 @@ dfr <- tibble(pred_1 = rnorm(N),
 ```    
   
 Now let's see how the outcome is related to the first predictor within a linear regression using quadratic approximation:  
-Notice that I used priors that are not flat but instead are within a realistic realm. $$\alpha$$ must be pretty close to 0 when we standardise the outcome and the predictor. The prior on the slope $$\beta$$ is a bit more wider but still only captures realistic relationships as seen in prior predictive simulations throughout the chapter.  
+Notice that I used priors that are not flat but instead are within a realistic realm. $\alpha$ must be pretty close to 0 when we standardise the outcome and the predictor. The prior on the slope $\beta$ is a bit more wider but still only captures realistic relationships as seen in prior predictive simulations throughout the chapter.  
   
 ```{r 5M1 part 2}
 m1 <- alist(out_var ~ dnorm(mu, sigma),
@@ -119,8 +136,8 @@ m1 <- alist(out_var ~ dnorm(mu, sigma),
   precis() %>% 
   as_tibble(rownames = "estimate")
 ```  
-
-Let's do the same for the second predictor and the outcome, using similar priors. This is the predictor which is not causally related to the outcome.  
+  
+Let's do the same for the second predictor and the outcome, using similar priors. This is the predictor which is not causally related to the outcome, but still shows a correlation.  
   
 ```{r 5M1 part 3}
 m2 <- alist(out_var ~ dnorm(mu, sigma),
@@ -131,7 +148,7 @@ m2 <- alist(out_var ~ dnorm(mu, sigma),
   quap(., data = dfr) %>% 
   precis() %>% 
   as_tibble(rownames = "estimate")
-```  
+```   
   
 And finally putting both predictors in a multiple linear regression, which should showcase the true relationships.  
   
@@ -147,9 +164,9 @@ m3 <- alist(out_var ~ dnorm(mu, sigma),
   as_tibble(rownames = "estimate")
 ```  
   
-Now we can add the $$\beta$$ estimates of each model, that capture the relationship between each predictor and the outcome, in a dataframe and plot it.  
+Now we can add the $\beta$ estimates of each model, which capture the relationship between each predictor and the outcome, to a dataframe and plot it.  
   
-```{r 5M1 part 5}
+```{r 5M1 part 5, fig.cap="*Coeffficient plot for the bivariate models 1 and 2 and the multiple regression model 3*"}
 full_join(m1, m2) %>% 
   full_join(m3) %>% 
   add_column(model = rep(paste("Model", 1:3), c(3, 3, 4))) %>% 
@@ -167,15 +184,15 @@ full_join(m1, m2) %>%
   theme_classic()
 ```  
   
-We can see that bivariate regressions falsely estimates that the second predictor is related to the outcome. But in a multiple regression framework, we get the right answer: There is no new information included in the second predictor, once we know about the first predictor.  
+We can see that the bivariate regressions falsely estimate that the second predictor is related to the outcome. But in a multiple regression framework, we get the right answer: There is no new information included in the second predictor, once we know about the first predictor.  
 We can make a directed acyclic graph (DAG) using the `ggdad` package for this. 
 
-```{r 5M1 part 6}
+```{r 5M1 part 6, fig.cap="*Directed acyclic graph for Question 5M1*"}
 tibble(name = c("Outcome", "Predictor1", "Predictor2"),
-         x    = c(1, 0, 2),
-         y    = c(0, 1, 1)) %>% 
-dagify(Outcome ~ Predictor1,
-       Predictor2 ~ Predictor1,
+       x    = c(1, 0, 2),
+       y    = c(0, 1, 1)) %>% 
+  dagify(Outcome ~ Predictor1,
+         Predictor2 ~ Predictor1,
          coords = .) %>% 
   ggplot(aes(x = x, y = y, xend = xend, yend = yend)) +
   geom_dag_node(color = red, alpha = 0.5) +
@@ -188,7 +205,7 @@ dagify(Outcome ~ Predictor1,
   
 **Invent your own example of a masked relationship. An outcome variable should be correlated with both predictor variables, but in opposite directions. And the two predictor variables should be correlated with one another.**  
 We can use the same steps as in 5M1:  
-First we simulate the data. We create the first predictor from a normal distribution and let the second predictor be correlated to the first one by simulating from the means of `pred_1`. The outcome is then simulated whit a positive correlation to `pred_1` and negatively correlated to `pred_2`. 
+First we simulate the data. We create the first predictor from a normal distribution and let the second predictor be correlated to the first one by sampling from the means of `pred_1`. The outcome is then simulated whit a positive correlation to `pred_1` and negatively correlated to `pred_2`. 
   
 ```{r 5M2 part 1}
 N <- 100
@@ -198,7 +215,7 @@ dfr <- tibble(pred_1 = rnorm(N, sd = 3),
   mutate(across(everything(), scale))
 ```  
   
-Now we approximate two bivariate and one multiple regressions from the data. The model estimates are then tidied.   
+Now we approximate two bivariate and one multiple regression from the data. The model estimates are then tidied.   
   
 ```{r 5M2 part 2}
 # bivariate regression of predictor 1 on the outcome
@@ -239,7 +256,7 @@ m3 <- alist(out_var ~ dnorm(mu, sigma),
   
 Now we combine all estimates from the model in a data frame, wrangle and plot it.  
   
-```{r 5M2 part 3}
+```{r 5M2 part 3, fig.cap="*Coefficient plot for the bivariate models 1 and 2 and the multiple regression model 3*"}
 full_join(m1, m2) %>% 
   full_join(m3) %>% 
   add_column(model = rep(paste("Model", 1:3), c(3, 3, 4))) %>% 
@@ -259,14 +276,14 @@ full_join(m1, m2) %>%
   
 We can see that the relationship between the outcome and each predictor is masked in a bivariate regression, but emerges in a multiple regression. As the first and the second predictor are correlated, they probably share a cause that is unobserved. Let's build a DAG for this as well.  
   
-```{r 5M2 part 4}
+```{r 5M2 part 4, fig.cap="*Directed acyclic graph for question 5M2*"}
 tibble(name = c("Outcome", "Pred1", "Pred2", "Unobserved"),
-         x    = c(1, 0, 2, 1),
-         y    = c(0, 1, 1, 1.5)) %>% 
-dagify(Outcome ~ Pred1 + Pred2,
-       Pred1 ~ Unobserved,
-       Pred2 ~ Unobserved,
-       coords = .) %>% 
+       x    = c(1, 0, 2, 1),
+       y    = c(0, 1, 1, 1.5)) %>% 
+  dagify(Outcome ~ Pred1 + Pred2,
+         Pred1 ~ Unobserved,
+         Pred2 ~ Unobserved,
+         coords = .) %>% 
   ggplot(aes(x = x, y = y, xend = xend, yend = yend)) +
   geom_dag_node(color = red, alpha = 0.5) +
   geom_dag_text(color = blue) +
@@ -281,13 +298,13 @@ dagify(Outcome ~ Pred1 + Pred2,
   
 After a divorce, there are two new individuals on the "wedding market". Divorce rate *D* could hence be related to marriage rate *M* by increasing the pool of potential individuals one can marry. This could be tested by tracking each individual after a divorce to see whether they get re-married again. This re-marriage rate *R* could then be used in a multiple linear regression framework, where marriage rate is the outcome, and divorce rate and re-marriage rate are the predictors. If divorce rate was related to marriage rate in a bivariate regression framework, but not when adding re-marriage rate in a multiple regression, then re-marriage is the driving force for the spurious correlation between divorce and marriage rate.  
   
-```{r 5M3 part 1}
+```{r 5M3 part 1, "*Directed acyclic graph for question 5M3*"}
 tibble(name = c("M", "D", "R"),
-         x    = c(1, 0, 2),
-         y    = c(0, 1, 1)) %>% 
-dagify(M ~ R,
-       R ~ D,
-       coords = .) %>% 
+       x    = c(1, 0, 2),
+       y    = c(0, 1, 1)) %>% 
+  dagify(M ~ R,
+         R ~ D, 
+         coords = .) %>% 
   ggplot(aes(x = x, y = y, xend = xend, yend = yend)) +
   geom_dag_node(color = red, alpha = 0.5) +
   geom_dag_text(color = blue) +
@@ -295,6 +312,139 @@ dagify(M ~ R,
   theme_void()
 ```  
   
+  
+## Question 5M4  
+  
+**In the divorce data, States with high numbers of Mormons (members of The Church of Jesus Christ of Latter-day Saints, LDS) have much lower divorce rates than the regression models expected. Find a list of LDS population by State and use those numbers as a predictor variable, predicting divorce rate using marriage rate, median age at marriage, and percent LDS population (possibly standardized). You may want to consider transformations of the raw percent LDS variable.**
+
+First, let's load the divorce data, assign better names and standardise each parameter.  
+  
+```{r 5M4 part 1}
+data("WaffleDivorce")
+
+d_waffle <- WaffleDivorce %>% 
+  as_tibble() %>% 
+  select(marriage = Marriage, age_marriage = MedianAgeMarriage, 
+         divorce = Divorce, location = Location)
+```  
+  
+After a quick google search, I found a downloadable csv data from [worldpoulationreview](https://worldpopulationreview.com/state-rankings/mormon-population-by-state). I have downloaded it and added the file to my github repo, from which you can directly assess the data without leaving the r-studio environment.  
+  
+```{r 5M4 part 2}
+mormons <- read_csv(
+  file = "https://raw.githubusercontent.com/Ischi94/statistical-rethinking/master/mormons.csv") %>% 
+  mutate(lds = mormonPop/Pop) %>% 
+  select(location = State, lds)
+```  
+  
+As we have the 'location' column in both data frames, we can use it as an ID for joining both into one table.  
+  
+```{r 5M4 part 3, message=FALSE, fig.cap="*Distribution of the added parameter percentage mormons per state (lds)*"}
+mormons %>% 
+  full_join(d_waffle) %>% 
+  drop_na() %>% 
+  ggplot() +
+  geom_density(aes(lds)) +
+  theme_minimal()
+```  
+  
+Note that I have removed all `NA`s. The resulting distribution for the lds (% mormons per state) is totally skewed. Let's see if a log-transformation can deal with this skew:  
+  
+```{r 5M4 part 4, message=FALSE, fig.cap="*The log-distribution of the added parameter percentage mormons per state (log_lds)*"}
+mormons %>% 
+  full_join(d_waffle) %>% 
+  drop_na() %>% 
+  mutate(log_lds = log(lds)) %>% 
+  ggplot() +
+  geom_density(aes(log_lds)) +
+  theme_minimal()
+```  
+  
+Now that looks much better. So let's keep working with the log of lds. We can directly standardise the resulting variable for an easier prior decision.    
+  
+```{r 5M4 part 5, message=FALSE}
+d_waffle_sd <- mormons %>% 
+  full_join(d_waffle) %>% 
+  drop_na() %>% 
+  mutate(log_lds = log(lds)) %>% 
+  mutate(across(is.numeric, standardize))
+```
+  
+We are ready to build a model and approximate the posterior. This might look complicated but can be broken down into: Defining the model using `alist()`, approximating the posterior using `quap()`, getting the mean and spread around the mean for each estimate using `precis()`, some data wrangling to get in the right plotting format, and finally plotting with `ggplot()`.     
+  
+```{r 5M4 part 6, fig.cap="*Coefficient plot for the model Divorce rate ~ Age at Marriage + Marriage rate + log Mormons*"}
+m_lds <- alist(divorce ~ dnorm(mu, sigma),
+               mu <- a + Ba*age_marriage + Bm*marriage + Bl*log_lds, 
+               a ~ dnorm(0, 0.2), 
+               Ba ~ dnorm(0, 0.5), 
+               Bm ~ dnorm(0, 0.5), 
+               Bl ~ dnorm(0, 0.5),
+               sigma ~ dexp(1)) %>% 
+  quap(., data = d_waffle_sd) 
+
+m_lds %>% 
+  precis(.) %>% 
+  as_tibble(rownames = "estimate") %>% 
+  filter(str_detect(estimate, "^B")) %>% 
+  rename(lower_pi = '5.5%', upper_pi = '94.5%') %>% 
+  mutate(estimate = c("Age at marriage", "Marriage rate", "Log Mormons [%]")) %>% 
+  ggplot() +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.5) +
+  geom_pointrange(aes(x = mean, xmin = lower_pi, xmax = upper_pi, estimate,
+                      colour = estimate), size = 0.7, show.legend = FALSE) +
+  scale_colour_manual(values = c(blue, red, yellow)) +
+  labs(x = "Estimate", y = NULL) +
+  theme_classic()
+```  
+  
+What we can see is that the magnitude in percentage of LDS per state is negatively related to divorce rate. There is no longer a consistent trend for marriage rate and age at marriage is still negatively related to divorce rate. This indicates that states were people were getting married at a higher age as well as states with
+higher percentages of Mormons have lower divorce rates.  
+We can additionally check the model fit by using a posterior predictive plot. We simple call `link()` on the actual data, which simple means sample from the posterior for each `divorce` value in the data. We then calculate the mean and the percentile interval using some nested tibbles and label those states which are outliers (when the difference between the observed divorce rate and predicted divorce rate is greater than |1|).   
+  
+```{r 5M4 part 7, fig.cap="*Posterior predictive plot for the model Divorce rate ~ Age at Marriage + Marriage rate + log Mormons*"}
+link(m_lds) %>% 
+  as_tibble() %>% 
+  pivot_longer(cols = everything(), values_to = "pred_divorce") %>% 
+  group_by(name) %>% 
+  nest() %>% 
+  mutate(pred_divorce = map(data, "pred_divorce"), 
+         mean_pred = map_dbl(pred_divorce, mean), 
+         pi_pred = map(pred_divorce, PI), 
+         pi_low = map_dbl(pi_pred, pluck(1)), 
+         pi_high = map_dbl(pi_pred, pluck(2))) %>% 
+  ungroup() %>% 
+  add_column(obs_divorce = d_waffle_sd$divorce, 
+             location = d_waffle_sd$location) %>% 
+  select(-c(name, data, pred_divorce, pi_pred)) %>% 
+  mutate(outlier = obs_divorce - mean_pred, 
+         outlier = if_else(outlier >= 1 | outlier <= -1, location, NA_character_)) %>% 
+  ggplot(aes(x = obs_divorce, y = mean_pred)) +
+  geom_abline(slope = 1, intercept = 0, 
+              linetype = "dashed", size = 1.2, colour = yellow) +
+  geom_pointrange(aes(ymin = pi_low, ymax = pi_high), 
+                  colour = blue) +
+  geom_label(aes(label = outlier)) +
+  labs(x = "Observed Divorce", y = "Predicted Divorce") +
+  theme_minimal() +
+  theme(panel.grid.minor = element_blank(), 
+        panel.grid.major = element_line(colour = "grey97"))
+```  
+  
+## Question 5M5  
+  
+**One way to reason through multiple causation hypotheses is to imagine detailed mechanisms through which predictor variables may influence outcomes. For example, it is sometimes argued that the price of gasoline (predictor variable) is positively associated with lower obesity rates (outcome variable). However, there are at least two important mechanisms by which the price of gas could reduce obesity. First, it could lead to less driving and therefore more exercise. Second, it could lead to less driving, which leads to less eating out, which leads to less consumption of huge restaurant meals. Can you outline one or more multiple regressions that address these two mechanisms? Assume you can have any predictor data you need.**  
+  
+One could use a multiple regression framework with three predictors, the first one being price of gasoline. For the second one, we need to track the time spent walking of each individual to measure the effect of driving less. For the third one, we need to track the frequency of meals consumed at restaurants for each individual. a potential model could hence be:  
+  
+$$\mu_i = \alpha + \beta_g G_i + \beta_w W_i + \beta_f  F_i$$
+where $\mu$ is the mean obesity rate, *G* the price of gasoline, *W* the walking rate
+(per day), and *F* the amount of restaurant food.  
+  
+  
+# Hard practices online  
+  
+## 
+
 
 
 
@@ -304,7 +454,7 @@ dagify(M ~ R,
 --------------------------------------------------------------------------------
   
   
-```{r session info}
+```{r session info, message=TRUE}
 sessionInfo()
 ```
 

@@ -591,7 +591,7 @@ d_waffle <- WaffleDivorce %>%
 
 # using the downloadable csv data from worldpoulationreview:
 # https://worldpopulationreview.com/state-rankings/mormon-population-by-state
-mormons <- read_csv(file = "mormons.csv") %>% 
+mormons <- read_csv(file = "https://raw.githubusercontent.com/Ischi94/statistical-rethinking/master/mormons.csv") %>% 
   mutate(lds = mormonPop/Pop) %>% 
   select(location = State, lds)
 
@@ -640,13 +640,47 @@ precis(m_lds) %>%
   scale_colour_manual(values = c(blue, red, yellow)) +
   labs(x = "Estimate", y = NULL, title = "Outcome = Divorce rate") +
   theme_classic()
-
+ 
 # the magnitude in percentage of LDS per state is negatively related to divorce
 # rate. there is no longer a consistent trend for marriage rate. age at marriage
 # is still negatively related to divorce rate.
 
 # states were people were getting married at a higher age as well as states with
 # higher percentages of Mormons have lower divorce rates
+
+# We could make a posterior predictive plot for checking the model fit: 
+
+# call link without specifying new data 
+# so it uses original 
+link(m_lds) %>% 
+  as_tibble() %>% 
+  # `colnames<-`(d_waffle_sd$divorce) %>% 
+  pivot_longer(cols = everything(), values_to = "pred_divorce") %>% 
+  group_by(name) %>% 
+  nest() %>% 
+  mutate(pred_divorce = map(data, "pred_divorce"), 
+         mean_pred = map_dbl(pred_divorce, mean), 
+         pi_pred = map(pred_divorce, PI), 
+         pi_low = map_dbl(pi_pred, pluck(1)), 
+         pi_high = map_dbl(pi_pred, pluck(2))) %>% 
+  ungroup() %>% 
+  add_column(obs_divorce = d_waffle_sd$divorce, 
+             location = d_waffle_sd$location) %>% 
+  select(-c(name, data, pred_divorce, pi_pred)) %>% 
+  mutate(outlier = obs_divorce - mean_pred, 
+         outlier = if_else(outlier >= 1 | outlier <= -1, location, NA_character_)) %>% 
+  ggplot(aes(x = obs_divorce, y = mean_pred)) +
+  geom_abline(slope = 1, intercept = 0, 
+              linetype = "dashed", size = 1.5, colour = yellow) +
+  geom_pointrange(aes(ymin = pi_low, ymax = pi_high), 
+                  colour = blue) +
+  geom_label(aes(label = outlier)) +
+  labs(title = "Posterior predictive plot",
+       x = "Observed Divorde", y = "Predicted Divorce") +
+  theme_minimal() +
+  theme(panel.grid.minor = element_blank(), 
+        panel.grid.major = element_line(colour = "grey97"))
+  
 
 
 ### 5M5 ###
