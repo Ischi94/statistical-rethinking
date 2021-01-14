@@ -9,7 +9,7 @@ library(dagitty)
 red <- "#B74F35"
 yellow <- "#FFB81C"
 blue <- "#0E345E"
-lighblue <- "#85ACA9"
+lightblue <- "#85ACA9"
 
 # homework ----------------------------------------------------------------
 
@@ -1202,8 +1202,48 @@ extract.samples(m_divorce1) %>%
   scale_colour_discrete(name = "Predictor", 
                         labels = c("Southern State", "Non-Southern State",  
                                    "Age at Marriage", "Non-Southern minus Southern"), 
-                        type = c(red, blue, yellow, lighblue)) +
+                        type = c(red, blue, yellow, lightblue)) +
   labs(title = "Outcome = Divorce rate", x = "Estimate", y = NULL) +
   theme_minimal() + 
   theme(panel.grid.major.y = element_blank())
 
+
+# let's plot the distributions
+# southern states have a consistently lower divorce rate than nonsouthern states
+post_samples <- extract.samples(m_divorce1) %>% 
+  as_tibble() %>% 
+  mutate(south_diff = a[,2] - a[,1]) %>% 
+  select(bA, south_diff) %>% 
+  pivot_longer(cols = everything(), names_to = "parameter", values_to = "estimate")
+
+# calculate mean and PI
+post_samples_stat <- post_samples %>% 
+  group_by(parameter) %>% 
+  nest() %>% 
+  mutate(estimate = map(data, "estimate"), 
+         est_mean = map_dbl(estimate, mean), 
+         est_pi = map(estimate, PI), 
+         pi_low = map_dbl(est_pi, pluck(1)), 
+         pi_high = map_dbl(est_pi, pluck(2))) %>% 
+  select(parameter, est_mean, pi_low, pi_high) 
+  
+post_samples %>% 
+  ggplot() +
+  geom_vline(xintercept = 0, colour = "grey20")  +
+  geom_density(aes(x = estimate, fill = parameter), 
+               colour = "grey40", alpha = 0.8) +
+  geom_pointrange(aes(est_mean, y = c(0.35, 0.35), 
+                       xmin = pi_low, xmax = pi_high, 
+                       group = parameter), 
+                  colour = "grey20", size = 0.6, 
+             data = post_samples_stat) +
+  scale_fill_manual(name = "Parameter", values = c(red, yellow), 
+                    labels = c("Age at Marriage", "Non-Southern minus Southern State")) +
+  scale_y_continuous(breaks = NULL) +
+  labs(title = "Outcome = Divorce rate", x = "Estimate", y = NULL) +
+  theme_minimal() +
+  theme(legend.position = c(0.8, 0.8), 
+        legend.background = element_rect(colour = "grey20"))
+  
+  
+  
