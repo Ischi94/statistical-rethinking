@@ -885,7 +885,7 @@ list(groupsize = s, area = 0) %>%
 # body weight as an additive function of avgfood and groupsize, and (2) body
 # weight as an additive function of all three variables,avgfood and groupsize
 # and area. Compare the results of these models to the previous models you’ve
-# fit, in the first two exercises. 
+# fit, in the first two exercises.
 
 
 m_4 <- alist(weight ~ dnorm(mu, sigma), 
