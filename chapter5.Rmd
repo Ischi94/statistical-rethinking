@@ -774,7 +774,7 @@ Assuming that the DAD for the divorce example is indeed M -> A -> D, fit a new m
   
 Let's build a model that corresponds to our DAG.  
   
-```{r 5H1 print part 4}
+```{r 5H2 print part 1}
 m_5H2 <- alist(
   # M -> A
   age_marriage ~ dnorm(muA, sigmaA), 
@@ -800,7 +800,7 @@ m_5H2 %>%
   
 Just for convenience and as we will do this task iteratively, I will build a function `count_plot()` that takes samples from a model as well the name of the outcome and the predictor as arguments. The function then returns a counterfactual plot. Note that we don't need to wrap the variable names into `""`, as the functions allows tidyeval, making the code more legible.  
   
-```{r 5H1 print part 5}
+```{r 5H2 print part 2}
 count_plot <- function(sim_output, outcome, predictor) {
   sim_output %>%
     as_tibble() %>%
@@ -829,7 +829,7 @@ count_plot <- function(sim_output, outcome, predictor) {
   
 So let's start with the total counterfactual effect of M on A by simulating posterior observations from M for A and D (in this order) and plucking out the results for A.    
   
-```{r 5H1 print part 6, fig.cap="*Total counterfactual effect of M on A*"}
+```{r 5H2 print part 3, fig.cap="*Total counterfactual effect of M on A*"}
 sim(m_5H2, data = list(marriage = s),
     vars = c("age_marriage", "divorce"))  %>% 
   pluck("age_marriage") %>% 
@@ -838,7 +838,7 @@ sim(m_5H2, data = list(marriage = s),
   
 We can see that counterfactually increasing M decreases A. Now for A on D:  
   
-```{r 5H1 print part 7, fig.cap="*Total counterfactual effect of A on D*"}
+```{r 5H2 print part 4, fig.cap="*Total counterfactual effect of A on D*"}
 sim(m_5H2, data = list(age_marriage = s),
     vars = c("marriage", "divorce"))  %>% 
   pluck("divorce") %>% 
@@ -847,7 +847,7 @@ sim(m_5H2, data = list(age_marriage = s),
   
 When we decrease A, we increase D. So following the DAG from left to right: Increasing M decreases A, which then increases D. We can check this by plotting the total counterfactual effect of M on D.  
   
-```{r 5H1 print part 8, fig.cap="*Total counterfactual effect of M on D*"}
+```{r 5H2 print part 5, fig.cap="*Total counterfactual effect of M on D*"}
 sim(m_5H2, data = list(marriage = s),
     vars = c("age_marriage", "divorce"))  %>% 
   pluck("divorce") %>% 
@@ -855,6 +855,219 @@ sim(m_5H2, data = list(marriage = s),
 ```  
   
 So yes, counterfactually increasing M increases D.  
+  
+  
+## Question 5M3  
+  
+**Return to the milk energy model, m5.7. Suppose that the true causal relationship among the variables is:**   
+  
+```{r 5m3 print part 1, echo=FALSE}
+tibble(name = c("M", "K", "N"),
+       x    = c(0, 1, 2),
+       y    = c(1, 0, 1)) %>% 
+  dagify(K ~ M + N,
+         N ~ M,
+         coords = .) %>% 
+  ggplot(aes(x = x, y = y, xend = xend, yend = yend)) +
+  geom_dag_node(color = red, alpha = 0.5) +
+  geom_dag_text(aes(label = name), color = blue) +
+  geom_dag_edges(edge_color = blue) +
+  theme_void()
+```  
+  
+**Now compute the counterfactual effect on K of doubling M. You will need to account for both the direct and indirect paths of causation. Use the counterfactual example from the chapter (starting at page 140) as a template.**  
+  
+Load the data, remove entries with missing data and standardise all variables.  
+  
+```{r 5m3 print part 2}
+data(milk)
+
+milk_std <- milk %>% 
+  as_tibble() %>% 
+  select(mass, kcal.per.g, neocortex.perc) %>% 
+  drop_na() %>% 
+  mutate(across(everything(), standardize))
+```  
+  
+Now we can build a model corresponding to the DAG.  
+  
+```{r 5m3 print part 3}
+m_milk <- alist(
+  # M -> K <- N
+  kcal.per.g ~ dnorm(mu, sigma) ,
+  mu <- a + bN*neocortex.perc + bM*mass,
+  a ~ dnorm(0, 0.2),
+  bN ~ dnorm(0 ,0.5),
+  bM ~ dnorm(0, 0.5),
+  sigma ~ dexp(1),
+
+  ## M -> N
+  neocortex.perc ~ dnorm(mu_N, sigma_N),
+  mu_N <- aN + bMN*mass,
+  aN ~ dnorm(0, 0.2),
+  bMN ~ dnorm(0, 0.5),
+  sigma_N ~ dexp(1)) %>% 
+  quap(., data = milk_std) 
+```  
+  
+To build the counterfactual plot, the function `count_plot()` comes in handy.  
+  
+```{r 5m3 print part 4, fig.cap="*Total counterfactual effect of M on K*"}
+sim_m1 <- sim(m_milk, data = list(mass = s),
+             vars = c("neocortex.perc", "kcal.per.g"))  %>% 
+  pluck("kcal.per.g") 
+
+count_plot(sim_m1, kcal.per.g, mass)
+```  
+  
+Doubling M would decrease K, but the relationship is not totally consistent.  
+  
+## Question 5M4  
+  
+**Here is an open practice problem to engage your imagination. In the divorce data, States in the souther United States have many of the highest divorce rates. Add the South indicator variable to the analysis. First, draw one or more DAGs that represent your ideas for how Southern American culture might influence any of the other three variables (D, M or A). Then list the testable implications of your DAGs, if there are any, and fit one or more models to evaluate the implications. What do you think the influence of "Southerness" is?**  
+  
+Let's load and standardize the *Waffle* data, this time with the `South` variable included.  
+  
+```{r 5m4 print part 1}
+divorce_std <- WaffleDivorce %>% 
+  as_tibble() %>% 
+  select(D = Divorce, M = Marriage, A = MedianAgeMarriage, 
+         S = South) %>% 
+  mutate(across(-S, standardize), 
+         S = if_else(S == 0, 1, 2))
+```  
+  
+Note that `S` is categorical (a dummy variable) and is therefore not standardised. Instead, I assign a 1 to each non-southern state and a 2 to each southern state, to enable indexing later on.  
+  
+Now, southerness (is that a word?) could drive A (medium age at marriage), as a cultural thing. If it is related to culture, it could directly influence D as well. Further, we found in the chapter that A influences both M and D, and M has low influence on D. We can therefore remove M. Let's draw a DAG.  
+  
+```{r 5M4 print part 2, fig.cap="*Directed acyclic graph for question 5M4*"}
+tibble(name = c("A", "D", "S"), 
+       x = c(2, 1, 0), 
+       y = c(1, 0, 1)) %>% 
+  dagify(D ~ A + S,
+         A ~ S,
+         coords = .) %>% 
+  ggplot(aes(x = x, y = y, xend = xend, yend = yend)) +
+  geom_dag_node(color = red, alpha = 0.5) +
+  geom_dag_text(aes(label = name), color = blue) +
+  geom_dag_edges(edge_color = blue) +
+  theme_void()
+```  
+  
+And check the implied conditional independencies.  
+  
+```{r 5M4 print part 3}
+dagitty('dag{A -> S
+             A -> D <- S}') %>% 
+  impliedConditionalIndependencies() %>% 
+  capture.output() 
+```  
+  
+I have tried to catch the output but only get an empty character vector, which means that there are no conditional independencies. Let's check this assumption with `cor()`.    
+  
+```{r 5M4 print part 4}
+divorce_std %>% 
+  select(D, A, S) %>% 
+  as.matrix() %>% 
+  cor()
+```  
+  
+Well A and S are not totally correlated, but still we can see a dependency between each.  
+  
+We can proceed to build a model following the categorical example in the chapter.  
+  
+```{r 5M4 print part 5}
+m_divorce1 <- alist(
+  D ~ dnorm(mu, sigma), 
+  mu <- a[S] + bA*A , 
+  a[S] ~ dnorm(0, 0.5),
+  bA ~ dnorm(0 ,0.5),
+  sigma ~ dexp(1)) %>% 
+  quap(., data = divorce_std)
+```  
+  
+Let's extract some samples from the posterior and calculate the difference between southern and non-southern states.  
+  
+```{r 5M4 print part 6, fig.cap="*Coefficient plot for a multiple regression model with with divorce rate as outcome*"}
+post_samples <- extract.samples(m_divorce1) %>% 
+  as_tibble() %>% 
+  mutate(south_diff = a[,2] - a[,1])
+
+post_samples %>% 
+  precis() %>% 
+  as_tibble(rownames = "estimate") %>% 
+  filter(estimate != "sigma") %>% 
+  rename(lower_pi = '5.5%', upper_pi = '94.5%')  %>%  
+  ggplot() +
+  geom_vline(xintercept = 0, colour = "grey40")  +
+  geom_pointrange(aes(x = mean, xmin = lower_pi, xmax = upper_pi, 
+                      y = fct_reorder(estimate, desc(estimate)), 
+                      colour = estimate)) +
+  scale_colour_discrete(name = "Predictor", 
+                        labels = c("Southern State", "Non-Southern State",  
+                                   "Age at Marriage", "Non-Southern minus Southern"), 
+                        type = c(red, blue, yellow, lightblue)) +
+  labs(x = "Estimate", y = NULL) +
+  theme_minimal() + 
+  theme(panel.grid.major.y = element_blank())
+```  
+  
+We can already see that southern states have a consistently lower divorce rate than nonsouthern states. As we already extracted some samples, let's look at the posterior distribution for A and S. First get some point estimates (mean and pi) for these variables, which we can then highlight in the plot.  
+  
+```{r 5M4 print part 7}
+post_samples_sum <- post_samples %>% 
+  select(bA, south_diff) %>% 
+  pivot_longer(cols = everything(), names_to = "parameter", values_to = "estimate") %>% 
+  group_by(parameter) %>% 
+  nest() %>% 
+  mutate(estimate = map(data, "estimate"), 
+         est_mean = map_dbl(estimate, mean), 
+         est_pi = map(estimate, PI), 
+         pi_low = map_dbl(est_pi, pluck(1)), 
+         pi_high = map_dbl(est_pi, pluck(2))) %>% 
+  select(parameter, est_mean, pi_low, pi_high) 
+```  
+  
+Now we are ready to plot the distributions.  
+  
+```{r 5M4 print part 8}
+post_samples %>% 
+  select(bA, south_diff) %>% 
+  pivot_longer(cols = everything(), names_to = "parameter", values_to = "estimate") %>% 
+  ggplot() +
+  geom_vline(xintercept = 0, colour = "grey20")  +
+  geom_density(aes(x = estimate, fill = parameter), 
+               colour = "grey40", alpha = 0.8) +
+  geom_pointrange(aes(est_mean, y = c(0.35, 0.35), 
+                       xmin = pi_low, xmax = pi_high, 
+                       group = parameter), 
+                  colour = "grey40", size = 0.6, 
+             data = post_samples_sum) +
+  scale_fill_manual(name = "Parameter", values = c(red, yellow), 
+                    labels = c("Age at Marriage", "Non-Southern minus Southern State")) +
+  scale_y_continuous(breaks = NULL) +
+  labs(title = "Outcome = Divorce rate", x = "Estimate", y = NULL) +
+  theme_minimal() +
+  theme(legend.position = c(0.8, 0.8), 
+        legend.background = element_rect(colour = "grey20"))
+```  
+  
+I think this plot is a nice way to end. Just to some this chapter up: I have learned a lot of powerful ways to get closer to deducing causal relationships, something that I wanted to do since reading *The book of why* by Dana Mackenzie and Juda Pearl. However, some concepts like confounders or such are still a bit unclear and I hope that this will be resolved throughout the next chapters. 
+  
+  
+
+
+
+
+
+
+
+
+
+
+
+  
 
 
 

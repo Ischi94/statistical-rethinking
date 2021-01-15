@@ -1279,6 +1279,4 @@ post_samples %>%
   theme_minimal() +
   theme(legend.position = c(0.8, 0.8), 
         legend.background = element_rect(colour = "grey20"))
-  
-  
-  
+
