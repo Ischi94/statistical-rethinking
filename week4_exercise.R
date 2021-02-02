@@ -13,7 +13,8 @@ yellow <- "#EEb462"
 tibble(colours = c(coral, mint, purple, yellow), 
        colourname = c("coral", "mint", "purple", "yellow")) %>% 
   arrange(colours) %>% 
-  mutate(colourname = fct_reorder(colourname, colours)) %>% 
+  mutate(colourname = fct_reorder(colourname, colours), 
+         colourname = paste0(colours, "/ ", colourname)) %>% 
   ggplot() +
   geom_bar(aes(y = colours, fill = colours)) +
   scale_fill_identity() +
@@ -381,7 +382,7 @@ test_independence <- function(model.input, coeff.input){
   suppressWarnings(
     precis(model.input) %>%
     as_tibble(rownames = "estimate") %>%
-    filter(estimate == {{coeff.input}}) %>%
+    filter(estimate %in% {{coeff.input}}) %>%
     mutate(across(where(is.numeric), round, digits = 2)) %>%
     knitr::kable()
   )
@@ -437,4 +438,121 @@ alist(
   sigma ~ dexp(1)) %>% 
   quap(data = dat_waffle) %>% 
   test_independence(coeff.input = "Bm_rate")
+
+# All three problems below are based on the samme data. The data in data(foxes)
+# are 116 foxes from 30 different urban groups in England. These foxes are like
+# street gangs. Group size varies from 2 to 8 individuals. Each group maintains its own (almost exclusive) 
+# urban territory. Some territories are larger
+# than others. The area variable encodes this information. Some territories
+# also have more avgfood than others. We want to model the weight of each
+# fox. For the problems below, assume this DAG:
+
+
+tribble(
+  ~ name,   ~ x,   ~ y, 
+  "area",     1,     2,
+  "avgfood",  0,     1,
+  "groupsize",2,     1,
+  "weight",   1,     0
+) %>%  
+  dagify(
+    avgfood ~ area,
+    groupsize ~ avgfood,
+    weight ~ avgfood + groupsize,
+    coords = .) %>% 
+  ggplot(aes(x = x, y = y, xend = xend, yend = yend)) +
+  geom_dag_node(internal_colour = coral, size = 20,
+                alpha = 0.8, colour = "white") +
+  geom_dag_text(aes(label = abbreviate(name)), color = purple, size = 5) +
+  geom_dag_edges(edge_color = mint) +
+  labs(caption = "Figure 8: Directed acyclic graph for the foses data.") +
+  theme_void()
+
+### 6H3 ###
+
+# Use a model to infer the total causal influence of area on weight . Would
+# increasing the area available to each fox make it heavier (healthier)? You
+# might want to standardize the variables. Regardless, use prior predictive
+# simulation to show that your model’s prior predictions stay within the possible outcome range.
+
+# There are two paths from area to weight: area -> avgfood -> weight and area ->
+# avgfood -> groupsize -> weight. Both of these paths are causal and we want to
+# have them in our model. Note that we don't have any backdoor paths.
+data("foxes")
+
+dat_foxes <- foxes %>% 
+  as_tibble() %>% 
+  mutate(across(-group, standardize))
+
+m_foxes1 <- alist(weight ~ dnorm(mu, sigma),  
+                  mu <- a + Barea*area, 
+                  a ~ dnorm(0, 0.2), 
+                  Barea ~ dnorm(0, 0.5), 
+                  sigma ~ dexp(1)) %>% 
+  quap(data = dat_foxes) 
+
+foxes1_prior <- m_foxes1 %>% 
+  extract.prior() %>% 
+  link(m_foxes1, post = .,
+    data = list(area = seq(-2, 2, length.out = 20))) %>% 
+  as_tibble() %>%
+  pivot_longer(cols = everything(), values_to = "weight") %>%
+  add_column(
+    area = rep(seq(-2, 2, length.out = 20), 1000),
+    type = rep(as.character(1:1000), each = 20))
+
+ggplot(foxes1_prior) +
+  geom_line(aes(x = area, y = weight, group = type), 
+            alpha = 0.1, colour = coral) +
+  labs(x = "Area (std)", y = "Weight (std)", 
+       caption = "Figure 9: Prior predictive simulation for standardised area on weight") +
+  theme_minimal()
+
+
+m_foxes1 %>% 
+  test_independence(coeff.input = "Barea")
+
+
+### 6H4 ###
+# Now infer the causal impact of adding food (avgfood) to a territory.
+# Would this make foxes heavier? Which covariates do you need to adjust
+# for to estimate the total causal influence of food? 
+
+# There are again two paths: avgfood -> groupsize -> weight, avgfood -> weight.
+# Both are open and we want to keep both to get the total causal impact of food
+# on weight. Including groupsize (condition on groupsize) would close the first
+# path, which we don't want. Again, we don't have any backdoor paths
+m_foxes2 <- alist(weight ~ dnorm(mu, sigma),  
+                  mu <- a + Bavgf*avgfood, 
+                  a ~ dnorm(0, 0.2), 
+                  Bavgf ~ dnorm(0, 0.5), 
+                  sigma ~ dexp(1)) %>% 
+  quap(data = dat_foxes) 
+
+m_foxes2 %>% 
+  test_independence(coeff.input = "Bavgf")
+
+
+### 6H5 ###
+
+# Now infer the causal impact of group size. Which covariates do you need
+# to adjust for? Looking at the posterior distribution of the resulting model,
+# what do you think explains these data? That is, can you explain the estimates
+# for all three problems? How do they make sense together?
+
+# We have two paths: groupsize -> weight and groupsize -> avgfood -> weight. The
+# second is a backdoor path and we want to close it (note that avgfood is a
+# fork). We can do this by simply adjusting for avgfood.
+m_foxes3 <- alist(weight ~ dnorm(mu, sigma),  
+                  mu <- a + Bavgf*avgfood + Bgrps*groupsize, 
+                  a ~ dnorm(0, 0.2), 
+                  c(Bavgf, Bgrps) ~ dnorm(0, 0.5), 
+                  sigma ~ dexp(1)) %>% 
+  quap(data = dat_foxes) 
+
+m_foxes3 %>% 
+  test_independence(coeff.input = c("Bavgf","Bgrps"))
+
+# Questions 6H6 and 6H7 are open research questions and I will hopefully manage
+# to play around with them, once I have more time.
 
