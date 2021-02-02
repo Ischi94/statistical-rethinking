@@ -2,7 +2,7 @@
 title: "Rethinking Chapter 5"
 author: "Gregor Mathes"
 date: "2021-01-13"
-slug: Rethinking Chapter 4
+slug: Rethinking Chapter 5
 categories: []
 tags: [Rethinking, Bayes, Statistics]
 subtitle: ''
