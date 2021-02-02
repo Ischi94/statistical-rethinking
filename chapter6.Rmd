@@ -21,6 +21,124 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, fig.dim=c(7,4), warning=FALSE, message = FALSE)
+library(tidyverse)
+library(rethinking)
+library(ggdag)
+library(dagitty)
+
+map <- purrr::map
 ```
+
+# Introduction  
+
+This is the fifth part of a series where I work through the practice questions of the second edition of Richard McElreaths [Statistical Rethinking](%5Bhttps://xcelab.net/rm/statistical-rethinking/).](<https://xcelab.net/rm/statistical-rethinking/>).) Each post covers a new chapter and you can see the posts on previous chapters [here](%5Bhttps://gregor-mathes.netlify.app/tags/rethinking/).](<https://gregor-mathes.netlify.app/tags/rethinking/>).)
+
+You can find the the lectures and homework accompanying the book [here](%5B%3Chttps://github.com/rmcelreath/stat_rethinking_2020%3E)).](<https://github.com/rmcelreath/stat_rethinking_2020>)).)
+
+The colours for this blog post are:
+
+```{r colour setup}
+coral <- "#CD7672"
+mint <- "#138086"
+purple <- "#534666"
+yellow <- "#EEb462"
+```
+
+```{r colour plot, echo=FALSE}
+tibble(colours = c(coral, mint, purple, yellow), 
+       colourname = c("coral", "mint", "purple", "yellow")) %>% 
+  arrange(colours) %>% 
+  mutate(colourname = fct_reorder(colourname, colours), 
+         colourname = paste0(colours, "/ ", colourname)) %>% 
+  ggplot() +
+  geom_bar(aes(y = colours, fill = colours)) +
+  scale_fill_identity() +
+  geom_text(aes(x = 0.5, y = colours, label = colourname), 
+            size = 6, colour = "white") +
+  theme_void()
+```  
+  
+The online version of the *Statistical Rethinking*, provided by the brilliant [Erik Kusch](https://www.erikkusch.com/), is missing a lot of practive questions, so I will focus on the examples from the print version here.  
+  
+# Easy practices  
+  
+## Question 6E1  
+  
+**List three mechanisms by which multiple regression can produce false inferences about causal effect.**  
+  
+The tree examples mentioned throughout the chapter were:
+  
+1. Collinearity  
+2. Post-treatment bias  
+3. Collider bias  
+  
+## Question 6E2  
+  
+**For one of the mechanisms in the previous problem, provide an example of your choice, perhaps from your own research.**  
+  
+- Collinearity  
+If you want to estimate the effect of geographic range on the extinction risk organism in the fossil record, you can choose between a range of potential parameters that express geographic range. For example, you can use the convex hull area or the maximum pairwise great circle distance. However, if you add both parameters in a model their true magnitude of association to extinction
+risk is lowered or even hidden, as they both encapsulate the same information.  
+  
+- Post-treatment bias  
+Assume you want to estimate the effect of global mean temperature on the extinction risk of marine species in the fossil record. Additionally, you have an amazing data set on continental shelve area through time and would love to include that as well. However, temperature is quite likely causally related to shelve area as it drives eustatic sea level. So including shelve area in a model would shut the path between temperature and extinction risk, even though there is a real causal association.  
+  
+- Collider bias  
+If anyone has a good example for a collider bias in palaeobiology, just message me on twitter (@GregorMathes).  
+  
+## Question 6E3  
+  
+**List the four elemental confounds. Can you explain the conditional dependencies of each?**  
+  
+1. Pipe  
+  
+```{r 6E3 part 1}
+dagitty("dag{
+        X -> Y -> Z}") %>% 
+  impliedConditionalIndependencies()
+```  
+  
+If we condition on Y, we shut the path between X and Z.  
+  
+2. Fork  
+```{r 6E3 part 2}
+dagitty("dag{
+        X <- Y -> Z}") %>% 
+  impliedConditionalIndependencies()
+```  
+  
+If we condition on Y, then learning X tells us nothing about Z. All the information is in Y.
+
+3. Collider  
+  
+```{r 6E3 part 3}
+dagitty("dag{
+        X -> Y <- Z}") %>% 
+  impliedConditionalIndependencies()
+```  
+  
+X is independent of Z. But conditioning on Y would open the path, and then X
+would be dependent on Z conditional on Y.  
+  
+4. Descendant  
+  
+```{r 6E3 part 4}
+dagitty("dag{
+        X -> Y -> Z
+        Y -> W}") %>% 
+  impliedConditionalIndependencies()
+```  
+  
+This is interesting. In the chapter, it says that if we would condition on W,
+we would condition on Y as well (to a lesser extent). So I would have expected
+X _||_ Z | W here.  
+  
+## Question 6E4  
+  
+**How is a biased sample like conditioning on a collider? Think of the example at the open of the chapter.**  
+  
+Assume the collider X -> Y <- Z.Conditioning on a collider Y  opens a path between X and Z, and leads to a spurious correlation between between these. This is similar to selection bias, where the researcher that sampled the data (or nature itself) cared about both X and Z when generating the sample.  
+  
+
 
