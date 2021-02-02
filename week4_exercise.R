@@ -204,7 +204,7 @@ tribble(
   labs(caption = "Figure 3: Directed acyclic graph number one.") +
   theme_void()
 
-# The are two backdoor paths, X <- Z -> Y and X <- Z <- A -> Y. 
+# The are two backdoor paths, X <- Z -> Y and X <- Z <- A -> Y.
 # Both are open and go through Z, so we can simply condition on Z.
 
 tribble(
@@ -250,7 +250,7 @@ tribble(
   theme_void()
 
 # There are two backdoor paths: X <- A -> Z <- Y and X -> Z <- Y. Both paths are
-# closed as Z is a collider for both. We don't need to condition on anything. 
+# closed as Z is a collider for both. We don't need to condition on anything.
 
 tribble(
   ~ name,  ~ x,  ~ y,  
@@ -439,9 +439,9 @@ alist(
   quap(data = dat_waffle) %>% 
   test_independence(coeff.input = "Bm_rate")
 
-# All three problems below are based on the samme data. The data in data(foxes)
+# All three problems below are based on the same data. The data in data(foxes)
 # are 116 foxes from 30 different urban groups in England. These foxes are like
-# street gangs. Group size varies from 2 to 8 individuals. Each group maintains its own (almost exclusive) 
+# street gangs. Group size varies from 2 to 8 individuals. Each group maintains its own (almost exclusive)
 # urban territory. Some territories are larger
 # than others. The area variable encodes this information. Some territories
 # also have more avgfood than others. We want to model the weight of each
@@ -516,7 +516,7 @@ m_foxes1 %>%
 ### 6H4 ###
 # Now infer the causal impact of adding food (avgfood) to a territory.
 # Would this make foxes heavier? Which covariates do you need to adjust
-# for to estimate the total causal influence of food? 
+# for to estimate the total causal influence of food?
 
 # There are again two paths: avgfood -> groupsize -> weight, avgfood -> weight.
 # Both are open and we want to keep both to get the total causal impact of food
