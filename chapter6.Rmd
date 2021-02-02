@@ -32,9 +32,10 @@ map <- purrr::map
 
 # Introduction  
 
-This is the fifth part of a series where I work through the practice questions of the second edition of Richard McElreaths [Statistical Rethinking](%5Bhttps://xcelab.net/rm/statistical-rethinking/).](<https://xcelab.net/rm/statistical-rethinking/>).) Each post covers a new chapter and you can see the posts on previous chapters [here](%5Bhttps://gregor-mathes.netlify.app/tags/rethinking/).](<https://gregor-mathes.netlify.app/tags/rethinking/>).)
-
-You can find the the lectures and homework accompanying the book [here](%5B%3Chttps://github.com/rmcelreath/stat_rethinking_2020%3E)).](<https://github.com/rmcelreath/stat_rethinking_2020>)).)
+This is the fifth part of a series where I work through the practice questions of the second edition of Richard McElreaths [Statistical Rethinking](https://xcelab.net/rm/statistical-rethinking/).  
+Each post covers a new chapter and you can see the posts on previous chapters [here](https://gregor-mathes.netlify.app/tags/rethinking/).  
+  
+You can find the the lectures and homework accompanying the book [here](https://github.com/rmcelreath/stat_rethinking_2020%3E).
 
 The colours for this blog post are:
 
@@ -330,13 +331,398 @@ tribble(
   geom_dag_node(colour = purple) +
   geom_dag_text(aes(label = name), color = "white", size = 5) +
   geom_dag_edges(edge_color = coral) +
-  labs(caption = "Figure 5: Directed acyclic graph number four.") +
+  labs(caption = "Figure 6: Directed acyclic graph number four.") +
   theme_void()
 ```  
   
 There are two backdoor paths: X <- A -> Z -> Y and X -> Z -> Y.   
 We want to keep the second one but close the first one. For this, we can condition on `A`.   Conditioning on `Z` would close the first path as well, but also the second one which we want to keep as true causal.  
   
+# Hard practices  
+  
+## Question 6H1  
+  
+**Use the Waffle House data, data(WaffleDivorce), to find the total causal influence of number of Waffle Houses on divorce rate. Justify your model or models with a causal graph.**  
+  
+Let's load the data, standardise predictor and outcome and assign better names. We further transform south to an index variable: 1 is coded as not belonging to south, and 2 as belonging to south.    
+  
+```{r 6H1 part 1}
+data("WaffleDivorce")
+
+dat_waffle <- WaffleDivorce %>% 
+  as_tibble() %>% 
+  select(divorce = Divorce, age = MedianAgeMarriage,
+         m_rate = Marriage, waffle = WaffleHouses,
+         south = South) %>% 
+  mutate(across(-south, standardize), 
+         south = south + 1) 
+```  
+  
+I assume that `age` (medium age at marriage) influence both `divorce` (divorce rate) and `m_rate` (marriage rate). This is something we could see in previous chapter. I further expect that `south` (southerness) influences both `age` and `waffle` (number of Waffle Houses).  
+  
+```{r 6H1 part 2, echo=FALSE}
+tribble(
+  ~ name,    ~ x,  ~ y,  
+  "south",     0,    2,     
+  "age",       1,    2,     
+  "m_rate",    2,    1,     
+  "waffle",    0,    0, 
+  "divorce",   1,    0
+) %>%  
+  dagify(
+    divorce ~ age + waffle,
+    waffle ~ south, 
+    age ~ south,
+    m_rate ~ age,
+    coords = .) %>% 
+  ggplot(aes(x = x, y = y, xend = xend, yend = yend)) +
+  geom_dag_node(colour = purple, shape = 1, size = 20) +
+  geom_dag_text(aes(label = name), color = "black", size = 4) +
+  geom_dag_edges(edge_color = coral) +
+  labs(caption = "Figure 7: The total causal influence of number of Waffle Houses on divorce rate.") +
+  theme_void()
+```  
+  
+We can see that there is one open backdoor path from `waffle` <- `south` -> `age` -> `divorce`. We can close this path by conditioning on `south`.  
+  
+```{r 6H1 part 3}
+m_waffle <- alist(
+  divorce ~ dnorm(mu, sigma),
+  mu <- a[south] + Bwaffle*waffle,
+  a[south] ~ dnorm(0, 0.5),
+  Bwaffle ~ dnorm(0, 0.5),
+  sigma ~ dexp(1)) %>% 
+  quap(data = dat_waffle)
+```  
+  
+We can see that there is no information in `waffle` about `divorce`, that is not already in `south`.  
+  
+```{r 6H1 part 4, warning=FALSE, fig.width=1}
+m_waffle %>% 
+  precis() %>% 
+  as_tibble(rownames = "estimate") %>% 
+  filter(estimate == "Bwaffle") %>% 
+  mutate(across(where(is.numeric), round, digits = 2)) %>% 
+  knitr::kable()
+```  
+  
+As we will look at coefficient estimates quite often in the hard practices, I will wrap up the code above into a helper function.  
+  
+```{r 6H1 part 5}
+test_independence <- function(model.input, coeff.input, depth.output = 1){
+  suppressWarnings(
+    precis(model.input, depth = depth.output) %>%
+    as_tibble(rownames = "estimate") %>%
+    filter(estimate %in% {{coeff.input}}) %>%
+    mutate(across(where(is.numeric), round, digits = 2)) %>%
+    knitr::kable()
+  )
+}
+```  
+  
+We can visualise the association as well:  
+  
+```{r 6H1 part 6}
+s <- seq(from = -2, to = 2, length.out = 30)
+N <- 1e3
+
+m_waffle %>% 
+  link(data = list(waffle = s, 
+                   south = 1)) %>% 
+  as_tibble() %>% 
+  pivot_longer(cols = everything(), values_to = "pred_divorce") %>% 
+  add_column(waffle = rep(s, N)) %>% 
+  group_by(waffle) %>% 
+  nest() %>% 
+  mutate(pred_divorce = map(data, "pred_divorce"), 
+         mean_divorce = map_dbl(pred_divorce, mean), 
+         pi = map(pred_divorce, PI), 
+         lower_pi = map_dbl(pi, pluck(1)), 
+         upper_pi = map_dbl(pi, pluck(2))) %>% 
+  select(waffle, mean_divorce, lower_pi, upper_pi) %>% 
+  ggplot() +
+  geom_ribbon(aes(waffle, ymin = lower_pi, ymax = upper_pi), 
+              fill = mint, alpha = 0.3) +
+  geom_line(aes(waffle, mean_divorce), 
+            size = 1.5, colour = coral) +
+  coord_cartesian(ylim = c(-2, 2)) +
+  labs(x = "Waffle (std)", y = "Divorce (std)", 
+       caption = "Figure 8: Total causal effect of number of Waffle House on Divorce, 
+       while keeping 'South' constant.") +
+  theme_minimal()
+```  
+  
+  
+## Question 6H2  
+  
+**Build a series of models to test the implied conditional independencies of the causal graph you used in the previous problem. If any of the tests fail, how do you think the graph needs to be amended? Does the graph need more or fewer arrows? Feel free to nominate variables that are not in the data.**  
+  
+Let's first check the implied conditional independencies.  
+  
+```{r 6H2 part 1}
+dagitty("dag{
+        waffle -> divorce <- age <- south -> waffle
+        age -> m_rate}") %>% 
+  impliedConditionalIndependencies()
+```
+
+Let's start with age _||_ waffle | south  
+  
+```{r 6H2 part 2}
+alist(
+  waffle ~ dnorm(mu, sigma),
+  mu <- a[south] + Bage*age,
+  a[south] ~ dnorm(0, 0.5),
+  c(Bage) ~ dnorm(0, 0.5),
+  sigma ~ dexp(1)) %>% 
+  quap(data = dat_waffle) %>% 
+  test_independence(coeff.input = "Bage")
+```  
+  
+`age` is independent of `waffle` after conditioning on `south`, as the posterior `Bage` shows no consistent association with `waffle`.  
+  
+******  
+  
+divorce _||_ m_rate | age
+  
+```{r 6H2 part 3}
+alist(
+  m_rate ~ dnorm(mu, sigma),
+  mu <- a + Bdivorce*divorce + Bage*age,
+  a ~ dnorm(0, 0.2),
+  c(Bdivorce, Bage) ~ dnorm(0, 0.5),
+  sigma ~ dexp(1)) %>% 
+  quap(data = dat_waffle) %>% 
+  test_independence(coeff.input = "Bdivorce")  
+```  
+  
+`divorce` is independent from `m_rate` after conditioning on `age`.  
+  
+******  
+  
+divorce _||_ south | age, waffle  
+  
+```{r 6H2 part 4}
+alist(
+  divorce ~ dnorm(mu, sigma),
+  mu <- a[south] + Bage*age + Bwaffle*waffle,
+  a[south] ~ dnorm(0, 0.5),
+  c(Bage, Bwaffle) ~ dnorm(0, 0.5),
+  sigma ~ dexp(1)) %>% 
+  quap(data = dat_waffle) %>% 
+  test_independence(depth.output = 2, coeff.input = c("a[1]", "a[2]"))
+```  
+  
+`south` is independent from `divorce` after conditioning on `age` `and waffle`.  
+  
+******  
+  
+m_rate _||_ south | age  
+  
+```{r 6H2 part 5}
+alist(
+  m_rate ~ dnorm(mu, sigma),
+  mu <- a[south] + Bage*age,
+  a[south] ~ dnorm(0, 0.5),
+  Bage ~ dnorm(0, 0.5),
+  sigma ~ dexp(1)) %>% 
+  quap(data = dat_waffle) %>% 
+  test_independence(depth.output = 2, coeff.input = c("a[1]", "a[2]"))
+```  
+  
+`south` is independent from `m_rate` after conditioning on `age`.  
+  
+******
+  
+m_rate _||_ waffle | south  
+  
+```{r 6H2 part 6}
+alist(
+  waffle ~ dnorm(mu, sigma),
+  mu <- a[south] + Bm_rate*m_rate,
+  a[south] ~ dnorm(0, 0.5),
+  Bm_rate ~ dnorm(0, 0.5),
+  sigma ~ dexp(1)) %>% 
+  quap(data = dat_waffle) %>% 
+  test_independence(coeff.input = "Bm_rate")
+```  
+  
+`m_rate` is independent from `waffle` after conditioning on `south`.  
+  
+******  
+  
+m_rate _||_ waffle | age  
+  
+```{r 6H2 part 7}
+alist(
+  waffle ~ dnorm(mu, sigma),
+  mu <- a + Bm_rate*m_rate + Bage*age,
+  a ~ dnorm(0, 0.2),
+  c(Bm_rate, Bage) ~ dnorm(0, 0.5),
+  sigma ~ dexp(1)) %>% 
+  quap(data = dat_waffle) %>% 
+  test_independence(coeff.input = "Bm_rate")
+```  
+  
+`m_rate` is independent from `waffle` after conditioning on `age`.  
+  
+  
+## Data foxes  
+  
+**All three problems below are based on the same data. The data in data(foxes) are 116 foxes from 30 different urban groups in England. These foxes are like street gangs. Group size varies from 2 to 8 individuals. Each group maintains its own (almost exclusive) urban territory. Some territories are larger than others. The area variable encodes this information. Some territories also have more avgfood than others. We want to model the weight of each fox. For the problems below, assume this DAG:**  
+  
+```{r data foxes,echo=FALSE}
+tribble(
+  ~ name,   ~ x,   ~ y, 
+  "area",     1,     2,
+  "avgfood",  0,     1,
+  "groupsize",2,     1,
+  "weight",   1,     0
+) %>%  
+  dagify(
+    avgfood ~ area,
+    groupsize ~ avgfood,
+    weight ~ avgfood + groupsize,
+    coords = .) %>% 
+  ggplot(aes(x = x, y = y, xend = xend, yend = yend)) +
+  geom_dag_node(internal_colour = coral, size = 20,
+                alpha = 0.8, colour = "white") +
+  geom_dag_text(aes(label = abbreviate(name)), color = purple, size = 5) +
+  geom_dag_edges(edge_color = mint) +
+  labs(caption = "Figure 9: Directed acyclic graph for the foses data.") +
+  theme_void()
+```  
+  
+## Question 6H3  
+  
+**Use a model to infer the total causal influence of area on weight . Would increasing the area available to each fox make it heavier (healthier)? You might want to standardize the variables. Regardless, use prior predictive simulation to show that your model’s prior predictions stay within the possible outcome range.**  
+  
+There are two paths from `area` to `weight`: 
+(1) area -> avgfood -> weight  
+(2) area -> avgfood -> groupsize -> weight  
+Both of these paths are causal and we want to have them in our model. Note that we don't have any backdoor paths and hence a simple linear regression with a single predictor is sufficient.    
+  
+Let's start by loading the data and standardizing all variables but group, which is a dummy variable. 
+```{r 6H3 part 1}
+data("foxes")
+
+dat_foxes <- foxes %>% 
+  as_tibble() %>% 
+  mutate(across(-group, standardize))
+```  
+  
+Now we are ready to call the model.  
+  
+```{r 6H3 part 2}
+m_foxes1 <- alist(weight ~ dnorm(mu, sigma),  
+                  mu <- a + Barea*area, 
+                  a ~ dnorm(0, 0.2), 
+                  Barea ~ dnorm(0, 0.5), 
+                  sigma ~ dexp(1)) %>% 
+  quap(data = dat_foxes)
+```  
+  
+Using prior predictive simulation as discussed in previous chapters, we can check if our priors are falling outside a realistic range.  
+  
+```{r 6H3 part 3}
+m_foxes1 %>% 
+  extract.prior() %>% 
+  link(m_foxes1, post = .,
+    data = list(area = seq(-2, 2, length.out = 20))) %>% 
+  as_tibble() %>%
+  pivot_longer(cols = everything(), values_to = "weight") %>%
+  add_column(
+    area = rep(seq(-2, 2, length.out = 20), 1000),
+    type = rep(as.character(1:1000), each = 20)) %>% 
+  ggplot() +
+  geom_line(aes(x = area, y = weight, group = type), 
+            alpha = 0.1, colour = coral) +
+  labs(x = "Area (std)", y = "Weight (std)", 
+       caption = "Figure 9: Prior predictive simulation for standardised area on weight.") +
+  theme_minimal()
+```  
+  
+It almost seems like some of these lines are too extreme (outside of |-2, 2| sd) but they are still realistic. Anyone with some kind of knowledge about fox ecology can produce better priors than I am using here, but as I am really lazy I will stick to these rather uninformative priors for now.  
+  
+Let's see the effect of `area` on `weight`.  
+  
+```{r 6H3 part 4}
+m_foxes1 %>% 
+  test_independence(coeff.input = "Barea")
+```  
+  
+There is no substantial association between `area` and `weight`.  
+  
+## Question 6H4  
+  
+**Now infer the causal impact of adding food (avgfood) to a territory. Would this make foxes heavier? Which covariates do you need to adjust for to estimate the total causal influence of food?**  
+  
+There are again two paths:  
+(1) avgfood -> groupsize -> weight  
+(2) avgfood -> weight  
+Both are open and we want to keep both to get the total causal impact of food on weight. Including groupsize (condition on groupsize) would close the first path, which we don't want. Again, we don't have any backdoor paths and a single predictor is enough.  
+  
+```{r 6H3 part 5}
+alist(weight ~ dnorm(mu, sigma),  
+                  mu <- a + Bavgf*avgfood, 
+                  a ~ dnorm(0, 0.2), 
+                  Bavgf ~ dnorm(0, 0.5), 
+                  sigma ~ dexp(1)) %>% 
+  quap(data = dat_foxes) %>% 
+  test_independence(coeff.input = "Bavgf")
+```  
+  
+There is no substantial relationship between `avgfood` and `weight`. This is no big surprise as `avgfood` is only causally related to `area` (at least in our DAG), and `area` showed no dependency as well.  
+  
+## Question 6H5  
+  
+**Now infer the causal impact of group size. Which covariates do you need to adjust for? Looking at the posterior distribution of the resulting model, what do you think explains these data? That is, can you explain the estimates for all three problems? How do they make sense together?**  
+  
+We have two paths:  
+(1) groupsize -> weight  
+(2) groupsize -> avgfood -> weight  
+The second is a backdoor path and we want to close it (note that avgfood is a fork). We can do this by simply adjusting for avgfood.  
+  
+```{r 6H3 part 6} 
+alist(weight ~ dnorm(mu, sigma),  
+                  mu <- a + Bavgf*avgfood + Bgrps*groupsize, 
+                  a ~ dnorm(0, 0.2), 
+                  c(Bavgf, Bgrps) ~ dnorm(0, 0.5), 
+                  sigma ~ dexp(1)) %>% 
+  quap(data = dat_foxes) %>% 
+  test_independence(coeff.input = c("Bavgf","Bgrps"))
+```  
+  
+We can see that `groupsize` is negatively related to `weight`, and when `groupsize` is in the model the effect of `avgfood` on `weight` is positive. This looks like a masked relationship as the total causal effect of `avgfood` on `weight` was not substantial. It makes sense that foxes with more food are heavier, but more food means also that other foxes are attracted (or born) into the area. Now you have to distribute the food between more foxes, which cancels out the effect of `avgfood` on `weight.` More foxes means also that an individual fox has less food and therefore weighs less, leading to the negative relationship between `groupsize` and `weight`.  
+  
+## Question 6H6 and 6H7  
+  
+Questions 6H6 and 6H7 are open research questions and I will hopefully manage to play around with them, once I have more time. So stick around for some updates of this post in the future.  
+  
+# Summary  
+  
+I have read *The book of why* by Juda Pearl two years ago and thought to myself that this nicely plays out the route analysis in Palaeobiology (or in Science overall) should go. However, there was no way I could implement the statements from *The book of why* in my own research. There was no guide to go from theory to practice and I was lacking the tools. Turns out that this chapter in *Statistical rethinking* is providing the tools and the basics for causal inference. And this just makes me happy.  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
 
 
 
