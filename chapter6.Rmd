@@ -99,7 +99,7 @@ dagitty("dag{
   impliedConditionalIndependencies()
 ```  
   
-If we condition on Y, we shut the path between X and Z.  
+If we condition on `Y`, we shut the path between `X` and `Z`.  
   
 2. Fork  
 ```{r 6E3 part 2}
@@ -108,7 +108,7 @@ dagitty("dag{
   impliedConditionalIndependencies()
 ```  
   
-If we condition on Y, then learning X tells us nothing about Z. All the information is in Y.
+If we condition on `Y`, then learning `X` tells us nothing about `Z`. All the information is in `Y`.
 
 3. Collider  
   
@@ -118,8 +118,8 @@ dagitty("dag{
   impliedConditionalIndependencies()
 ```  
   
-X is independent of Z. But conditioning on Y would open the path, and then X
-would be dependent on Z conditional on Y.  
+`X` is independent of `Z`. But conditioning on `Y` would open the path, and then `X`
+would be dependent on `Z` conditional on `Y`.  
   
 4. Descendant  
   
@@ -130,15 +130,223 @@ dagitty("dag{
   impliedConditionalIndependencies()
 ```  
   
-This is interesting. In the chapter, it says that if we would condition on W,
-we would condition on Y as well (to a lesser extent). So I would have expected
+This is interesting. In the chapter, it says that if we would condition on `W`,
+we would condition on `Y` as well (to a lesser extent). So I would have expected
 X _||_ Z | W here.  
   
 ## Question 6E4  
   
 **How is a biased sample like conditioning on a collider? Think of the example at the open of the chapter.**  
   
-Assume the collider X -> Y <- Z.Conditioning on a collider Y  opens a path between X and Z, and leads to a spurious correlation between between these. This is similar to selection bias, where the researcher that sampled the data (or nature itself) cared about both X and Z when generating the sample.  
+Assume the collider X -> Y <- Z.Conditioning on a collider `Y`  opens a path between `X` and `Z`, and leads to a spurious correlation between between these. This is similar to selection bias, where the researcher that sampled the data (or nature itself) cared about both `X` and `Z` when generating the sample.  
   
+# Medium practices  
+  
+## Question 6M1  
+  
+**Modify the DAG on page 190 (page 186 in print) to include the variable V, an unobserved cause of C and Y: C <- V -> Y. Reanalyze the DAG. How many paths connect X to Y? Which must be closed? Which variables should you condition on now?**  
+  
+Let's update the DAG using the `ggdag` package:  
+  
+```{r 6M1 part 1}
+tribble(
+  ~ name,  ~ x,  ~ y,  
+    "A",    1,     3,     
+    "U",    0,     2,     
+    "C",    2,     2,     
+    "V",    3,     1,     
+    "B",    1,     1,     
+    "X",    0,     0,  
+    "Y",    2,     0
+) %>%  
+  dagify(
+    Y ~ X + C + V,
+         C ~ V + A,
+         B ~ C + U,
+         U ~ A,
+         X ~ U,
+         coords = .) %>% 
+  ggplot(aes(x = x, y = y, xend = xend, yend = yend)) +
+  geom_dag_node(internal_colour = mint, alpha = 0.8, colour = "white") +
+  geom_dag_text(aes(label = name), color = purple, size = 5) +
+  geom_dag_edges(edge_color = purple) +
+  labs(caption = "Figure 1: Adjusted DAG from the chapter, including V.") +
+  theme_void()
+```  
+  
+For the visual representations of the DAGs later on in this post, I will not show the code to generate the DAG plots to reduce the visual load on the reader. Anyways, you can look at the Rmd file with the raw code [here](https://github.com/Ischi94/statistical-rethinking/blob/master/chapter6.Rmd).  
+  
+So let's first identify each path from `X` to `Y`.  
+(1) X -> Y  
+(2) X <- U <- A -> C -> Y  
+(3) X <- U <- A -> C <- V -> Y  
+(4) X <- U -> B <- C -> Y  
+(5) X <- U -> B <- C <- V -> Y  
+  
+C is now a collider in path (3) and the path is closed. Additionally, both paths passing through B are closed as well as `B` stays a collider. The only open backdoor path is (2), and to close this path we can condition on `A`.  
+  
+## Question 6M2  
+  
+**Sometimes, in order to avoid multicollinearity, people inspect pairwise correlations among predictors before including them in a model. This is a bad procedure, because what matters is the conditional association, not the association before the variables are included in the model. To highlight this, consider the DAG X -> Z -> Y. Simulate data from this DAG so that the correlation between X and Z is very large. Then include both in a model prediction Y. Do you observe any multicollinearity? Why or why not? What is different from the legs example in the chapter?**  
+  
+The simulation is rather simple. We let `Z` be completely dependent on `X` with just a little bit of noise, and render `Y` then completely dependent on `Z`. Note that I standardize each value to choose the priors more easily.  
+  
+```{r 6M2 part 1}
+sim_dat <- tibble(x = rnorm(1e4),  
+                  z = rnorm(1e4, x, 0.5), 
+                  y = rnorm(1e4, z)) %>% 
+  mutate(across(everything(), standardize))
+```  
+  
+The correlation between `X` and `Z` is hence really large as all information flows through this path.  
+  
+```{r 6M2 part 2}
+sim_dat %>% 
+  summarise(correlation = cor(x, z))
+```  
+  
+Now let's fit a model using quadratic approximation and plot the coefficients:  
+  
+```{r 6M2 part 3}
+alist(y ~ dnorm(mu, sigma), 
+      mu <- a + bx*x + bz*z, 
+      a ~ dnorm(0, 0.2), 
+      c(bx, bz) ~ dnorm(0, 0.5), 
+      sigma ~ dexp(1)) %>% 
+  quap(data = sim_dat) %>% 
+  precis() %>% 
+  as_tibble(rownames = "estimate") %>% 
+  filter(estimate %in% c("bx", "bz")) %>% 
+  rename(lower_pi = `5.5%`, upper_pi = `94.5%`) %>% 
+  ggplot() +
+  geom_linerange(aes(xmin = lower_pi, xmax = upper_pi, y = estimate), 
+                 size = 1.5, colour = mint) +
+  geom_point(aes(x = mean, y = estimate), 
+             shape = 21, colour = "grey20", stroke = 1, 
+             size = 5, fill = purple) +
+  labs(y = NULL, x = "Estimate", caption = "Figure 2: Coefficient plot for simulated data with
+       collinearity.") +
+  theme_minimal()
+```  
+  
+Not a big surprise, the effect of `X` is completely hidden as we condition on `Z` in a pipe. There is nothing new about `X` once the model knows `Z`. But to know that `Z` is only a mediatory variable, we need a causal model expressed in a DAG. The difference to the legs example here is that `X` and `Z` are causally related as `X` causes `Z`. It is therefore an example for a post-treatment bias. The leg lengths, on the other hand, where not causing each other, but were caused by a common parent instead:  
+leg1 <- Parent -> leg2  
+  
+## Question 6M3  
+  
+**Learning to analyze DAGs requires practice. For each of the four DAGs below, state which variables, if any, you must adjust for (condition on) to estimate the total causal influence of X on Y.**  
+  
+```{r 6M3 part 1, echo=FALSE}
+tribble(
+  ~ name,  ~ x,  ~ y,  
+  "A",    2,     1,     
+  "Z",    1,     1,     
+  "X",    0,     0,     
+  "Y",    2,     0
+) %>%  
+  dagify(
+    X ~ Z,
+    Z ~ A, 
+    Y ~ X + Z + A,
+    coords = .) %>% 
+  ggplot(aes(x = x, y = y, xend = xend, yend = yend)) +
+  geom_dag_node(internal_colour = mint, alpha = 0.8, colour = "white") +
+  geom_dag_text(aes(label = name), color = purple, size = 5) +
+  geom_dag_edges(edge_color = purple) +
+  labs(caption = "Figure 3: Directed acyclic graph number one.") +
+  theme_void()
+```
+
+The are two backdoor paths, X <- Z -> Y and X <- Z <- A -> Y.  
+Both are open and go through `Z`, so we can simply condition on `Z`.  
+  
+```{r 6M3 part 2, echo=FALSE}
+tribble(
+  ~ name,  ~ x,  ~ y,  
+  "A",    2,     1,     
+  "Z",    1,     1,     
+  "X",    0,     0,     
+  "Y",    2,     0
+) %>%  
+  dagify(
+    Z ~ A + X, 
+    Y ~ X + Z + A,
+    coords = .) %>% 
+  ggplot(aes(x = x, y = y, xend = xend, yend = yend)) +
+  geom_dag_node(internal_colour = coral, alpha = 0.8, colour = "white") +
+  geom_dag_text(aes(label = name), color = purple, size = 5) +
+  geom_dag_edges(edge_color = purple) +
+  labs(caption = "Figure 4: Directed acyclic graph number two.") +
+  theme_void()
+```  
+  
+There are two backdoor paths, X -> Z -> Y and X -> Z <- A -> Y.   
+We want to keep X -> Z -> Y as it encapsulates information flowing from `X` to `Y` (and we
+want to capture the total causal influence).   
+The second path is closed as `Z` is a collider here.  
+We don't need to adjust for anything.   
+But note that conditioning on `Z` would open the second path and would be a mistake as it would create association between `X` on `A`.  
+  
+```{r 6M3 part 3, echo=FALSE}
+tribble(
+  ~ name,  ~ x,  ~ y,  
+  "A",    0,     1,     
+  "Z",    1,     1,     
+  "X",    0,     0,     
+  "Y",    2,     0
+) %>%  
+  dagify(
+    X ~ A,
+    Z ~ A + X + Y, 
+    Y ~ X,
+    coords = .) %>% 
+  ggplot(aes(x = x, y = y, xend = xend, yend = yend)) +
+  geom_dag_node(internal_colour = yellow, alpha = 0.8, colour = "white") +
+  geom_dag_text(aes(label = name), color = purple, size = 5) +
+  geom_dag_edges(edge_color = purple) +
+  labs(caption = "Figure 5: Directed acyclic graph number three.") +
+  theme_void()
+```  
+  
+There are two backdoor paths: X <- A -> Z <- Y and X -> Z <- Y.  
+Both paths are closed as `Z` is a collider for both.  
+We don't need to condition on anything.   
+Again, inluding `Z` in a model would create spurios relationships that we want to avoid.  
+  
+```{r 6M3 part 4, echo=FALSE}
+tribble(
+  ~ name,  ~ x,  ~ y,  
+  "A",    0,     1,     
+  "Z",    1,     1,     
+  "X",    0,     0,     
+  "Y",    2,     0
+) %>%  
+  dagify(
+    X ~ A,
+    Z ~ A + X, 
+    Y ~ X + Z,
+    coords = .) %>% 
+  ggplot(aes(x = x, y = y, xend = xend, yend = yend)) +
+  geom_dag_node(colour = purple) +
+  geom_dag_text(aes(label = name), color = "white", size = 5) +
+  geom_dag_edges(edge_color = coral) +
+  labs(caption = "Figure 5: Directed acyclic graph number four.") +
+  theme_void()
+```  
+  
+There are two backdoor paths: X <- A -> Z -> Y and X -> Z -> Y.   
+We want to keep the second one but close the first one. For this, we can condition on `A`.   Conditioning on `Z` would close the first path as well, but also the second one which we want to keep as true causal.  
+  
+
+
+
+  
+
+
+
+
+
+
+
 
 
