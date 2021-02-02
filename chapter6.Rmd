@@ -1,0 +1,26 @@
+---
+title: "Rethinking Chapter 6"
+author: "Gregor Mathes"
+date: "2021-02-02"
+slug: Rethinking Chapter 6
+categories: []
+tags: [Rethinking, Bayes, Statistics]
+subtitle: ''
+summary: 'This is the fifth part of a series where I work through the practice questions of the second edition of Richard McElreaths Statistical Rethinking'
+authors: [Gregor Mathes]
+lastmod: '2021-02-02T12:07:04+02:00'
+featured: no
+projects: [Rethinking]
+output:
+  html_document:
+    toc: true
+    toc_depth: 1
+    number_sections: true
+    fig_width: 6
+    mathjax: "default"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
