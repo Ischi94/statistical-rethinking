@@ -1,6 +1,8 @@
 library(tidyverse)
 library(rethinking)
 
+map <- purrr::map
+
 ### 7E1 ### 
 
 # State the three motivating criteria that define information entropy. Try to
@@ -181,4 +183,138 @@ seq(1, 0.1, length.out = 20) %>%
 
 # If the priors are too concentrated, we tell the model to ignore real patterns
 # in the data. This then reduces predictive performance.
+
+### 7H1 ###
+
+# In 2007,The Wall Street Journal published an editorial (“We’re Number One,
+# Alas”) with a graph of corporate tax rates in 29 countries plotted against
+# tax revenue. A badly fit curve was drawn in (reconstructed at right), seemingly
+# by hand, to make the argument that the relationship between tax rate and tax
+# revenue increases and then declines, such that higher tax rates can actually
+# produce less tax revenue. I want you to actually fit a curve to these data,
+# found in data(Laffer). Consider models that use tax rate to predict tax revenue.
+# Compare, using WAIC or PSIS, a straight-line model to any curved models you
+# like. What do you conclude about the relationship between tax rate and tax
+# revenue?  
+
+# https://www.erikkusch.com/post/rethinking/7H1.JPG  
+
+data("Laffer")
+
+dat_laffer <- Laffer %>% 
+  as_tibble() %>% 
+  mutate(across(everything(), standardize))
+
+# simple regression
+m1 <- alist(
+  tax_revenue ~ dnorm(mu, sigma), 
+  mu <- a + Br*tax_rate, 
+  a ~ dnorm(0, 0.2),
+  Br ~ dnorm(0, 0.5), 
+  sigma ~ dexp(1)
+) %>% 
+  quap(data = dat_laffer)
+
+# quadratic
+m2 <- alist(
+  tax_revenue ~ dnorm(mu, sigma), 
+  mu <- a + Br*tax_rate + Br2*tax_rate^2, 
+  a ~ dnorm(0, 0.2),
+  c(Br, Br2) ~ dnorm(0, 0.5), 
+  sigma ~ dexp(1)
+) %>% 
+  quap(data = dat_laffer)
+
+# cubic
+m3 <- alist(
+  tax_revenue ~ dnorm(mu, sigma), 
+  mu <- a + Br*tax_rate + Br2*tax_rate^2 + Br3*tax_rate^3, 
+  a ~ dnorm(0, 0.2),
+  c(Br, Br2, Br3) ~ dnorm(0, 0.5), 
+  sigma ~ dexp(1)
+) %>% 
+  quap(data = dat_laffer)
+
+plot(compare(m1, m2, m3))
+
+N <- 1e3
+
+laffer_fit <- function(model.input, model.type){
+    link(model.input, n = N) %>% 
+    as_tibble() %>% 
+    pivot_longer(cols = everything(), values_to = "pred_revenue") %>% 
+    add_column(tax_rate = rep(dat_laffer$tax_rate, N)) %>% 
+    group_by(tax_rate) %>% 
+    nest() %>% 
+    mutate(pred_revenue = map(data, "pred_revenue"), 
+           mean_revenue = map_dbl(pred_revenue, mean), 
+           pi = map(pred_revenue, PI), 
+           lower_pi = map_dbl(pi, pluck(1)), 
+           upper_pi = map_dbl(pi, pluck(2))) %>% 
+    add_column(model = model.type) %>% 
+    select(model, tax_rate, mean_revenue, lower_pi, upper_pi)
+}
+
+laffer_fit(m1, "linear") %>% 
+  full_join(laffer_fit(m2, "quadratic")) %>% 
+  full_join(laffer_fit(m3, "cubic")) %>% 
+  ggplot(aes(tax_rate, mean_revenue)) +
+  geom_point(aes(tax_rate, tax_revenue), 
+                 data = dat_laffer) +
+  geom_ribbon(aes(ymin = lower_pi, ymax = upper_pi, 
+                  fill = model),
+              alpha = 0.3) +
+  geom_line(aes(colour = model),
+            size = 1.5) +
+  labs(x = "Tax revenue (std)", 
+       y = "Tax rate (std)") +
+  facet_wrap(~ model) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+### 7H2 ###
+
+# In the Laffer data, there is one country with a high tax revenue that is an
+# outlier. Use PSIS and WAIC to measure the importance of this outlier in the
+# models you fit in the previous problem. Then use robust regression with a
+# Student’s t distribution to revisit the curve fitting problem. How much does a
+# curved relationship depend upon the outlier point?
+
+get_outlier <- function(model.input, model.type){
+  psis_k <- PSIS(model.input, pointwise = TRUE)$k
+  waic_pen <- WAIC(model.input, pointwise = TRUE)$penalty
+  tibble(psis_k = psis_k, waic_pen = waic_pen, model = model.type)
+}
+
+dat_outlier <- get_outlier(m1, model.type = "linear") %>% 
+  full_join(get_outlier(m2, model.type = "quadratic")) %>% 
+  full_join(get_outlier(m3, model.type = "cubic")) 
+
+dat_outlier %>% 
+  group_by(model) %>% 
+  summarise(max_outlier = which.max(psis_k))
+
+dat_laffer[12,]
+
+ggplot(aes(psis_k, waic_pen, colour = model),
+       data = dat_outlier) + 
+  geom_point() +
+  facet_wrap(~ model) +
+  theme_bw() +
+  theme(legend.position = "none")
+
+get_outlier(m1, model.type = "linear") %>% 
+  which.max(psis.k)
+
+m4 <- alist(
+  tax_revenue ~ dstudent(2, mu, sigma), 
+  mu <- a + Br*tax_rate, 
+  a ~ dnorm(0, 0.2),
+  Br ~ dnorm(0, 0.5), 
+  sigma ~ dexp(1)
+) %>% 
+  quap(data = dat_laffer)
+
+plot(compare(m1, m2, m3, m4))
+
 
