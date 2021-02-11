@@ -37,7 +37,7 @@ c(0.7, 0.3) %>%
 
 # Suppose a four-sided die is loaded such that, when tossed onto a table, it
 # shows “1” 20%, “2” 25%, ”3” 25%, and ”4” 30% of the time. What is the entropy
-# of this die?  
+# of this die?
 c(0.2, 0.25, 0.25, 0.30) %>% 
   inf_entropy()
 
@@ -59,17 +59,17 @@ rep(1/3, 3) %>%
 # AIC = D_{train} + 2p = 2lppd + 2p
 # where D_{train} = in-sample deviance and p = the number of free parameters in the posterior distribution.
 
-# Only reliable when 
-# (1) The priors are flat or overwhelmed by the likelihood.  
-# (2) The posterior distribution is approximately multivariate Gaussian.  
+# Only reliable when
+# (1) The priors are flat or overwhelmed by the likelihood.
+# (2) The posterior distribution is approximately multivariate Gaussian.
 # (3) The sample size N is much greater than the number of parameters k.
 
 # WAIC = −2(lppd −\sum_i(var_θ log p(y_i|θ))
-# where y_i = observation at point i, θ = the posterior distribution, 
-# lppd = log-pointwise-predictive density. 
+# where y_i = observation at point i, θ = the posterior distribution,
+# lppd = log-pointwise-predictive density.
 
 # Only reliable when
-# (1) The sample size N is much greater than the number of parameters k.  
+# (1) The sample size N is much greater than the number of parameters k.
 
 # WAIC is similar to the AIC when the priors are flat or overwhelmed by the
 # likelihood, and when the posterior distribution is approximately multivariate
@@ -78,13 +78,13 @@ rep(1/3, 3) %>%
 ### 7M2 ###
 
 # Explain the difference between model selection and model comparison. What
-# information islost under model selection. 
+# information islost under model selection.
 
 # Model selection is the practice of choosing the model with the lowest
 # criterion value and then discarding the others. Model comparison, on the other
 # hand, uses uses multiple models to understand both how different variables
 # influence predictions and, in combination with a causal model, implied
-# conditional indendencies among variables help us infer causal relationships.  
+# conditional indendencies among variables help us infer causal relationships.
 
 # With model selection, we are throwing away the differences in the information
 # criterions between each model which encapsulates how confident we are in a
@@ -95,11 +95,11 @@ rep(1/3, 3) %>%
 # When comparing models with an information criterion, why must all models be
 # fit to exactly the same observations? What would happen to the information
 # criterion values, if the models were fit to different numbers of observations?
-# Perform some experiments, if you are not sure.  
+# Perform some experiments, if you are not sure.
   
 # As information criterion is based on the deviance, which is a sum. More
 # observations generally lead to a higher deviance as more values are summed up,
-# rendering a comparison to a model with less observations useless. 
+# rendering a comparison to a model with less observations useless.
 
 waic_sim <- function(N){
   dat <- tibble(x = rnorm(N), 
@@ -110,11 +110,12 @@ waic_sim <- function(N){
     x ~ dnorm(mu, 1), 
     mu <- a + By*y,
     a ~ dnorm(0, 0.2), 
-    By ~ dnorm(0, 0.5), 
+    By ~ dnorm(0, 0.5) 
   ) %>% 
-    quap(data = dat) %>% 
-    WAIC() %>% 
-    as_tibble() %>% 
+    quap(data = dat) 
+  %>%
+    WAIC() %>%
+    as_tibble() %>%
     pull(WAIC)
 }
 
@@ -133,7 +134,7 @@ seq(100, 1000, by = 100) %>%
 
 # What happens to the effective number of parameters, as measured by PSIS or
 # WAIC, as a prior becomes more concentrated? Why? Perform some experiments, if
-# you are not sure. 
+# you are not sure.
 
 psis_sim <- function(prior){
   dat <- tibble(x = rnorm(10), 
@@ -192,7 +193,7 @@ seq(1, 0.1, length.out = 20) %>%
 # found in data(Laffer). Consider models that use tax rate to predict tax revenue.
 # Compare, using WAIC or PSIS, a straight-line model to any curved models you
 # like. What do you conclude about the relationship between tax rate and tax
-# revenue?  
+# revenue?
 
 # https://www.erikkusch.com/post/rethinking/7H1.JPG  
 
@@ -300,8 +301,6 @@ ggplot(aes(psis_k, waic_pen, colour = model),
   theme_bw() +
   theme(legend.position = "none")
 
-get_outlier(m1, model.type = "linear") %>% 
-  which.max(psis.k)
 
 m4 <- alist(
   tax_revenue ~ dstudent(2, mu, sigma), 
@@ -317,7 +316,7 @@ plot(compare(m1, m2, m3, m4))
 ### 7H3 ###
 
 # Consider three fictional Polynesian islands. On each there is a Royal
- # Ornithologist charged by the king with surveying the bird population. They have
+# Ornithologist charged by the king with surveying the bird population. They have
 # each found the following proportions of 5 important bird species:
 
 dat_island <- tibble("Island" = c("Island 1", "Island 2", "Island 3"),
@@ -381,8 +380,8 @@ dat_island_long %>%
 # 0.97". We can see that starting at island 1 results in the overall lowest
 # divergence values, due to the high entropy. If you are used to draw your birds
 # from a bag 1 (from island 1), you are not very surprised of the results from
-# drawing from the other bags. And now I think the metaphor reaches its limits.  
-## gif
+# drawing from the other bags. And now I think the metaphor reaches its limits.
+# # gif
 # Anyways, Island 1 predicts the other once best.
 
 ### 7H4 ###
@@ -392,7 +391,7 @@ dat_island_long %>%
 # will produce identical results). Which model is expected to make better
 # predictions? Which model provides the correct causal inference about the
 # influence of age on happiness? Can you explain why the answers to these two
-# questions disagree? 
+# questions disagree?
 
 dat_happy <- sim_happiness(seed=1977, N_years=1000)
 
@@ -426,9 +425,9 @@ c(m6.9, m6.10) %>%
 # WAIC favours the model with the collider bias. This is because WAIC cares
 # about predictive power, not causal association. It just doesn't care that age
 # is not causing happiness. However, the (non-causal but still present)
-# association between age and happiness results in improved predictions. 
-# That's why WAIC selects the model containing the collider path. 
-# This just shows that we shouldn't use model comparison without a causal model. 
+# association between age and happiness results in improved predictions.
+# That's why WAIC selects the model containing the collider path.
+# This just shows that we shouldn't use model comparison without a causal model.
 
 ### 7H5 ###
 
