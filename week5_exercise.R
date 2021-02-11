@@ -10,21 +10,18 @@ map <- purrr::map
 
 # The measure of uncertainty should be continuous. Continuity enables the
 # comparison of two measures.
-
 # The measure of uncertainty should increase as the number of possible events
 # in-creases. More events mean more uncertainty about which event will occurr.
-
 # The measure of uncertainty should be additive. We need to be able to add up
-# all measures. 
+# all measures.
   
 ### 7e2 ###
 
 # Suppose a coin is weighted such that, when it is tossed and lands on a table,
-# it comes up heads 70 % of the time. What is the entropy of this coin? 
+# it comes up heads 70 % of the time. What is the entropy of this coin?
 
-# Two events: 70 % # As information criterion is based on the deviance, which is a sum. More
-# observations generally lead to a higher deviance as more values are summed up,
-# rendering a comparison to a model with less observations useless.heads and 30 % tails. 
+# Two events: 70 % heads and 30 % tails. 
+
 
 # Using the function: 
 # H(p)=−\sum_{i=1}^n p_ilog(p_i) = −(p_Hlog(p_H)+p_Tlog(p_T))

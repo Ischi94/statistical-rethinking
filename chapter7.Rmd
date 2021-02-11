@@ -1,0 +1,143 @@
+---
+title: "Rethinking Chapter 7"
+author: "Gregor Mathes"
+date: "2021-02-11"
+slug: Rethinking Chapter 7
+categories: []
+tags: [Rethinking, Bayes, Statistics]
+subtitle: ''
+summary: 'This is the sixth part of a series where I work through the practice questions of the second edition of Richard McElreaths Statistical Rethinking'
+authors: [Gregor Mathes]
+lastmod: '2021-02-11T12:07:04+02:00'
+featured: no
+projects: [Rethinking]
+output:
+  html_document:
+    toc: true
+    toc_depth: 1
+    number_sections: true
+    fig_width: 6
+    mathjax: "default"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.dim=c(7,4), warning=FALSE, message = FALSE)
+library(tidyverse)
+library(rethinking)
+
+map <- purrr::map
+```
+
+# Introduction  
+
+This is the sixth part of a series where I work through the practice questions of the second edition of Richard McElreaths [Statistical Rethinking](https://xcelab.net/rm/statistical-rethinking/).  
+Each post covers a new chapter and you can see the posts on previous chapters [here](https://gregor-mathes.netlify.app/tags/rethinking/).  
+  
+You can find the the lectures and homework accompanying the book [here](https://github.com/rmcelreath/stat_rethinking_2020%3E).
+
+The colours for this blog post are:
+
+```{r colour setup}
+red <- "#A4243B"
+yellow <- "#D8973C"
+brown <- "#BD632F"
+grey <- "#273E47"
+```
+
+```{r colour plot, echo=FALSE}
+tibble(colours = c(red, yellow, brown, grey), 
+       colourname = c("red", "yellow", "brown", "grey")) %>% 
+  arrange(colours) %>% 
+  mutate(colourname = fct_reorder(colourname, colours), 
+         colourname = paste0(colours, "/ ", colourname)) %>% 
+  ggplot() +
+  geom_bar(aes(y = colours, fill = colours)) +
+  scale_fill_identity() +
+  geom_text(aes(x = 0.5, y = colours, label = colourname), 
+            size = 6, colour = "white") +
+  theme_void()
+```  
+
+The homework for this week is the same as the hard practices. 
+  
+# Easy practices  
+  
+## Question 7E1  
+  
+**State the three motivating criteria that define information entropy. Try to express each in your own words.**  
+  
+(1) The measure of uncertainty should be continuous. Continuity enables the comparison of two measures.  
+(2) The measure of uncertainty should increase as the number of possible events in-creases. More events mean more uncertainty about which event will occur.  
+(3) The measure of uncertainty should be additive. We need to be able to add up all measures.  
+  
+## Question 7E2  
+  
+**Suppose a coin is weighted such that, when it is tossed and lands on a table, it comes up heads 70 % of the time. What is the entropy of this coin?**  
+  
+There are two events: 70 % heads and 30 % tails. Entropy is defined as $$H(p)=−\sum_{i=1}^n p_ilog(p_i) = −(p_Hlog(p_H)+p_Tlog(p_T))$$  
+  
+We can transform this into R code:  
+  
+```{r 7E2 part 1}
+inf_entropy <- function(p){
+  -sum(p*log(p))
+}
+```  
+  
+The function takes a vector as input and returns the entropy.  
+  
+```{r 7E2 part 2}
+c(0.7, 0.3) %>% 
+  inf_entropy()
+```  
+  
+The entropy is `r inf_entropy(c(0.7, 0.3)) %>% round(2)`.  
+  
+## Question 7E3  
+  
+**Suppose a four-sided die is loaded such that, when tossed onto a table, it shows “1” 20%, “2” 25%, ”3” 25%, and ”4” 30% of the time. What is the entropy of this die?**  
+  
+The defined function makes this quite easy:  
+  
+```{r 7E3 part 1}
+c(0.2, 0.25, 0.25, 0.30) %>% 
+  inf_entropy()
+```  
+  
+## Question 7E4  
+  
+**Suppose another four-sided die is loaded such that it never shows “4”. The other three sides show equally often. What is the entropy of this die.**  
+  
+An event not occurring can be simply omitted. All other events have a probability of 1/3.  
+  
+```{r 7E4 part 1}
+rep(1/3, 3) %>% 
+  inf_entropy()
+```  
+  
+## Question 7M1  
+  
+**Write down and compare the definitions of AIC and WAIC. Which of these criteria is most general? Which assumptions are required to transform the more general criterion into a less general one?**  
+  
+$$AIC = D_{train} + 2p = 2lppd + 2p$$
+where $D_{train} =$ in-sample deviance and $p =$ the number of free parameters in the posterior distribution.  
+  
+The AIC is only reliable when:  
+(1) The priors are flat or overwhelmed by the likelihood.  
+(2) The posterior distribution is approximately multivariate Gaussian.  
+(3) The sample size N is much greater than the number of parameters k.  
+  
+$$WAIC = −2(lppd −\sum_i(var_θ log p(y_i|θ))$$  
+where $y_i =$ observation at point $i$, $θ =$ the posterior distribution,
+$lppd =$ log-pointwise-predictive density.  
+  
+The WAIC is only reliable when:  
+(1) The sample size N is much greater than the number of parameters k.  
+  
+Hence, the WAIC is similar to the AIC when the priors are flat or overwhelmed by the likelihood, and when the posterior distribution is approximately multivariate gaussian.  
+  
+
+
+
+
+
