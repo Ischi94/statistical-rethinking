@@ -317,4 +317,198 @@ m4 <- alist(
 
 plot(compare(m1, m2, m3, m4))
 
+### 7H3 ###
+
+# Consider three fictional Polynesian islands. On each there is a Royal
+ # Ornithologist charged by the king with surveying the bird population. They have
+# each found the following proportions of 5 important bird species:
+
+dat_island <- tibble("Island" = c("Island 1", "Island 2", "Island 3"),
+       "Species A" = c(0.2, 0.8, 0.05), 
+       "Species B" = c(0.2, 0.1, 0.15), 
+       "Species C" = c(0.2, 0.05, 0.7), 
+       "Species D" = c(0.2, 0.025, 0.05), 
+       "Species E" = c(0.2, 0.025, 0.05))
+
+dat_island %>% 
+knitr::kable()
+
+# Notice that each row sums to 1, all the birds. This problem has two parts. It
+# is not computationally complicated. But it is conceptually tricky. First,
+# compute the entropy of each island’s bird distribution.Interpret these entropy
+# values. Second, use each island’s bird distribution to predict the other
+# two.This means to compute the K-L Divergence of each island from the others,
+# treating each island as if it were a statistical model of the other islands.
+# You should end up with 6 different K-L Divergence values. Which island predicts
+# the others best? Why?
+
+dat_island_long <- dat_island %>% 
+  janitor::clean_names() %>% 
+  pivot_longer(cols = -island, names_to = "species", values_to = "proportion") 
+
+dat_island_long %>% 
+  group_by(island) %>% 
+  summarise(entropy = inf_entropy(proportion))
+
+# Imagine we throw all birds of an island in a bag, ending with 3 bags full of
+# birds. Entropy is just a measure for how uncertain we are which species we
+# would get, if we grab a random bird from the bag. In the first bag, Island 1,
+# all species are distributed equally and we just have no idea which species we
+# would grab. The entropy is high. On the other hand, the second bag from island
+# 2 is full of species a so we are quite certain that we would grab this
+# species. The entropy is hence quite low.
+
+# the Kullback-Leibler divergence is given as 
+# D_{KL}(p,q) = \sum_i(p_i * log(p_i) - log(q_i))
+
+kl_divergence <- function(p,q) sum( p*(log(p)-log(q)) )
+
+dat_island_long %>% 
+  select(-species) %>% 
+  group_by(island) %>% 
+  nest() %>% 
+  pivot_wider(names_from = island, values_from = data) %>% 
+  janitor::clean_names() %>% 
+  mutate(one_vs_two = map2_dbl(island_1, island_2, kl_divergence),
+         two_vs_one = map2_dbl(island_2, island_1, kl_divergence),
+         one_vs_three = map2_dbl(island_1, island_3, kl_divergence),
+         three_vs_one = map2_dbl(island_3, island_1, kl_divergence),
+         two_vs_three = map2_dbl(island_2, island_3, kl_divergence),
+         three_vs_two = map2_dbl(island_3, island_2, kl_divergence)
+         ) %>% 
+  select(one_vs_two:three_vs_two) %>% 
+  pivot_longer(cols = everything(), names_to = "Comparison", values_to = "KL Divergence") %>% 
+  knitr::kable()
+
+# Read the first row as "going from island 1 to island 2 has a divergence of
+# 0.97". We can see that starting at island 1 results in the overall lowest
+# divergence values, due to the high entropy. If you are used to draw your birds
+# from a bag 1 (from island 1), you are not very surprised of the results from
+# drawing from the other bags. And now I think the metaphor reaches its limits.  
+## gif
+# Anyways, Island 1 predicts the other once best.
+
+### 7H4 ###
+
+# Recall the marriage, age, and happiness collider bias example from Chapter 6.
+# Run models m6.9 and m6.10 again. Compare these two models using WAIC (or LOO, they
+# will produce identical results). Which model is expected to make better
+# predictions? Which model provides the correct causal inference about the
+# influence of age on happiness? Can you explain why the answers to these two
+# questions disagree? 
+
+dat_happy <- sim_happiness(seed=1977, N_years=1000)
+
+dat_happy <- dat_happy %>% 
+  as_tibble() %>% 
+  filter(age > 17) %>% 
+  mutate(age = (age - 18)/ (65 -18)) %>% 
+  mutate(mid = married +1)
+  
+m6.9 <- alist(
+  happiness ~ dnorm( mu , sigma ),
+  mu <- a[mid] + bA*age,
+  a[mid] ~ dnorm( 0 , 1 ),
+  bA ~ dnorm( 0 , 2 ),
+  sigma ~ dexp(1)) %>% 
+  quap(data = dat_happy) 
+
+m6.10 <- alist(
+  happiness ~ dnorm( mu , sigma ),
+  mu <- a + bA*age,
+  a ~ dnorm( 0 , 1 ),
+  bA ~ dnorm( 0 , 2 ),
+  sigma ~ dexp(1)) %>% 
+  quap(data = dat_happy)
+
+c(m6.9, m6.10) %>% 
+  map_dfr(WAIC) %>% 
+  add_column(model = c("m6.9", "m6.10"), .before = 1) %>% 
+  knitr::kable()
+
+# WAIC favours the model with the collider bias. This is because WAIC cares
+# about predictive power, not causal association. It just doesn't care that age
+# is not causing happiness. However, the (non-causal but still present)
+# association between age and happiness results in improved predictions. 
+# That's why WAIC selects the model containing the collider path. 
+# This just shows that we shouldn't use model comparison without a causal model. 
+
+### 7H5 ###
+
+# Revisit the urban fox data, data(foxes), from the previous chapter’s practice
+# problems. Use WAIC or PSIS based model comparison on five different models,
+# each using weight as the outcome, and containing these sets of predictor
+# variables:
+
+# (1) avgfood + groupsize + area
+# (2) avgfood + groupsize
+# (3) groupsize + area
+# (4) avgfood
+# (5) area
+
+# Can you explain the relative differences in WAIC scores, using the fox DAG
+# from last week’s home-work? Be sure to pay attention to the standard error of
+# the score differences (dSE).
+
+data("foxes")
+
+dat_foxes <- foxes %>% 
+  as_tibble() %>% 
+  mutate(across(-group, standardize))
+
+m1 <- alist(
+  weight ~ dnorm(mu, sigma), 
+  mu <- a + Bf*avgfood + Bg*groupsize + Ba*area, 
+  a ~ dnorm(0, 0.2), 
+  c(Bf, Bg, Ba) ~ dnorm(0, 0.5), 
+  sigma ~ dexp(1)) %>% 
+  quap(data = dat_foxes)
+
+m2 <- alist(
+  weight ~ dnorm(mu, sigma), 
+  mu <- a + Bf*avgfood + Bg*groupsize, 
+  a ~ dnorm(0, 0.2), 
+  c(Bf, Bg) ~ dnorm(0, 0.5), 
+  sigma ~ dexp(1)) %>% 
+  quap(data = dat_foxes)
+
+m3 <- alist(
+  weight ~ dnorm(mu, sigma), 
+  mu <- a + Bg*groupsize + Ba*area, 
+  a ~ dnorm(0, 0.2), 
+  c(Bg, Ba) ~ dnorm(0, 0.5), 
+  sigma ~ dexp(1)) %>% 
+  quap(data = dat_foxes)
+
+m4 <- alist(
+  weight ~ dnorm(mu, sigma), 
+  mu <- Bf*avgfood, 
+  a ~ dnorm(0, 0.2), 
+  Bf ~ dnorm(0, 0.5), 
+  sigma ~ dexp(1)) %>% 
+  quap(data = dat_foxes)
+
+m5 <- alist(
+  weight ~ dnorm(mu, sigma), 
+  mu <- a + Ba*area, 
+  a ~ dnorm(0, 0.2), 
+  Ba ~ dnorm(0, 0.5), 
+  sigma ~ dexp(1)) %>% 
+  quap(data = dat_foxes)
+
+compare(m1, m2, m3, m4, m5) %>% 
+  as_tibble(rownames = "model") %>% 
+  knitr::kable()
+
+# here's the link: https://gregor-mathes.netlify.app/post/chapter6_files/figure-html/data%20foxes-1.png
+
+# There is no support for the preference of a particular model. But we can see
+# that m1, m2, and m3 are grouped together based on AIC as well as m4 and m5.
+# Following the DAG, as long as we include the groupsize path, it does not make
+# a difference if we use area or avgfood. They encapsulate the same information,
+# and WAIC hence returns a similar value. m4 and m5 both don't include
+# groupsize. But as avgfood and area contain mostly the same information, they
+# both show similar WAIC estimates.
+  
+
 
