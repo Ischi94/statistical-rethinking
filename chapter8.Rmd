@@ -1,0 +1,109 @@
+---
+title: "Rethinking Chapter 8"
+author: "Gregor Mathes"
+date: "2021-02-11"
+slug: Rethinking Chapter 8
+categories: []
+tags: [Rethinking, Bayes, Statistics]
+subtitle: ''
+summary: 'Interaction terms as a modest introduction to mixed effect models'
+authors: [Gregor Mathes]
+lastmod: '2021-03-11T12:07:04+02:00'
+featured: no
+projects: [Rethinking]
+output:
+  html_document:
+    toc: true
+    toc_depth: 1
+    number_sections: true
+    fig_width: 6
+    mathjax: "default"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.dim=c(7,4), warning=FALSE, message = FALSE)
+library(tidyverse)
+library(rethinking)
+
+map <- purrr::map
+```
+
+# Introduction
+
+This is the seventh part of a series where I work through the practice questions of the second edition of Richard McElreaths [Statistical Rethinking](https://xcelab.net/rm/statistical-rethinking/).\
+Each post covers a new chapter and you can see the posts on previous chapters [here](https://gregor-mathes.netlify.app/tags/rethinking/). This chapter introduces linear interaction terms in regression models.
+
+You can find the the lectures and homework accompanying the book [here](https://github.com/rmcelreath/stat_rethinking_2020%3E).
+
+The colours for this blog post are:
+
+```{r colour setup}
+purple <- "#612D55"
+lightpurple <- "#C7B8CC"
+red <- "#C56A6A"
+grey <- "#E4E3DD"
+```
+
+```{r colour plot, echo=FALSE}
+tibble(colours = c(purple, lightpurple, red, grey), 
+       colourname = c("purple", "lightpurple", "red", "grey")) %>% 
+  arrange(colours) %>% 
+  mutate(colourname = fct_reorder(colourname, colours), 
+         colourname = paste0(colours, "/ ", colourname)) %>% 
+  ggplot() +
+  geom_bar(aes(y = colours, fill = colours)) +
+  scale_fill_identity() +
+  geom_text(aes(x = 0.5, y = colours, label = colourname), 
+            size = 6, colour = "white") +
+  theme_void()
+```
+
+I will not cover the homework from now on as it is mostly similar to the practice exercises. Further, I am a bit running out of time. Notice that the online version of the book is missing some of the practice exercises.
+
+# Easy practices
+
+## Question 8E1
+
+**For each of the causal relationships below, name a hypothetical third variable that would lead to an interaction effect.**
+
+- (1) Bread dough rises because of yeast
+
+- (2) Education leads to higher income
+
+- (3) Gasoline makes a car go
+
+Learned this the hard way, but (1) really depends on temperature. Yeast needs to be added to the dough at the right temperature, otherwise your dough will stay flat and sad.
+
+(2) I would say that motivation or drive plays into that as well. You will not get a good position or be successful in your job if you're a couch potato doing nothing all day, even if you have a very good education.  
+
+And (3) can be dependent on so many variables. E.g., if you're car is broken, no amount of gasoline will make your car go.
+
+## Question 8E2   
+
+**Which of the following explanations invokes an interaction?**
+
+- (1) Caramelizing onions requires cooking over low heat and making sure the onions do not dry out
+
+- (2) A car will go faster when it has more cylinders or when it has a better fuel injector
+
+- (3) Most people acquire their political beliefs from their parents, unless they get them instead from their friends
+
+- (4) Intelligent animal species tend to be either highly social or have manipulative appendages (hands, tentacles, etc.)
+
+Only (1) is a strict interaction, as the process of caramelizing onions is both dependent on low heat and not drying out. All the others are additive relationships.
+
+## Question 8E3  
+
+**For each of the explanations in 8E2, write a linear model that expresses the stated relationship**.
+
+- (1) Let $u$ be the amount of caramelization, then $$mu_{i} = alpha + beta_{heat} * heat + beta_{dry} * dry + beta_{heatdry} * heat * dry$$  
+  
+- (2) Let $u$ be the speed of a car, then $$mu_{i} = alpha + beta_{cyl} * cyl + beta_{inj} * inj$$  
+- (3) Let $u$ be the political belief, then $$mu_{i} = alpha + beta_{parent} * parent + beta_{friend} * friend$$  
+  
+- (4) Let $u$ be the intelligence, then $$mu_{i} = alpha + beta_{social} * social + beta_{append} * append$$  
+  
+  
+## Question 8E3  
+  
+
