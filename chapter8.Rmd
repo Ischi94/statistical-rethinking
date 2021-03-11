@@ -104,6 +104,213 @@ Only (1) is a strict interaction, as the process of caramelizing onions is both 
 - (4) Let $u$ be the intelligence, then $$mu_{i} = alpha + beta_{social} * social + beta_{append} * append$$  
   
   
-## Question 8E3  
+# Medium practices  
   
+## Question 8M1  
+  
+**Recall the tulips example from the chapter. Suppose another set of treatments adjusted the temperature in the greenhouse over two levels: cold and hot. The data in the chapter were collected at the cold temperature. You find none of the plants grown under the hot temperature developed any blooms at all, regardless of the water and shade levels. Can you explain this result in terms of interactions between water, shade, and temperature?**  
+  
+It seems like tulips don't bloom under higher temperatures, which creates a three-way interaction. Blooming is not only dependent on the interaction between water and shade, but this interaction depends on the temperature as well. If the temperature is too high, no amount of shade and water will make the tulip bloom.  
+  
+## Question 8M2  
+  
+**Can you invent a regression equation that would make the bloom size zero, whenever the temperature is hot?**  
+  
+If we code temperature as an index variable with a 0 for cold and a 1 for hot, we can multiply the whole initial model with $1 - temperature$. If the temperature is hot (= 0), the whole model will equate to zero bloom. Cold temperature, on the other hand has no effect on the bloom as the model just gets multiplied with 1.  
+  
+## Question 8M3  
+  
+**In parts of North America, ravens depend upon wolves for their food. This is because ravens are carnivorous but cannot usually kill or open carcasses of prey. Wolves however can and do kill and tear open animals, and they tolerate ravens co-feeding at their kills. This species relationship is generally described as a “species interaction.” Can you invent a hypothetical set of data on raven population size in which this relationship would manifest as a statistical interaction? Do you think the biological interaction could be linear? Why or why not?**  
+  
+I will just simulate a simple wolf population using a poisson distribution with an average number of 10 wolfs, and then dependent on this population I will simulate the raven population.  
+  
+```{r 8M3 part 1, message=FALSE, fig.cap="Figure 1 | Species interaction between wolfes and ravens."}
+tibble(wolf = rpois(1e3, lambda = 2), 
+       raven = rpois(1e3, lambda = wolf + 2)) %>% 
+  ggplot(aes(raven, wolf)) +
+  geom_jitter(shape = 21, colour = purple, fill = grey, 
+              size = 2, alpha = 0.8) +
+  geom_smooth(colour = red, fill = lightpurple,
+              alpha = 0.9) +
+  scale_y_continuous(breaks = c(0, 5)) +
+  labs(x = "Number of ravens", y = "Number of wolfes") +
+  theme_minimal()
+```  
+  
+Hypothetically, I would not expect a linear relationship. Instead I would predict an exponential relationship with the number of ravens *exploding* once wolfs are present.  
+  
+```{r 8M3 part 2, message=FALSE, fig.cap="Figure 2 | Improved species interaction between wolfes and ravens."}
+tibble(wolf = rpois(1e3, lambda = 2), 
+       raven = rnorm(1e3, mean = wolf)) %>% 
+  filter(raven > 0) %>% 
+  ggplot(aes(raven, wolf)) +
+  geom_jitter(shape = 21, colour = purple, fill = grey, 
+              size = 2, alpha = 0.8) +
+  geom_smooth(colour = red, fill = lightpurple,
+              alpha = 0.9) +
+  scale_x_continuous(breaks = c(0, 5)) +
+  labs(x = "Number of ravens", y = "Number of wolfes") +
+  theme_minimal()
+```  
+  
+## Question 8M4  
+  
+**Repeat the tulips analysis, but this time use priors that constrain the effect of water to be positive and the effect of shade to be negative. Use prior predictive simulation. What do these prior assumptions mean for the interaction prior, if anything?**  
+  
+Let's just update the model from the chapter with new priors, which we force to be positive by using a log-normal distribution. But first we load the data and bring it in a nicer format, centering `water` and `shade` and scaling `blooms` by its maximum.  
+  
+```{r 8M4 part 1}
+data("tulips")
+
+dat_tulips <- tulips %>% 
+  as_tibble() %>% 
+  mutate(water = water - mean(water), 
+         shade = shade - mean(shade), 
+         blooms = blooms/max(blooms)) 
+```  
+  
+Now the model:  
+  
+```{r 8M4 part 2}
+m1 <- alist(blooms ~ dnorm(mu, sigma), 
+      mu <- a + bw*water + bs*shade + bws*water*shade, 
+      a ~ dnorm(0.5, 0.25), 
+      c(bw, bs, bws) ~ dlnorm(0, 0.25), 
+      sigma ~ dexp(1)) %>% 
+  quap(data = dat_tulips)
+```  
+  
+Now we use `link()` for the prior predictive simulation, simulating ten lines.     
+  
+```{r 8M4 part 3, fig.cap="Figure 3 | Prior simulations for positive priors."}
+N = 100
+seq_dat <- tibble(water = rep(-1:1, N), 
+                  shade = rep(-1:1, each = N))
+
+extract.prior(m1, n = N) %>% 
+  link(m1, post = ., data = seq_dat) %>% 
+  as_tibble() %>% 
+  pivot_longer(cols = everything(), values_to = "mu_blooms") %>%
+  add_column(water = rep(seq_dat$water, N), 
+             shade = rep(seq_dat$shade, N), 
+             type = rep(as.character(1:N), each = length(seq_dat$water))) %>% 
+  ggplot() +
+  geom_line(aes(water, mu_blooms, group = type), 
+            colour = lightpurple, alpha = 0.4) + 
+  geom_point(aes(water, blooms), 
+             shape = 21, colour = purple, fill = red, 
+             size = 2, alpha = 0.8, 
+             data = dat_tulips %>% filter(water %in% -1:1)) +
+  facet_wrap(~shade) +
+  theme_minimal()
+```  
+  
+```{r 8M4 part 4, echo=FALSE}
+plot_tryptich <- function(int.model) {
+  extract.prior(int.model, n = N) %>% 
+  link(int.model, post = ., data = seq_dat) %>% 
+  as_tibble() %>% 
+  pivot_longer(cols = everything(), values_to = "mu_blooms") %>%
+  add_column(water = rep(seq_dat$water, N), 
+             shade = rep(seq_dat$shade, N), 
+             type = rep(as.character(1:N), each = length(seq_dat$water))) %>% 
+  ggplot() +
+  geom_line(aes(water, mu_blooms, group = type), 
+            colour = lightpurple, alpha = 0.4) + 
+  geom_point(aes(water, blooms), 
+             shape = 21, colour = purple, fill = red, 
+             size = 2, alpha = 0.8, 
+             data = dat_tulips %>% filter(water %in% -1:1)) +
+  facet_wrap(~shade) +
+  theme_minimal()
+}
+```
+  
+Ehm, well. These are a bit too drastic and out of the realistic realm. It seems like we need to reduce the prior on the beta coefficients. For the log-normal distribution, we can do so by setting the meanlog to a negative number. The more negative the number, the closer we get to 0.  
+  
+```{r 8M4 part 5}
+m2 <- alist(blooms ~ dnorm(mu, sigma), 
+      mu <- a + bw*water + bs*shade + bws*water*shade, 
+      a ~ dnorm(0.5, 0.25), 
+      c(bw, bs, bws) ~ dlnorm(-2, 0.25), 
+      sigma ~ dexp(1)) %>% 
+  quap(data = dat_tulips)
+```  
+  
+```{r 8M4 part 6, echo=FALSE, fig.cap="Figure 4 | Prior simulation with more reasonable priors."}
+plot_tryptich(m2)
+```  
+
+That looks a lot more reasonable. What seems to be a bit off, though, is the direction of the relationship. We would actually expect a high and positive effect of water on blooms when the shade is low (= when there is a lot of light) and no effect when it's all shade (shade = 1). So actually the opposite of what we see in the priors. The reason for that is that we add a positive prior for shade in the model, resulting in a positive relationship. To get the relationship, we simply have to subtract it:  
+  
+```{r 8M4 part 7}
+m3 <- alist(blooms ~ dnorm(mu, sigma), 
+      mu <- a + bw*water - bs*shade + bws*water*shade, 
+      a ~ dnorm(0.5, 0.25), 
+      c(bw, bs, bws) ~ dlnorm(-2, 0.25), 
+      sigma ~ dexp(1)) %>% 
+  quap(data = dat_tulips)
+```  
+  
+```{r 8M4 part 8, echo=FALSE, fig.cap="Figure 5 | Prior simulations forcing the relationship between blooms and shade negative."}
+plot_tryptich(m3)
+```  
+  
+Well this has changed nothing, because the interaction term is still added. We need to modify this as well.  
+  
+```{r 8M4 part 9}
+m4 <- alist(blooms ~ dnorm(mu, sigma), 
+      mu <- a + bw*water - bs*shade - bws*water*shade, 
+      a ~ dnorm(0.5, 0.25), 
+      c(bw, bs, bws) ~ dlnorm(-2, 0.25), 
+      sigma ~ dexp(1)) %>% 
+  quap(data = dat_tulips)
+```  
+  
+```{r 8M4 part 10, echo=FALSE, fig.cap="Figure 6 | Prior simulations forcing the relationship between blooms and shade negative, as well as the relationship between blooms and the interaction of shade and water."}
+plot_tryptich(m4)
+```  
+  
+Yes, this is what we want. We encapsulate our knowledge in the priors, without rendering these priors too strong. They have enough variability so that the data can shine through them. They will improve the model performance however, as unrealistic values (flat priors) are not likely given the priors.  
+  
+
+
+
+
+
+
+
+
+
+
+
+# Hard practices  
+  
+## Question 8H1  
+  
+**Return to the data(tulips) example in the chapter. Now include the bed variable as a predictor in the interaction model. Don't interact bed with the other predictors; just include it as a main effect. Note that bed is categorical. So to use it properly, you will need to either construct dummy variables or rather an index variable, as explained in Chapter 6.**  
+  
+First, I transform `bed` to an integer to integrate it as an index variable.  
+  
+```{r 8H1 part 1}
+data("tulips")
+
+dat_tulips <- dat_tulips %>% 
+  mutate(bed = as.numeric(bed)) 
+```  
+  
+Now let's add the `bed` variable to the model m8.4:  
+  
+```{r 8H1 part 2}
+alist(blooms ~ dnorm(mu, sigma), 
+      mu <- a[bed] + bw*water + bs*shade + bws*water*shade, 
+      a[bed] ~ dnorm(0, 0.25), 
+      c(bw, bs, bws) ~ dnorm(0, 0.25), 
+      sigma ~ dexp(1)) %>% 
+  quap(data = dat_tulips)
+```  
+  
+
+
+
 
