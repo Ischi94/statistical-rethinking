@@ -283,12 +283,14 @@ Yes, this is what we want. We encapsulate our knowledge in the priors, without r
 Recall the model m8.4 from the chapter:  
   
 ```{r 8H1 recall model}
-alist(blooms ~ dnorm(mu, sigma), 
+m8.4 <- alist(blooms ~ dnorm(mu, sigma), 
       mu <- a + bw*water + bs*shade + bws*water*shade, 
       a ~ dnorm(0.5, 0.25), 
       c(bw, bs, bws) ~ dnorm(0, 0.25), 
       sigma ~ dexp(1)) %>%
-  quap(data = dat_tulips) %>% 
+  quap(data = dat_tulips)  
+  
+m8.4 %>% 
   precis() %>% 
   as_tibble(rownames = "estimate") %>% 
   knitr::kable(digits = 2)
@@ -353,11 +355,17 @@ m1 %>%
   
 Now we can conclude that bed `bed2` and `bed3` have a substantially higher `bloom` than `bed1` (even though some area of the distribution tails extend above zero). There are no distinguishable differences between `bed2` and `bed3`.   
   
-
-
-
+## Question 8H2  
   
-
-
-
-
+**Use WAIC to compare the model from 8H1 to a model that omits bed. What do you infer from this comparison? Can you reconcile the WAIC results with the posterior distribution of the bed coefficients?**  
+  
+Let's just threw both models in the `compare()` function. 
+  
+```{r 8H2 waic}
+compare(m8.4, m1) %>% 
+  as_tibble(rownames = "model") %>% 
+  knitr::kable(digits = 2)
+```  
+  
+The model with beds included (`m1`) performs a little bit better. This is consistent with the posterior distributions of the bed coefficients, as we found some robust contrasts. This then can result in improved predictions and a better WAIC. However, the difference in WAIC between both models is very weak. It seems that the effect of bed is minor compared to all other predictors (`water` and `shade`).  
+  
