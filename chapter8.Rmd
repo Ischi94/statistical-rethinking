@@ -273,42 +273,89 @@ plot_tryptich(m4)
   
 Yes, this is what we want. We encapsulate our knowledge in the priors, without rendering these priors too strong. They have enough variability so that the data can shine through them. They will improve the model performance however, as unrealistic values (flat priors) are not likely given the priors.  
   
-
-
-
-
-
-
-
-
-
-
-
+  
 # Hard practices  
   
 ## Question 8H1  
   
 **Return to the data(tulips) example in the chapter. Now include the bed variable as a predictor in the interaction model. Don't interact bed with the other predictors; just include it as a main effect. Note that bed is categorical. So to use it properly, you will need to either construct dummy variables or rather an index variable, as explained in Chapter 6.**  
   
+Recall the model m8.4 from the chapter:  
+  
+```{r 8H1 recall model}
+alist(blooms ~ dnorm(mu, sigma), 
+      mu <- a + bw*water + bs*shade + bws*water*shade, 
+      a ~ dnorm(0.5, 0.25), 
+      c(bw, bs, bws) ~ dnorm(0, 0.25), 
+      sigma ~ dexp(1)) %>%
+  quap(data = dat_tulips) %>% 
+  precis() %>% 
+  as_tibble(rownames = "estimate") %>% 
+  knitr::kable(digits = 2)
+```  
+  
+```{r 8H1 tidy_precis, echo=FALSE}
+tidy_precis <- function(my_model = NULL){
+  precis(my_model, depth = 2) %>% 
+  as_tibble(rownames = "estimate") %>% 
+  knitr::kable(digits = 2)
+}
+```
+
+
 First, I transform `bed` to an integer to integrate it as an index variable.  
   
 ```{r 8H1 part 1}
-data("tulips")
-
 dat_tulips <- dat_tulips %>% 
   mutate(bed = as.numeric(bed)) 
 ```  
   
-Now let's add the `bed` variable to the model m8.4:  
+Now let's add the `bed` variable to the model m8.4.    
   
 ```{r 8H1 part 2}
-alist(blooms ~ dnorm(mu, sigma), 
+m1 <- alist(blooms ~ dnorm(mu, sigma), 
       mu <- a[bed] + bw*water + bs*shade + bws*water*shade, 
-      a[bed] ~ dnorm(0, 0.25), 
+      a[bed] ~ dnorm(0.5, 0.25), 
       c(bw, bs, bws) ~ dnorm(0, 0.25), 
       sigma ~ dexp(1)) %>% 
   quap(data = dat_tulips)
 ```  
+  
+We can glimpse at the posterior distributions using a custom function build on precis (see the first code chunk from 8H1 for more details on `tidy_precis()`.  
+  
+```{r 8H1 part 3}
+tidy_precis(m1)
+```  
+  
+We can see that including `bed` in the model has not changed our inferences about the effect of `water`, `shade`, and their interaction on `bloom`. We can also see that there are differences between the beds. To quantify these differences, we need to calculate contrasts from the posterior.  
+```{r 8H1 contrasts, fig.cap="Figure 7 | Contrast plot per bed."}
+m1 %>% 
+  extract.samples() %>% 
+  pluck("a") %>% 
+  as_tibble() %>% 
+  transmute("bed1 - bed2" = V1 - V2, 
+            "bed1 - bed3" = V1 - V3, 
+            "bed2 - bed3" = V2 - V3) %>% 
+  pivot_longer(cols = everything(), 
+               values_to = "contrast", names_to = "contrast_type") %>% 
+  ggplot(aes(contrast, fill = contrast_type, colour = contrast_type)) +
+  geom_vline(xintercept = 0, colour = grey) +
+  geom_density(alpha = 0.2) +
+  scale_fill_manual(values = c(lightpurple, purple, red), 
+                    name = NULL) +
+  scale_colour_manual(values = c(lightpurple, purple, red), name = NULL) +
+  labs(y = NULL, x = "Contrast") +
+  theme_minimal() +
+  theme(panel.grid = element_blank(), 
+        axis.ticks = element_line(), 
+        legend.position = c(0.9, 0.8))
+```  
+  
+Now we can conclude that bed `bed2` and `bed3` have a substantially higher `bloom` than `bed1` (even though some area of the distribution tails extend above zero). There are no distinguishable differences between `bed2` and `bed3`.   
+  
+
+
+
   
 
 
