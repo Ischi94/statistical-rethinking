@@ -24,6 +24,7 @@ output:
 knitr::opts_chunk$set(echo = TRUE, fig.dim=c(7,4), warning=FALSE, message = FALSE)
 library(tidyverse)
 library(rethinking)
+library(knitr)
 
 map <- purrr::map
 ```
@@ -293,14 +294,14 @@ m8.4 <- alist(blooms ~ dnorm(mu, sigma),
 m8.4 %>% 
   precis() %>% 
   as_tibble(rownames = "estimate") %>% 
-  knitr::kable(digits = 2)
+  kable(digits = 2, format = "html")
 ```  
   
 ```{r 8H1 tidy_precis, echo=FALSE}
 tidy_precis <- function(my_model = NULL){
   precis(my_model, depth = 2) %>% 
   as_tibble(rownames = "estimate") %>% 
-  knitr::kable(digits = 2)
+  kable(digits = 2, format = "html")
 }
 ```
 
@@ -364,8 +365,124 @@ Let's just threw both models in the `compare()` function.
 ```{r 8H2 waic}
 compare(m8.4, m1) %>% 
   as_tibble(rownames = "model") %>% 
-  knitr::kable(digits = 2)
-```  
+  kable(digits = 2, format = "html")
+```    
+
   
 The model with beds included (`m1`) performs a little bit better. This is consistent with the posterior distributions of the bed coefficients, as we found some robust contrasts. This then can result in improved predictions and a better WAIC. However, the difference in WAIC between both models is very weak. It seems that the effect of bed is minor compared to all other predictors (`water` and `shade`).  
   
+  
+## Question 8H3  
+  
+**Consider again the data(rugged) data on economic development and terrain ruggedness,examined in this chapter. One of the African countries in that example, Seychelles, is far outside the cloud of other nations, being a rare country with both relatively high GDP and high ruggedness. Seychelles is also unusual, in that it is a group of islands far from the coast of mainland Africa, and its main economic activity is tourism. (a) Focus on model m8.5 from the chapter. Use WAIC point-wise penalties and PSIS Pareto k values to measure relative influence of each country. By these criteria, is Seychelles influencing the results? Are there other nations that are relatively influential? If so, can you explain why? (b) Now use robust regression, as described in the previous chapter. Modify m8.5 to use a Student-t distribution with ν = 2. Does this change the results in a substantial way?**  
+  
+I'm a bit confused as model m8.5 is about tulip blooms. I guess what is meant is model m8.3. First, let's load the tulip data and repeat all the processing steps from the chapter within a pipe.    
+  
+```{r 8H3 data}
+data(rugged)
+
+dat_rugged <- rugged %>% 
+  as_tibble() %>% 
+  drop_na(rgdppc_2000) %>% 
+  mutate(log_gdp = log(rgdppc_2000), 
+         log_gdp_std = log_gdp / mean(log_gdp), 
+         rugged_std = rugged / max(rugged), 
+         cid = if_else(cont_africa == 1, 1, 2))
+  
+```  
+  
+And now model m8.3 which includes an interaction between ruggedness and being in Africa.  
+  
+```{r 8H3 model m8.3}
+m8.3 <- alist(
+  log_gdp_std ~ dnorm(mu, sigma), 
+  mu <- a[cid] + b[cid]*(rugged_std - 0.215),
+  a[cid] ~ dnorm(1, 0.1), 
+  b[cid] ~ dnorm(0, 0.3), 
+  sigma ~ dexp(1)) %>% 
+  quap(data = dat_rugged)
+
+```
+  
+So let's find some influential countries in the data using WAIC point-wise penalties and PSIS Pareto k values. First the Pareto k values, where we calculate the k value for each country (`pointwise = TRUE`) and then bind it with the original data to get the country information:    
+  
+```{r 8H3 PSIS}
+PSIS(m8.3, pointwise = TRUE) %>% 
+  as_tibble() %>% 
+  select(k) %>% 
+  bind_cols(dat_rugged %>% 
+              select(country, rugged_std, log_gdp_std)) %>% 
+  arrange(desc(k)) %>% 
+  slice_head(n = 5) %>% 
+  kable(digits = 2, format = "html")
+```  
+We can see that Seychelles is one of the most influential countries, but other countries are pretty big outliers as well. Unfortunatly, I am really bad in geography and have no idea why...  
+  
+Let's try with WAIC penalties, using a similar approach:  
+  
+```{r 8H3 WAIC}
+WAIC(m8.3, pointwise = TRUE) %>% 
+  as_tibble() %>% 
+  select(penalty) %>% 
+  bind_cols(dat_rugged %>% 
+              select(country, rugged_std, log_gdp_std)) %>% 
+  arrange(desc(penalty)) %>% 
+  kable(digits = 2, format = "html") 
+
+```  
+  
+We get similar results with WAIC penalties as with Pareto k values. Again, the interpretation why some countries show higher values is up to you.  
+  
+Now to b). We can use robust regression by setting the likelihood to the student-t distribution.  
+  
+```{r 8H3 robust regression}
+m8.3.robust <- alist(
+  log_gdp_std ~ dstudent(nu = 2, mu, sigma), 
+  mu <- a[cid] + b[cid]*(rugged_std - 0.215),
+  a[cid] ~ dnorm(1, 0.1), 
+  b[cid] ~ dnorm(0, 0.3), 
+  sigma ~ dexp(1)) %>% 
+  quap(data = dat_rugged)
+```  
+  
+Now, using the robust regression, we can calculate the contrast between the slope of African countries versus the slope in all other countries. Remember, to see this difference was the motivation to build the interaction model in the first place. We can do this by calculating the difference between `b1` and `b2` of model m8.3 and compare it to the difference of the robust regression.     
+  
+```{r 8H3 contrast, fig.cap="Figure 8 | Contrast between african countries and all other between models."}
+m8.3_contrast <- extract.samples(m8.3) %>% 
+  pluck("b") %>% 
+  as_tibble() %>% 
+  transmute(countrast = V1 - V2) %>% 
+  add_column(model = "m8.3")
+  
+robust_contrast <- extract.samples(m8.3.robust) %>% 
+  pluck("b") %>% 
+  as_tibble() %>% 
+  transmute(countrast = V1 - V2) %>% 
+  add_column(model = "Robust regression")
+
+m8.3_contrast %>% 
+  full_join(robust_contrast) %>% 
+  ggplot(aes(countrast, colour = model, fill = model)) +
+  geom_density(alpha = 0.5) +
+  scale_fill_manual(values = c(grey, lightpurple), 
+                    name = NULL) +
+  scale_colour_manual(values = c(grey, lightpurple), name = NULL) +
+  labs(y = NULL, x = "Contrast") +
+  theme_minimal() +
+  theme(panel.grid = element_blank(), 
+        axis.ticks = element_line(), 
+        legend.position = c(0.9, 0.8))
+```  
+  
+We can see that using a robust regression actually resulted in an increased contrast.  
+
+
+  
+
+
+
+  
+
+
+
+
