@@ -25,6 +25,7 @@ knitr::opts_chunk$set(echo = TRUE, fig.dim=c(7,4), warning=FALSE, message = FALS
 library(tidyverse)
 library(rethinking)
 library(knitr)
+library(kableExtra)
 
 map <- purrr::map
 ```
@@ -250,7 +251,7 @@ m3 <- alist(blooms ~ dnorm(mu, sigma),
       a ~ dnorm(0.5, 0.25), 
       c(bw, bs, bws) ~ dlnorm(-2, 0.25), 
       sigma ~ dexp(1)) %>% 
-  quap(data = dat_tulips)
+  quap(data = dat_tulips, start = list(a = 0.3, bw = 0.16, bs = 0.12, bws = 0.09, sigma = 0.2))
 ```  
   
 ```{r 8M4 part 8, echo=FALSE, fig.cap="Figure 5 | Prior simulations forcing the relationship between blooms and shade negative."}
@@ -294,15 +295,24 @@ m8.4 <- alist(blooms ~ dnorm(mu, sigma),
 m8.4 %>% 
   precis() %>% 
   as_tibble(rownames = "estimate") %>% 
-  kable(digits = 2, format = "html")
+  kable(digits = 2, format = "html") %>% 
+  kable_styling()
 ```  
   
 ```{r 8H1 tidy_precis, echo=FALSE}
+tidy_table <- function(.data) {
+  kable(x = .data, digits = 2, format = "html") %>% 
+  kable_styling(position = "left", full_width = FALSE, 
+                bootstrap_options = c("hover", "responsive", "condensed"))
+}
+
 tidy_precis <- function(my_model = NULL){
   precis(my_model, depth = 2) %>% 
   as_tibble(rownames = "estimate") %>% 
-  kable(digits = 2, format = "html")
+  tidy_table
 }
+
+
 ```
 
 
@@ -360,12 +370,12 @@ Now we can conclude that bed `bed2` and `bed3` have a substantially higher `bloo
   
 **Use WAIC to compare the model from 8H1 to a model that omits bed. What do you infer from this comparison? Can you reconcile the WAIC results with the posterior distribution of the bed coefficients?**  
   
-Let's just threw both models in the `compare()` function. 
+Let's just threw both models in the `compare()` function. Note that I print the output to html format using a custom function `tidy_table` built on `knitr::kable`. 
   
 ```{r 8H2 waic}
 compare(m8.4, m1) %>% 
   as_tibble(rownames = "model") %>% 
-  kable(digits = 2, format = "html")
+  tidy_table()
 ```    
 
   
@@ -374,7 +384,9 @@ The model with beds included (`m1`) performs a little bit better. This is consis
   
 ## Question 8H3  
   
-**Consider again the data(rugged) data on economic development and terrain ruggedness,examined in this chapter. One of the African countries in that example, Seychelles, is far outside the cloud of other nations, being a rare country with both relatively high GDP and high ruggedness. Seychelles is also unusual, in that it is a group of islands far from the coast of mainland Africa, and its main economic activity is tourism. (a) Focus on model m8.5 from the chapter. Use WAIC point-wise penalties and PSIS Pareto k values to measure relative influence of each country. By these criteria, is Seychelles influencing the results? Are there other nations that are relatively influential? If so, can you explain why? (b) Now use robust regression, as described in the previous chapter. Modify m8.5 to use a Student-t distribution with ν = 2. Does this change the results in a substantial way?**  
+**Consider again the data(rugged) data on economic development and terrain ruggedness,examined in this chapter. One of the African countries in that example, Seychelles, is far outside the cloud of other nations, being a rare country with both relatively high GDP and high ruggedness. Seychelles is also unusual, in that it is a group of islands far from the coast of mainland Africa, and its main economic activity is tourism.**  
+  
+(a) **Focus on model m8.5 from the chapter. Use WAIC point-wise penalties and PSIS Pareto k values to measure relative influence of each country. By these criteria, is Seychelles influencing the results? Are there other nations that are relatively influential? If so, can you explain why?**  
   
 I'm a bit confused as model m8.5 is about tulip blooms. I guess what is meant is model m8.3. First, let's load the tulip data and repeat all the processing steps from the chapter within a pipe.    
   
@@ -414,7 +426,7 @@ PSIS(m8.3, pointwise = TRUE) %>%
               select(country, rugged_std, log_gdp_std)) %>% 
   arrange(desc(k)) %>% 
   slice_head(n = 5) %>% 
-  kable(digits = 2, format = "html")
+  tidy_table()
 ```  
 We can see that Seychelles is one of the most influential countries, but other countries are pretty big outliers as well. Unfortunatly, I am really bad in geography and have no idea why...  
   
@@ -426,14 +438,17 @@ WAIC(m8.3, pointwise = TRUE) %>%
   select(penalty) %>% 
   bind_cols(dat_rugged %>% 
               select(country, rugged_std, log_gdp_std)) %>% 
-  arrange(desc(penalty)) %>% 
-  kable(digits = 2, format = "html") 
+  arrange(desc(penalty)) %>%
+  slice_head(n = 5) %>% 
+  tidy_table()
 
 ```  
   
 We get similar results with WAIC penalties as with Pareto k values. Again, the interpretation why some countries show higher values is up to you.  
   
-Now to b). We can use robust regression by setting the likelihood to the student-t distribution.  
+(b) **Now use robust regression, as described in the previous chapter. Modify m8.5 to use a Student-t distribution with ν = 2. Does this change the results in a substantial way?**  
+  
+We can use robust regression by setting the likelihood to the student-t distribution.  
   
 ```{r 8H3 robust regression}
 m8.3.robust <- alist(
@@ -475,6 +490,140 @@ m8.3_contrast %>%
 ```  
   
 We can see that using a robust regression actually resulted in an increased contrast.  
+  
+  
+## Question 8H4  
+  
+**The values in data(nettle) are data on language diversity in 74 nations. The meaning of each column is given below.**  
+  
+(1) country: Name of the country  
+(2) num.lang: Number of recognized languages spoken  
+(3) area: Area in square kilometers  
+(4) k.pop: Population, in thousands  
+(5) num.stations: Number of weather stations that provided data for the next two columns  
+(6) mean.growing.season: Average length of growing season, in months  
+(7) sd.growing.season: Standard deviation of length of growing season, in months  
+  
+**Use these data to evaluate the hypothesis that language diversity is partly a product of food security. The notion is that, in productive ecologies, people don’t need large social networks to buffer them against risk of food shortfalls. This means ethnic groups can be smaller and more self-sufficient, leading to more languages per capita. In contrast, in a poor ecology, there is more subsistence risk, and so human societies have adapted by building larger networks of mutual obligation to provide food insurance. This in turn creates social forces that help prevent languages from diversifying. Specifically, you will try to model the number of languages per capita as the outcome variable:**  
+  
+`d$lang.per.cap <- d$num.lang / d$k.pop`  
+  
+**Use the logarithm of this new variable as your regression outcome (A count model would be better here, but you’ll learn those later, in Chapter11). This problem is open ended, allowing you to decide how you address the hypotheses and the uncertain advice the modeling provides. If you think you need to use WAIC anyplace, please do. If you think you need certain priors, argue for them. If you think you need to plot predictions in a certain way, please do. Just try to honestly evaluate the main effects of both mean.growing.season and sd.growing.season, as well as their two-way interaction, as outlined in parts (a), (b), and (c) below. If you are not sure which approach to use, try several.**  
+  
+a) **Evaluate the hypothesis that language diversity, as measured by log(lang.per.cap), is positively associated with the average length of the growing season, mean.growing.season. Consider log(area) in your regression(s) as a covariate (not an interaction). Interpret your results.**  
+  
+Ok, we start with loading the data and taking a glimpse.  
+  
+```{r 8H4 data}
+data("nettle")
+
+nettle %>% 
+  glimpse()
+```   
+  
+We can pre-process the outcome variable and standardize the predictors to set reasonable priors more easily.  
+  
+```{r 8H4 process data}
+dat_nettle <- nettle %>% 
+  as_tibble() %>% 
+  mutate(lang.per.cap = log(num.lang / k.pop),
+         log.area = log(area)) %>% 
+  mutate(across(c(lang.per.cap, log.area, mean.growing.season), standardize))
+```  
+  
+Now we fit a regression model with one single variable, `mean.growing.season`.  
+  
+```{r 8H4 m1}
+m1 <- alist(
+  lang.per.cap ~ dnorm(mu, sigma), 
+  mu <- a + bm*mean.growing.season, 
+  a ~ dnorm(0, 0.25), 
+  bm ~ dnorm(0, 0.5), 
+  sigma ~ dexp(1)) %>% 
+  quap(data = dat_nettle)
+```  
+  
+And a second model with an added predictor, `log.area`.  
+  
+```{r 8H4 m2}
+m2 <- alist(
+  lang.per.cap ~ dnorm(mu, sigma), 
+  mu <- a + bm*mean.growing.season + ba*log.area, 
+  a ~ dnorm(0, 0.2), 
+  c(bm, ba) ~ dnorm(0, 0.5), 
+  sigma ~ dexp(1)) %>% 
+  quap(data = dat_nettle)
+```  
+  
+I will skip the prior predictive checks as we have used and checked these prior on standardized variables in other chapters. However, we can compare the model performance between these two models.  
+  
+```{r 8H4 compare m1 m2}
+compare(m1, m2) %>% 
+  as_tibble(rownames = "Model") %>% 
+  tidy_table()
+```  
+  
+There is no substantial support for including `log.area` if we want to increase predictive accuracy. But does including `log.area` change the estimate for the `mean.growing.season` coefficient?  
+  
+```{r 8H4 precis m1 m2, fig.cap="Figure 9 | Coefficient plot for model m1 including mean.growing.season and model m2 additionally including log.area."}
+tidy_m1 <- precis(m1) %>% 
+  as_tibble(rownames = "estimate") %>% 
+  add_column(model = "m1", .before = "estimate")
+
+tidy_m2 <- precis(m2) %>% 
+  as_tibble(rownames = "estimate") %>% 
+  add_column(model = "m2", .before = "estimate")
+
+full_join(tidy_m1, tidy_m2) %>% 
+  mutate(coefficient = str_c(model, estimate, sep = ": ")) %>% 
+  filter(estimate != "sigma") %>% 
+  select(lower_pi = '5.5%', upper_pi = '94.5%', everything()) %>% 
+  ggplot(aes(mean, coefficient, colour = model)) +
+  geom_pointrange(aes(xmin = lower_pi, xmax = upper_pi), 
+                  show.legend = FALSE, size = 0.8) +
+  labs(y = NULL, x = "Coefficient estimate") +
+  scale_colour_manual(values = c(red, purple)) +
+  theme_minimal()
+```  
+  
+The coefficient for `mean.growing.season` stays consistently high and strict positive. The coefficient for `log.area`, however, is present but not substantial. So we will stick with model m1.  
+  
+Let's plot the relationship between `lang.per.cap` and `mean.growing.season`, based on model m1.  
+  
+```{r visualize m1, fig.cap="Figure 10 | Language per capita as a function of mean growing seasion based on m1."}
+N <-  1e4
+my_seq <- seq(-2.5, 2, length.out = 20)
+
+link(m1, n = N, 
+     data = data.frame(lang.per.cap = my_seq, mean.growing.season = my_seq)) %>% 
+  as_tibble() %>% 
+  pivot_longer(cols = everything(), values_to = "lang.per.cap") %>% 
+  add_column(mean.growing.season = rep(my_seq, N)) %>% 
+  group_by(mean.growing.season) %>% 
+  summarise(pi = list(PI(lang.per.cap)), 
+            lang.per.cap = mean(lang.per.cap)) %>% 
+  mutate(lower_pi = map_dbl(pi, pluck(1)), 
+         upper_pi = map_dbl(pi, pluck(2))) %>% 
+  ggplot(aes(x = mean.growing.season, y = lang.per.cap)) +
+  geom_ribbon(aes(ymin = lower_pi, ymax = upper_pi), 
+              fill = red, alpha = 0.5) +
+  geom_line(colour = purple, size = 2, alpha = 0.9) + 
+  geom_point(data = dat_nettle) +
+  geom_label(aes(label = country), 
+             nudge_x = c(-0.25, -0.5, -0.6, -0.3),
+             data = dat_nettle %>% 
+               filter(lang.per.cap > 2 | lang.per.cap < -2.2)) +
+  theme_minimal()
+
+```  
+  
+We can see that there is a robust positive relationship between `lang.per.cap` and `mean.growing.season`. However, the model substantially underpredicts `lang.per.cap` for French Guiana, Papua New Guinea, and Vanuatu while overpredicting for Cuba. 
+
+
+
+
+  
+
 
 
   
