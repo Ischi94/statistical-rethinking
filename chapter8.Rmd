@@ -617,7 +617,144 @@ link(m1, n = N,
 
 ```  
   
-We can see that there is a robust positive relationship between `lang.per.cap` and `mean.growing.season`. However, the model substantially underpredicts `lang.per.cap` for French Guiana, Papua New Guinea, and Vanuatu while overpredicting for Cuba. 
+We can see that there is a robust positive relationship between `lang.per.cap` and `mean.growing.season`. However, the model substantially underpredicts `lang.per.cap` for French Guiana, Papua New Guinea, and Vanuatu while overpredicting for Cuba.  
+ 
+b) **Now evaluate the hypothesis that language diversity is negatively associated with the standard deviation of length of growing season, sd.growing.season.  This hypothesis follows from uncertainty in harvest favoring social insurance through larger social networks and therefore fewer languages. Again, consider log(area) as a covariate (not an interaction). Interpret your results.**  
+  
+Following the same steps as above:  
+  
+```{r 8H4 sd model}
+# standardize predictor
+dat_nettle <- dat_nettle %>% 
+  mutate(sd.growing.season = standardize(sd.growing.season))
+
+# model without log.area
+m3 <- alist(
+  lang.per.cap ~ dnorm(mu, sigma), 
+  mu <- a + bsd*sd.growing.season, 
+  a ~ dnorm(0, 0.25), 
+  bsd ~ dnorm(0, 0.5), 
+  sigma ~ dexp(1)) %>% 
+  quap(data = dat_nettle)
+
+# model with log.area
+m4 <- alist(
+  lang.per.cap ~ dnorm(mu, sigma), 
+  mu <- a + bsd*sd.growing.season + ba*log.area, 
+  a ~ dnorm(0, 0.2), 
+  c(bsd, ba) ~ dnorm(0, 0.5), 
+  sigma ~ dexp(1)) %>% 
+  quap(data = dat_nettle)
+
+# compare using model information
+compare(m1, m2, m3, m4) %>% 
+  as_tibble(rownames = "Model") %>% 
+  tidy_table()
+```  
+  
+Again, there is no strong support to include area. But `mean.growing.season` seems to fit the data a bit better than `sd.growing.season`. Let's look at the posteriors of the two new models:  
+  
+```{r 8H4 precis m3 m4, fig.cap="Figure 11 | Coefficient plot for model m3 including sd.growing.season and model m4 additionally including log.area."}
+tidy_m3 <- precis(m3) %>% 
+  as_tibble(rownames = "estimate") %>% 
+  add_column(model = "m3", .before = "estimate")
+
+tidy_m4 <- precis(m4) %>% 
+  as_tibble(rownames = "estimate") %>% 
+  add_column(model = "m4", .before = "estimate")
+
+full_join(tidy_m3, tidy_m4) %>% 
+  mutate(coefficient = str_c(model, estimate, sep = ": ")) %>% 
+  filter(estimate != "sigma") %>% 
+  select(lower_pi = '5.5%', upper_pi = '94.5%', everything()) %>% 
+  ggplot(aes(mean, coefficient, colour = model)) +
+  geom_pointrange(aes(xmin = lower_pi, xmax = upper_pi), 
+                  show.legend = FALSE, size = 0.8) +
+  labs(y = NULL, x = "Coefficient estimate") +
+  scale_colour_manual(values = c(red, purple)) +
+  theme_minimal()
+```
+  
+We can see that including area (ba) in the model introduces more uncertainty about `sd.growing.season` (bds). However, the mode of the posterior distribution, the maximum a posteriori probability, is negative in both models. This fits with the hypothesis that uncertainty in harvest favors social insurance through larger social networks and therefore fewer languages.  
+  
+  
+c) **Finally, evaluate the hypothesis that mean.growing.season and sd.growing.season interact to synergistically reduce language diversity. The idea is that, in nations with longer average growing seasons, high variance makes storage and redistribution even more important than it would be otherwise. That way, people can cooperate to preserve and protect windfalls to be used during the droughts. These forces in turn may lead to greater social integration and fewer languages.**  
+  
+Let's build a model with an interaction term:  
+  
+```{r 8H4 m5 interaction}
+m5 <- alist(
+  lang.per.cap ~ dnorm(mu, sigma), 
+  mu <- a + bm*mean.growing.season + bsd*sd.growing.season + bmsd*mean.growing.season*sd.growing.season, 
+  a ~ dnorm(0, 0.25), 
+  c(bm, bsd, bmsd) ~ dnorm(0, 0.5), 
+  sigma ~ dexp(1)) %>% 
+  quap(data = dat_nettle)
+```  
+  
+And now we need to plot the posterior predictions, which is way harder with the interaction terms. So I will stick to the tryptich plots from the chapter. First I will define a function that returns a posterior prediction plot for a predictor at a given value of the second predictor. Note that we need a bit of tidy_eval here and there (e.g. the 'curly-curly: {{}}' or the assigner ':=')  
+  
+  
+```{r 8H4 m5 posterior}
+
+post_tryptich <- function(predictor1 = NULL, predictor2 = NULL, predictor2.val) {
+  N <-  1e4
+  my_seq <- seq(-2.5, 2, length.out = 20 )
+  
+  link(m5, n = N, 
+     data = tibble({{ predictor1 }} := my_seq,
+                       {{ predictor2 }} := predictor2.val)) %>% 
+    as_tibble() %>% 
+    pivot_longer(cols = everything(), values_to = "lang.per.cap") %>% 
+    add_column({{ predictor1 }} := rep(my_seq, N)) %>% 
+    group_by({{ predictor1 }}) %>% 
+    summarise(pi = list(PI(lang.per.cap)),
+              lang.per.cap = mean(lang.per.cap)) %>% 
+    mutate(lower_pi = map_dbl(pi, pluck(1)), 
+           upper_pi = map_dbl(pi, pluck(2))) %>% 
+    add_column({{ predictor2 }} := predictor2.val) %>% 
+    select({{ predictor1 }}, {{ predictor2 }}, lang.per.cap, lower_pi, upper_pi)
+}
+
+```  
+  
+Now we can calculate the posterior predictions for `mean.growing.season` across values of `sd.growing.season`. For this, I take three quantiles from `sd.growing.season`, the 5%, 50%, and 95% quantile. Then I apply the above defined function `post_tryptich` to each of those quantiles and save all results in a data frame, which I then feed into `ggplot`.  
+  
+```{r 8H4 first tryptich}
+quantile(dat_nettle$sd.growing.season, c(0.05, 0.5, 0.95)) %>% 
+  map_dfr(post_tryptich, predictor1 = mean.growing.season, predictor2 = sd.growing.season) %>% 
+  ggplot(aes(mean.growing.season, lang.per.cap)) +
+  geom_ribbon(aes(ymin = lower_pi, ymax = upper_pi), 
+              fill = grey, alpha = 0.6) +
+  geom_line(colour = red, 
+            alpha = 0.8, size = 1.5) + 
+  facet_wrap(~sd.growing.season) +
+  theme_minimal() +
+  theme(panel.grid.minor = element_blank(), 
+        panel.grid.major = element_blank())
+```  
+  
+So we get a positive relationship between `lang.per.cap` and `mean.growing.season` at low values of `sd.growing.season`, but a negative relationship at high values. So the models suggest that mean growing season increases language diversity, unless the variance in growing season is also high. Let's check the other way around:  
+  
+```{r 8H4 second tryptich}
+quantile(dat_nettle$mean.growing.season, c(0.05, 0.5, 0.95)) %>% 
+  map_dfr(post_tryptich, predictor1 = sd.growing.season, predictor2 = mean.growing.season) %>% 
+  ggplot(aes(sd.growing.season, lang.per.cap)) +
+  geom_ribbon(aes(ymin = lower_pi, ymax = upper_pi), 
+              fill = grey, alpha = 0.6) +
+  geom_line(colour = red, 
+            alpha = 0.8, size = 1.5) + 
+  facet_wrap(~mean.growing.season) +
+  theme_minimal() +
+  theme(panel.grid.minor = element_blank(), 
+        panel.grid.major = element_blank())
+```  
+  
+We see the same pattern: Variance in growing season decreases language diversity, unless the mean growing season is very short.  
+  
+
+  
+
 
 
 
