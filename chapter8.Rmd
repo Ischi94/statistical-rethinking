@@ -809,25 +809,107 @@ m1 %>%
   
 Judge number 5, which corresponds to `r unique(Wines2012[which(dat_wine$judge == 5), ]$judge)` (I love inline rmarkdown code), and judge number 6 named `r unique(Wines2012[which(dat_wine$judge == 6), ]$judge)` have the most positive ratings. They seem to enjoy wine in general. Notice the three judges that score wine pretty negative on average. There is only one wine with consistently positive average scores across judges, `r unique(Wines2012[which(dat_wine$wine == 4), ]$wine)`, which is a `r unique(Wines2012[which(dat_wine$wine == 4), ]$flight)` wine. And then we have wine number 18, with very bad scores. This is a `r unique(Wines2012[which(dat_wine$wine == 18), ]$flight)` wine as well.  
   
+  
+## 8H6  
+  
+Now consider three features of the wines and judges: 
+  
+1) flight: Whether the wine is red or white.  
+2) wine.amer: Indicator variable for American wines.  
+3) judge.amer: Indicator variable for American judges.  
+  
+**Use indicator or index variables to model the influence of these features on the scores. Omit the individual judge and wine index variables from Problem 1. Do not include interaction effects yet. Again, justify your priors. What do you conclude about the differences among the wines and judges? Try to relate the results to the inferences in the previous problem.**  
+  
+First, let's convert the focal indicator variables to index variables for easier model fitting and interpretation.  
+  
+```{r 8H6 data}
+dat_wine <- dat_wine %>% 
+  mutate(flight = as.numeric(flight), 
+         wine.amer = if_else(wine.amer == 0, 1, 2), 
+         judge.amer = if_else(judge.amer == 0, 1, 2))
+  
+```  
+  
+Now we can easily fit the model.  
+  
+```{r 8H6 model}
+m2 <- alist(
+  score ~ dnorm(mu, sigma), 
+  mu <- f[flight] + w[wine.amer] + j[judge.amer], 
+  f[flight] ~ dnorm(0, 0.5),
+  w[wine.amer] ~ dnorm(0, 0.5),
+  j[judge.amer] ~ dnorm(0, 0.5), 
+  sigma ~ dexp(1)) %>% 
+  quap(data = dat_wine)
+```  
+  
+Note that I used a similar prior as in m1. It places most of the probability within one standard deviation from the mean, for each indexed category. If we would consider the knowledge from the results from m1, we could even tighten those priors a little bit. But priors should be fitted using knowledge, and not the data at hands.  
+  
+Again, I will plot the results as it is much easier to see results, instead of reading tables:  
+  
+```{r m2 plot, message=FALSE, fig.cap="Figure 14 | Second coefficient plot for wine data"}
+m2 %>% 
+  precis(depth = 2) %>% 
+  as_tibble(rownames = "coefficient") %>% 
+  filter(coefficient != "sigma") %>% 
+  select(everything(), lower_pi = '5.5%',  upper_pi = '94.5%') %>% 
+  mutate(type = if_else(str_starts(coefficient, "j"), "judge", 
+                        if_else(str_starts(coefficient, "w"), "wine",
+                                "flight")), 
+         coefficient = as.factor(coefficient), 
+         coefficient = fct_recode(coefficient, 
+                                  wine.red = "f[1]", 
+                                  wine.white = "f[2]", 
+                                  judge.non.amer = "j[1]", 
+                                  judge.amer = "j[2]", 
+                                  wine.non.amer = "w[1]", 
+                                  wine.amer = "w[2]")) %>% 
+  ggplot(aes(mean, coefficient, colour = type)) +
+  geom_vline(xintercept = 0, colour = grey) +
+  geom_pointrange(aes(xmin = lower_pi, xmax = upper_pi), 
+                  size = 0.8) +
+  labs(y = NULL, x = "Coefficient estimate", colour = NULL) +
+  scale_colour_manual(values = c(red, purple, lightpurple)) +
+  scale_x_continuous(expand = c(0,0)) +
+  theme_minimal() +
+  theme(panel.grid = element_blank(), 
+        legend.position = "none")
+```  
+  
+Before we jump to conclusions, let's first calculate contrasts. First, I define a function that extracts samples from the posterior, subsets to a specific predictor variable, and calculates the contrast between the first index variable and the second. The I apply this function to each predictor variable and store it in a dataframe.    
+  
+```{r 8H6 contrasts, fig.cap="Figure 15 | Contrast plot for wine data"}
 
+calculate_contrast <- function(coefficient){
+  m2 %>%
+    extract.samples() %>%
+    .[c(coefficient)] %>%
+    as.data.frame() %>%
+    as_tibble() %>%
+    select(first = 1, second = 2) %>%
+    transmute(contrast = first - second) %>%
+    add_column(coefficient = coefficient)
+}
 
-
-
+c("j", "w", "f") %>% 
+  map_dfr(calculate_contrast) %>% 
+  mutate(coefficient = if_else(coefficient == "j", "judge.non.amer - amer", 
+                               if_else(coefficient == "f", "whine.red - white", 
+                               "wine.non.amer - amer"))) %>% 
+  ggplot(aes(contrast, fill = coefficient)) +
+  geom_vline(xintercept = 0, colour = grey, size = 2) +
+  geom_density(colour = grey, alpha = 0.5) +
+  scale_fill_manual(values = c(purple, red, lightpurple)) +
+  scale_y_continuous(labels = NULL) +
+  labs(fill = NULL, y = NULL) +
+  theme_minimal() +
+  theme(panel.grid = element_blank(), 
+        legend.position = c(0.84, 0.85))
   
 
+```   
+Now we can see that American judges tend to judge wines more positive. In contrast, non-American wines get worse scores on average. But note that both contrasts include zero. There is absolutely no difference in red vs. white wines, as it should be, because judges only compare within flights.  
   
-
-
-
-
-
-  
-
-
-
-  
-
-
 
   
 
