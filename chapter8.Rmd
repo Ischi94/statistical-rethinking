@@ -892,7 +892,89 @@ Now we can see that American judges tend to judge wines more positive. In contra
   
 > Now consider two-way interactions among the three features. You should end up with three different interaction terms in your model. These will be easier to build, if you use indicator variables. Again, justify your priors. Explain what each interaction term means. Be sure to interpret the model's predictions on the outcome scale ($mu$, the expected score), not on the scale of individual parameters. You can use link to help with this, or just your knowledge of the linear model instead. What do you conclude about the features and the scores? Can you relate the results of your model(s) to the individual judge and wine inferences from **8H5**?  
   
+Even though I am not a big fan of indicator variables, I will do as told:  
   
+```{r 8H7 data}
+dat_wine2 <- Wines2012 %>%
+  mutate(score = standardize(score),
+         red.wine = if_else(flight == "white", 0, 1))
+```  
+  
+Now we can fit the new model with all the interaction terms.  
+  
+```{r 8H7 model}
+m3 <- alist(
+  score ~ dnorm(mu, sigma), 
+  mu <- a + bw*wine.amer + bj*judge.amer + br*red.wine + bwj*wine.amer*judge.amer + bwr*wine.amer*red.wine + bjr*judge.amer*red.wine, 
+  a ~ dnorm(0, 0.2), 
+  c(bw, bj, br, bwj, bwr, bjr) ~ dnorm(0, 0.5), 
+  sigma ~ dexp(1)) %>% 
+  quap(data = dat_wine2)
+```  
+  
+With the interaction terms added, it's really impossible to see what the model thinks from the `precis` table output. Instead, we will build a table to apply the model to, to see the implications. The table contains all possible combinations of the indicator variables.    
+  
+```{r 8H7 prediction table}
+(dat_predict <- tibble(wine.amer = rep(c(0, 1), 4), 
+       judge.amer = rep(c(0, 1), each = 4), 
+       red.wine = c(0, 0, 1, 1, 0, 0, 1, 1)))
+```  
+  
+Now we can use link on this data set. Note that the column names of the link output correspond to the row values in `dat_predict`. So the first column predicts data for french white wine judged by a french. To label the data easier, I will first create a vector with the correct names.  
+  
+```{r 8H7 labels}
+lbl <- dat_predict %>% 
+  mutate(wine.label = if_else(wine.amer == 0, "F", "A"), 
+         judge.label = if_else(judge.amer == 0, "F", "A"), 
+         flight.label = if_else(red.wine == 0, "W", "R")) %>% 
+  transmute(label = str_c(judge.label, wine.label, flight.label)) %>% 
+  pull()
+```  
+  
+And we are ready to `link`:  
+  
+```{r 8H7 link, fig.cap= "Figure 16 | Coefficient plot for all interactions in the wine data."}
+link(m3, dat_predict) %>% 
+  as_tibble() %>% 
+  rename(!!lbl[1] := V1, !!lbl[2] := V2, 
+         !!lbl[3] := V3, !!lbl[4] := V4,
+         !!lbl[5] := V5, !!lbl[6] := V6, 
+         !!lbl[7] := V7, !!lbl[8] := V8) %>% 
+  pivot_longer(cols = everything(), values_to = "mu", names_to = "interaction") %>% 
+  group_by(interaction) %>% 
+  summarise(across(mu, list(mean = mean, pi = PI))) %>% 
+  ungroup() %>%
+  add_column(pi_type = rep(c("lower_pi", "upper_pi"), 8)) %>% 
+  pivot_wider(values_from = mu_pi, names_from = pi_type) %>% 
+  mutate(interaction = fct_reorder(interaction, mu_mean)) %>% 
+  ggplot(aes(mu_mean, interaction, xmin = lower_pi, xmax = upper_pi)) +
+  geom_vline(xintercept = 0, colour = grey, size = 1) +
+  geom_pointrange() +
+  labs(y = NULL, x= "Predicted Score", 
+       subtitle = expression(paste('Read ', bold('AFR'), ' as an ', 
+                                   bold('A'), 'merican judge drinking ',
+                                    bold('F'), 'rench ', 
+                                   bold('R'), 'ed wine'))) +
+  theme_minimal() +
+  theme(panel.grid = element_blank(), 
+        axis.ticks = element_line(colour = grey))
+```  
+  
+We can clearly see that American judges tend to judge French wines more positive, for both red and white wines. And French judges clearly dislike American red wines. But looking back at m1 form **8H5**, this trend is mainly driven by one American red wine, which was judged as extremely bad.  
+  
+# Conclusion  
+  
+This was a great chapter about a topic that is closely related to my PhD (where I look at interactions in deep-time fossil data). And again, it reminds me of how powerful the teaching methods of McElreath are: He gives you full power over your models as you slowly get a grasp about the underlying concepts. I never felt more confident about using interactions.  
+  
+-------
+```{r session info,echo=FALSE}
+sessionInfo()
+```
+
+  
+
+
+
 
   
 
