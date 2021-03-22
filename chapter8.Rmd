@@ -15,7 +15,7 @@ output:
   html_document:
     toc: true
     toc_depth: 1
-    number_sections: true
+    number_sections: false
     fig_width: 6
     mathjax: "default"
 ---
@@ -66,13 +66,11 @@ I will not cover the homework from now on as it is mostly similar to the practic
 
 ## 8E1
 
-**For each of the causal relationships below, name a hypothetical third variable that would lead to an interaction effect.**
-
-- (1) Bread dough rises because of yeast
-
-- (2) Education leads to higher income
-
-- (3) Gasoline makes a car go
+> For each of the causal relationships below, name a hypothetical third variable that would lead to > an interaction effect.  
+>  
+> 1. Bread dough rises because of yeast  
+> 2. Education leads to higher income  
+> 3. Gasoline makes a car go  
 
 Learned this the hard way, but (1) really depends on temperature. Yeast needs to be added to the dough at the right temperature, otherwise your dough will stay flat and sad.
 
@@ -82,22 +80,19 @@ And (3) can be dependent on so many variables. E.g., if you're car is broken, no
 
 ##  8E2   
 
-**Which of the following explanations invokes an interaction?**
-
-- (1) Caramelizing onions requires cooking over low heat and making sure the onions do not dry out
-
-- (2) A car will go faster when it has more cylinders or when it has a better fuel injector
-
-- (3) Most people acquire their political beliefs from their parents, unless they get them instead from their friends
-
-- (4) Intelligent animal species tend to be either highly social or have manipulative appendages (hands, tentacles, etc.)
+> Which of the following explanations invokes an interaction?  
+>  
+> 1. Caramelizing onions requires cooking over low heat and making sure the onions do not dry out  
+> 2. A car will go faster when it has more cylinders or when it has a better fuel injector  
+> 3. Most people acquire their political beliefs from their parents, unless they get them instead  from their friends  
+>4. Intelligent animal species tend to be either highly social or have manipulative appendages (hands, tentacles, etc.)  
 
 Only (1) is a strict interaction, as the process of caramelizing onions is both dependent on low heat and not drying out. All the others are additive relationships.
 
 ##  8E3  
 
-**For each of the explanations in 8E2, write a linear model that expresses the stated relationship**.
-
+> For each of the explanations in **8E2**, write a linear model that expresses the stated relationship.  
+  
 - (1) Let $u$ be the amount of caramelization, then $$mu_{i} = alpha + beta_{heat} * heat + beta_{dry} * dry + beta_{heatdry} * heat * dry$$  
   
 - (2) Let $u$ be the speed of a car, then $$mu_{i} = alpha + beta_{cyl} * cyl + beta_{inj} * inj$$  
@@ -110,19 +105,19 @@ Only (1) is a strict interaction, as the process of caramelizing onions is both 
   
 ##  8M1  
   
-**Recall the tulips example from the chapter. Suppose another set of treatments adjusted the temperature in the greenhouse over two levels: cold and hot. The data in the chapter were collected at the cold temperature. You find none of the plants grown under the hot temperature developed any blooms at all, regardless of the water and shade levels. Can you explain this result in terms of interactions between water, shade, and temperature?**  
+> Recall the tulips example from the chapter. Suppose another set of treatments adjusted the temperature in the greenhouse over two levels: cold and hot. The data in the chapter were collected at the cold temperature. You find none of the plants grown under the hot temperature developed any blooms at all, regardless of the water and shade levels. Can you explain this result in terms of interactions between water, shade, and temperature?  
   
 It seems like tulips don't bloom under higher temperatures, which creates a three-way interaction. Blooming is not only dependent on the interaction between water and shade, but this interaction depends on the temperature as well. If the temperature is too high, no amount of shade and water will make the tulip bloom.  
   
 ##  8M2  
   
-**Can you invent a regression equation that would make the bloom size zero, whenever the temperature is hot?**  
+> Can you invent a regression equation that would make the bloom size zero, whenever the temperature is hot?    
   
 If we code temperature as an index variable with a 0 for cold and a 1 for hot, we can multiply the whole initial model with $1 - temperature$. If the temperature is hot (= 0), the whole model will equate to zero bloom. Cold temperature, on the other hand has no effect on the bloom as the model just gets multiplied with 1.  
   
 ##  8M3  
   
-**In parts of North America, ravens depend upon wolves for their food. This is because ravens are carnivorous but cannot usually kill or open carcasses of prey. Wolves however can and do kill and tear open animals, and they tolerate ravens co-feeding at their kills. This species relationship is generally described as a “species interaction.” Can you invent a hypothetical set of data on raven population size in which this relationship would manifest as a statistical interaction? Do you think the biological interaction could be linear? Why or why not?**  
+> In parts of North America, ravens depend upon wolves for their food. This is because ravens are carnivorous but cannot usually kill or open carcasses of prey. Wolves however can and do kill and tear open animals, and they tolerate ravens co-feeding at their kills. This species relationship is generally described as a “species interaction.” Can you invent a hypothetical set of data on raven population size in which this relationship would manifest as a statistical interaction? Do you think the biological interaction could be linear? Why or why not?  
   
 I will just simulate a simple wolf population using a poisson distribution with an average number of 10 wolfs, and then dependent on this population I will simulate the raven population.  
   
@@ -139,25 +134,10 @@ tibble(wolf = rpois(1e3, lambda = 2),
   theme_minimal()
 ```  
   
-Hypothetically, I would not expect a linear relationship. Instead I would predict an exponential relationship with the number of ravens *exploding* once wolfs are present.  
-  
-```{r 8M3 part 2, message=FALSE, fig.cap="Figure 2 | Improved species interaction between wolfes and ravens."}
-tibble(wolf = rpois(1e3, lambda = 2), 
-       raven = rnorm(1e3, mean = wolf)) %>% 
-  filter(raven > 0) %>% 
-  ggplot(aes(raven, wolf)) +
-  geom_jitter(shape = 21, colour = purple, fill = grey, 
-              size = 2, alpha = 0.8) +
-  geom_smooth(colour = red, fill = lightpurple,
-              alpha = 0.9) +
-  scale_x_continuous(breaks = c(0, 5)) +
-  labs(x = "Number of ravens", y = "Number of wolfes") +
-  theme_minimal()
-```  
   
 ##  8M4  
   
-**Repeat the tulips analysis, but this time use priors that constrain the effect of water to be positive and the effect of shade to be negative. Use prior predictive simulation. What do these prior assumptions mean for the interaction prior, if anything?**  
+> Repeat the tulips analysis, but this time use priors that constrain the effect of water to be positive and the effect of shade to be negative. Use prior predictive simulation. What do these prior assumptions mean for the interaction prior, if anything?  
   
 Let's just update the model from the chapter with new priors, which we force to be positive by using a log-normal distribution. But first we load the data and bring it in a nicer format, centering `water` and `shade` and scaling `blooms` by its maximum.  
   
@@ -280,7 +260,7 @@ Yes, this is what we want. We encapsulate our knowledge in the priors, without r
   
 ##  8H1  
   
-**Return to the data(tulips) example in the chapter. Now include the bed variable as a predictor in the interaction model. Don't interact bed with the other predictors; just include it as a main effect. Note that bed is categorical. So to use it properly, you will need to either construct dummy variables or rather an index variable, as explained in Chapter 6.**  
+> Return to the `data(tulips)` example in the chapter. Now include the bed variable as a predictor in the interaction model. Don't interact bed with the other predictors; just include it as a main effect. Note that bed is categorical. So to use it properly, you will need to either construct dummy variables or rather an index variable, as explained in Chapter 6.  
   
 Recall the model m8.4 from the chapter:  
   
@@ -368,7 +348,7 @@ Now we can conclude that bed `bed2` and `bed3` have a substantially higher `bloo
   
 ##  8H2  
   
-**Use WAIC to compare the model from 8H1 to a model that omits bed. What do you infer from this comparison? Can you reconcile the WAIC results with the posterior distribution of the bed coefficients?**  
+> Use WAIC to compare the model from **8H1** to a model that omits bed. What do you infer from this comparison? Can you reconcile the WAIC results with the posterior distribution of the bed coefficients?  
   
 Let's just threw both models in the `compare()` function. Note that I print the output to html format using a custom function `tidy_table` built on `knitr::kable`. 
   
@@ -384,9 +364,9 @@ The model with beds included (`m1`) performs a little bit better. This is consis
   
 ##  8H3  
   
-**Consider again the data(rugged) data on economic development and terrain ruggedness,examined in this chapter. One of the African countries in that example, Seychelles, is far outside the cloud of other nations, being a rare country with both relatively high GDP and high ruggedness. Seychelles is also unusual, in that it is a group of islands far from the coast of mainland Africa, and its main economic activity is tourism.**  
+> Consider again the `data(rugged)` data on economic development and terrain ruggedness,examined in this chapter. One of the African countries in that example, Seychelles, is far outside the cloud of other nations, being a rare country with both relatively high GDP and high ruggedness. Seychelles is also unusual, in that it is a group of islands far from the coast of mainland Africa, and its main economic activity is tourism.  
   
-(a) **Focus on model m8.5 from the chapter. Use WAIC point-wise penalties and PSIS Pareto k values to measure relative influence of each country. By these criteria, is Seychelles influencing the results? Are there other nations that are relatively influential? If so, can you explain why?**  
+> (a) Focus on model m8.5 from the chapter. Use WAIC point-wise penalties and PSIS Pareto k values to measure relative influence of each country. By these criteria, is Seychelles influencing the results? Are there other nations that are relatively influential? If so, can you explain why?  
   
 I'm a bit confused as model m8.5 is about tulip blooms. I guess what is meant is model m8.3. First, let's load the tulip data and repeat all the processing steps from the chapter within a pipe.    
   
@@ -446,7 +426,7 @@ WAIC(m8.3, pointwise = TRUE) %>%
   
 We get similar results with WAIC penalties as with Pareto k values. Again, the interpretation why some countries show higher values is up to you.  
   
-(b) **Now use robust regression, as described in the previous chapter. Modify m8.5 to use a Student-t distribution with ν = 2. Does this change the results in a substantial way?**  
+> (b) Now use robust regression, as described in the previous chapter. Modify m8.5 to use a Student-t distribution with ν = 2. Does this change the results in a substantial way?  
   
 We can use robust regression by setting the likelihood to the student-t distribution.  
   
@@ -494,23 +474,21 @@ We can see that using a robust regression actually resulted in an increased cont
   
 ##  8H4  
   
-**The values in data(nettle) are data on language diversity in 74 nations. The meaning of each column is given below.**  
+> The values in data(nettle) are data on language diversity in 74 nations. The meaning of each column is given below.  
+>
+> * country: Name of the country  
+> * num.lang: Number of recognized languages spoken  
+> * area: Area in square kilometers  
+> * k.pop: Population, in thousands  
+> * num.stations: Number of weather stations that provided data for the next two columns  
+> * mean.growing.season: Average length of growing season, in months  
+> * sd.growing.season: Standard deviation of length of growing season, in months  
+>
+Use these data to evaluate the hypothesis that language diversity is partly a product of food security. The notion is that, in productive ecologies, people don’t need large social networks to buffer them against risk of food shortfalls. This means ethnic groups can be smaller and more self-sufficient, leading to more languages per capita. In contrast, in a poor ecology, there is more subsistence risk, and so human societies have adapted by building larger networks of mutual obligation to provide food insurance. This in turn creates social forces that help prevent languages from diversifying. Specifically, you will try to model the number of languages per capita as the outcome variable:  
+`d$lang.per.cap <- d$num.lang / d$k.pop`
+Use the logarithm of this new variable as your regression outcome (A count model would be better here, but you’ll learn those later, in Chapter11). This problem is open ended, allowing you to decide how you address the hypotheses and the uncertain advice the modeling provides. If you think you need to use WAIC anyplace, please do. If you think you need certain priors, argue for them. If you think you need to plot predictions in a certain way, please do. Just try to honestly evaluate the main effects of both `mean.growing.season` and `sd.growing.season`, as well as their two-way interaction, as outlined in parts (a), (b), and (c) below. If you are not sure which approach to use, try several.  
   
-(1) country: Name of the country  
-(2) num.lang: Number of recognized languages spoken  
-(3) area: Area in square kilometers  
-(4) k.pop: Population, in thousands  
-(5) num.stations: Number of weather stations that provided data for the next two columns  
-(6) mean.growing.season: Average length of growing season, in months  
-(7) sd.growing.season: Standard deviation of length of growing season, in months  
-  
-**Use these data to evaluate the hypothesis that language diversity is partly a product of food security. The notion is that, in productive ecologies, people don’t need large social networks to buffer them against risk of food shortfalls. This means ethnic groups can be smaller and more self-sufficient, leading to more languages per capita. In contrast, in a poor ecology, there is more subsistence risk, and so human societies have adapted by building larger networks of mutual obligation to provide food insurance. This in turn creates social forces that help prevent languages from diversifying. Specifically, you will try to model the number of languages per capita as the outcome variable:**  
-  
-`d$lang.per.cap <- d$num.lang / d$k.pop`  
-  
-**Use the logarithm of this new variable as your regression outcome (A count model would be better here, but you’ll learn those later, in Chapter11). This problem is open ended, allowing you to decide how you address the hypotheses and the uncertain advice the modeling provides. If you think you need to use WAIC anyplace, please do. If you think you need certain priors, argue for them. If you think you need to plot predictions in a certain way, please do. Just try to honestly evaluate the main effects of both mean.growing.season and sd.growing.season, as well as their two-way interaction, as outlined in parts (a), (b), and (c) below. If you are not sure which approach to use, try several.**  
-  
-a) **Evaluate the hypothesis that language diversity, as measured by log(lang.per.cap), is positively associated with the average length of the growing season, mean.growing.season. Consider log(area) in your regression(s) as a covariate (not an interaction). Interpret your results.**  
+> a) Evaluate the hypothesis that language diversity, as measured by `log(lang.per.cap)`, is positively associated with the average length of the growing season, `mean.growing.season`. Consider `log(area)` in your regression(s) as a covariate (not an interaction). Interpret your results.  
   
 Ok, we start with loading the data and taking a glimpse.  
   
@@ -619,7 +597,7 @@ link(m1, n = N,
   
 We can see that there is a robust positive relationship between `lang.per.cap` and `mean.growing.season`. However, the model substantially underpredicts `lang.per.cap` for French Guiana, Papua New Guinea, and Vanuatu while overpredicting for Cuba.  
  
-b) **Now evaluate the hypothesis that language diversity is negatively associated with the standard deviation of length of growing season, sd.growing.season.  This hypothesis follows from uncertainty in harvest favoring social insurance through larger social networks and therefore fewer languages. Again, consider log(area) as a covariate (not an interaction). Interpret your results.**  
+> b) Now evaluate the hypothesis that language diversity is negatively associated with the standard deviation of length of growing season, `sd.growing.season`.  This hypothesis follows from uncertainty in harvest favoring social insurance through larger social networks and therefore fewer languages. Again, consider `log(area)` as a covariate (not an interaction). Interpret your results.  
   
 Following the same steps as above:  
   
@@ -678,7 +656,7 @@ full_join(tidy_m3, tidy_m4) %>%
 We can see that including area (ba) in the model introduces more uncertainty about `sd.growing.season` (bds). However, the mode of the posterior distribution, the maximum a posteriori probability, is negative in both models. This fits with the hypothesis that uncertainty in harvest favors social insurance through larger social networks and therefore fewer languages.  
   
   
-c) **Finally, evaluate the hypothesis that mean.growing.season and sd.growing.season interact to synergistically reduce language diversity. The idea is that, in nations with longer average growing seasons, high variance makes storage and redistribution even more important than it would be otherwise. That way, people can cooperate to preserve and protect windfalls to be used during the droughts. These forces in turn may lead to greater social integration and fewer languages.**  
+> c) Finally, evaluate the hypothesis that `mean.growing.season` and `sd.growing.season` interact to synergistically reduce language diversity. The idea is that, in nations with longer average growing seasons, high variance makes storage and redistribution even more important than it would be otherwise. That way, people can cooperate to preserve and protect windfalls to be used during the droughts. These forces in turn may lead to greater social integration and fewer languages.**  
   
 Let's build a model with an interaction term:  
   
@@ -755,7 +733,7 @@ We see the same pattern: Variance in growing season decreases language diversity
   
 ##  8H5  
   
-**Consider the data(Wines2012) data table. These data are expert ratings of 20 different French and American wines by 9 different French and American judges. Your goal is to model score, the subjective rating assigned by each judge to each wine. I recommend standardizing it. In this problem, consider only variation among judges and wines. Construct index variables of judge and wine and then use these index variables to construct a linear regression model. Justify your priors. You should end up with 9 judge parameters and 20 wines parameters. How do you interpret the variation among individual judges and individual wines? Do you notice any patterns, just by plotting the differences? Which judges gave the highest/ lowest ratings? Which wines were rated worst/ best on average?**  
+> Consider the `data(Wines2012)` data table. These data are expert ratings of 20 different French and American wines by 9 different French and American judges. Your goal is to model score, the subjective rating assigned by each judge to each wine. I recommend standardizing it. In this problem, consider only variation among judges and wines. Construct index variables of judge and wine and then use these index variables to construct a linear regression model. Justify your priors. You should end up with 9 judge parameters and 20 wines parameters. How do you interpret the variation among individual judges and individual wines? Do you notice any patterns, just by plotting the differences? Which judges gave the highest/ lowest ratings? Which wines were rated worst/ best on average?    
   
 First things first, loading the data and standardizing the variables to fit priors more easily.  
   
@@ -812,13 +790,13 @@ Judge number 5, which corresponds to `r unique(Wines2012[which(dat_wine$judge ==
   
 ## 8H6  
   
-Now consider three features of the wines and judges: 
-  
-1) flight: Whether the wine is red or white.  
-2) wine.amer: Indicator variable for American wines.  
-3) judge.amer: Indicator variable for American judges.  
-  
-**Use indicator or index variables to model the influence of these features on the scores. Omit the individual judge and wine index variables from Problem 1. Do not include interaction effects yet. Again, justify your priors. What do you conclude about the differences among the wines and judges? Try to relate the results to the inferences in the previous problem.**  
+> Now consider three features of the wines and judges: 
+> 
+> 1. flight: Whether the wine is red or white.  
+> 2. wine.amer: Indicator variable for American wines.  
+> 3. judge.amer: Indicator variable for American judges.  
+>
+> Use indicator or index variables to model the influence of these features on the scores. Omit the individual judge and wine index variables from Problem 1. Do not include interaction effects yet. Again, justify your priors. What do you conclude about the differences among the wines and judges? Try to relate the results to the inferences in the previous problem.  
   
 First, let's convert the focal indicator variables to index variables for easier model fitting and interpretation.  
   
@@ -909,6 +887,11 @@ c("j", "w", "f") %>%
 
 ```   
 Now we can see that American judges tend to judge wines more positive. In contrast, non-American wines get worse scores on average. But note that both contrasts include zero. There is absolutely no difference in red vs. white wines, as it should be, because judges only compare within flights.  
+  
+## 8H7  
+  
+> Now consider two-way interactions among the three features. You should end up with three different interaction terms in your model. These will be easier to build, if you use indicator variables. Again, justify your priors. Explain what each interaction term means. Be sure to interpret the model's predictions on the outcome scale ($mu$, the expected score), not on the scale of individual parameters. You can use link to help with this, or just your knowledge of the linear model instead. What do you conclude about the features and the scores? Can you relate the results of your model(s) to the individual judge and wine inferences from **8H5**?  
+  
   
 
   
