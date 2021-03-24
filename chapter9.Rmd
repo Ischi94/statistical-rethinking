@@ -1,0 +1,140 @@
+---
+title: "Rethinking Chapter 9"
+author: "Gregor Mathes"
+date: "2021-02-11"
+slug: Rethinking Chapter 9
+categories: []
+tags: [Rethinking, Bayes, Statistics]
+subtitle: ''
+summary: 'Markov Chain Monte Carlo algorithms to sample from the posterior'
+authors: [Gregor Mathes]
+lastmod: '2021-03-11T12:07:04+02:00'
+featured: no
+projects: [Rethinking]
+output:
+  html_document:
+    toc: true
+    toc_depth: 1
+    number_sections: false
+    fig_width: 6
+    mathjax: "default"
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.dim=c(7,4), warning=FALSE, message = FALSE)
+library(tidyverse)
+library(rethinking)
+library(knitr)
+library(kableExtra)
+
+map <- purrr::map
+```
+
+# Introduction
+
+This is the eigth part of a series where I work through the practice questions of the second edition of Richard McElreaths [Statistical Rethinking](https://xcelab.net/rm/statistical-rethinking/).\
+Each post covers a new chapter and you can see the posts on previous chapters [here](https://gregor-mathes.netlify.app/tags/rethinking/). This chapter introduces Markov Chain Monte Carlo algorithms to obtain or approximate the posterior distribution.
+
+You can find the the lectures and homework accompanying the book [here](https://github.com/rmcelreath/stat_rethinking_2020%3E).
+
+The colours for this blog post are:
+
+```{r colour setup}
+blue <- "#337677"
+red <- "#C4977F"
+grey <- "#ECDED2"
+brown <- "#50473D"
+```
+
+```{r colour plot, echo=FALSE}
+tibble(colours = c(blue, red, grey, brown), 
+       colourname = c("blue", "red", "grey", "brown")) %>% 
+  arrange(colours) %>% 
+  mutate(colourname = fct_reorder(colourname, colours), 
+         colourname = paste0(colours, "/ ", colourname)) %>% 
+  ggplot() +
+  geom_bar(aes(y = colours, fill = colours)) +
+  scale_fill_identity() +
+  geom_text(aes(x = 0.5, y = colours, label = colourname), 
+            size = 6, colour = "white") +
+  theme_void()
+```   
+  
+  
+# Easy practices
+
+## 9E1  
+  
+> Which of the following is a requirement of the simple Metropolis algorithm?  
+>  
+> * (1) The parameters must be discrete.  
+> * (2) The likelihood function must be Gaussian.  
+> * (3) The proposal distribution must be symmetric.  
+  
+A quick look into chapter 9.2 shows that parameters are allowed to be non-discrete (e.g. continuous) and that the likelihood function can be anything. The only requirement is (3). Or, keeping it in the metaphor of the islands, that there is an equal chance of proposing from Island A to Island B and from B to A.  
+  
+## 9E2  
+  
+> Gibbs sampling is more efficient than the Metropolis algorithm. How does it achieve this extra efficiency? Are there any limitations to the Gibbs sampling strategy?  
+  
+Hamiltonian algorithms jump from proposal to proposal in a random way. This might take some time to explore the whole posterior distribution space. Using *conjugate priors*, Gibbs sampling makes more intelligent proposals. In order words, it makes smart jumps in the joint posterior distribution. This way, you need less samples as you get less rejected proposals.  The disadvantages of the Gibbs sampler is that it relies on conjugate priors, which you sometimes don't want to provide, or sometimes it's not even possible. Similar to the Metropolis MCMC, it get's stuck in a valley of the joint posterior when there is a high correlation between parameters.  
+  
+## 9E3  
+  
+> Which sort of parameters can Hamiltonian Monte Carlo not handle? Can you explain why?  
+  
+Hamiltonian Monte Carlo cannot handle discrete parameters. This is because it requires a smooth surface to glide its imaginary particle over while sampling from the posterior distribution.  
+  
+## 9E4  
+  
+> Explain the difference between the effective number of samples, *n_eff* as calculated by Stan,and the actual number of samples.  
+  
+*n_eff* corresponds to the number of independent samples with the same estimation power as the number of autocorrelated samples. It is is a measure of how much independent information there is in autocorrelated chains. It is always smaller than the actual number of samples.  
+  
+## 9E5  
+  
+> Which value should *Rhat* approach, when a chain is sampling the posterior distribution correctly?  
+  
+A *Rhat* value of one is always a good sight.  
+  
+## 9E6  
+  
+> Sketch a good trace plot for a Markov chain, one that is effectively sampling from the posterior distribution. What is good about its shape? Then sketch a trace plot for a malfunctioning Markov chain. What about its shape indicates malfunction?  
+  
+So first a good chain. We want good mixing and the chain to be stationary, meaning that we should have some minor horizontal noise around a fixed mean.  
+  
+```{r 9E6 Figure 1, fig.cap="A good Markow chain showing good mixing and stationarity."}
+tibble(chain = rnorm(1e3, 2, 0.25), 
+       steps = 1:1e3) %>% 
+  ggplot(aes(steps, chain)) +
+  geom_line(colour = red) +
+  coord_cartesian(ylim = c(0, 3)) +
+  labs(x = "Steps", y = "Sample") +
+  theme_minimal()
+```  
+  
+Note how the chain converges around the mean of 2 and has only small and random divergence from that mean.  
+  
+Now the bad chain:  
+  
+```{r 9E6 Figure 2, fig.cap="A bad Markow chain showing bad mixing and non-stationarity".}
+tibble(mean.val = c(seq(2, 6, length.out = 400),
+                seq(6, 1, length.out = 400), 
+                seq(1, 0.5, length.out = 200)),
+       steps = 1:1e3, 
+       noise = rlogis(1e3, 0, 0.15)) %>% 
+  mutate(chain = mean.val + noise) %>% 
+  ggplot(aes(steps, chain)) +
+  geom_line(colour = red) +
+  labs(x = "Steps", y = "Sample") +
+  theme_minimal()
+```  
+  
+The chain is not stationary around a mean. Instead, it get's stuck at some pretty unrealistic values.  
+  
+
+
+
+  
+
