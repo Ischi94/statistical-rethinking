@@ -133,6 +133,87 @@ tibble(mean.val = c(seq(2, 6, length.out = 400),
   
 The chain is not stationary around a mean. Instead, it get's stuck at some pretty unrealistic values.  
   
+# Medium practices  
+  
+## 9M1  
+  
+> Re-estimate the terrain ruggedness model from the chapter, but now using a uniform prior and an exponential prior for the standard deviation, sigma. The uniform prior should be `dunif(0,10)` and the exponential should be `dexp(1)`. Do the different priors have any detectible influence on the posterior distribution?  
+  
+First, we fit the model from the chapter to compare the differences later on. Note that this model has the `dexp(1)` prior on `sigma`.  
+  
+```{r 9M1 model m9.1}
+data("rugged")
+
+dat_rugged <- rugged %>% 
+  as_tibble() %>% 
+  drop_na(rgdppc_2000) %>% 
+  transmute(log_gdp = log(rgdppc_2000), 
+         log_gdp_std = log_gdp/ mean(log_gdp), 
+         rugged_std = rugged / max(rugged), 
+         cid = if_else(cont_africa == 1, 1, 2)) %>% 
+  as.list()
+
+m9.1 <- alist(
+  log_gdp_std ~ dnorm(mu, sigma),
+  mu <- a[cid] + b[cid] * (rugged_std - 0.215),
+  a[cid] ~ dnorm(1, 0.1),
+  b[cid] ~ dnorm(0, 0.3),
+  sigma ~ dexp(1)) %>% 
+  ulam(data = dat_rugged, chains = 1)
+```  
+  
+And now the new model with the updated priors.  
+  
+```{r 9M1 model m9.1.upd}
+m9.1.upd <- alist(
+  log_gdp_std ~ dnorm(mu, sigma),
+  mu <- a[cid] + b[cid] * (rugged_std - 0.215),
+  a[cid] ~ dnorm(1, 0.1),
+  b[cid] ~ dnorm(0, 0.3),
+  sigma ~ dunif(0, 10)) %>% 
+  ulam(data = dat_rugged, chains = 1)
+```  
+  
+Let's plot the prior distributions against each other.  
+  
+```{r 9M1 Figure 3, fig.cap="Prior distributions on sigma."}
+tibble(exponential = rexp(1e3, 1), 
+       uniform = runif(1e3, 0, 10)) %>% 
+  pivot_longer(cols = everything(), 
+               names_to = "type", 
+               values_to = "Sigma") %>% 
+  ggplot(aes(Sigma, fill = type)) +
+  geom_density(colour = grey, 
+               alpha = 0.6) +
+  scale_fill_manual(values = c(blue, red)) +
+  labs(y = NULL, fill = NULL) +
+  theme_minimal()
+```
+
+Now we can look at the posteriors for `sigma`and compare the models.  
+  
+```{r 9M1 Figure 4, fig.cap="Posterior distributions for sigma."}
+tibble(exponential = extract.samples(m9.1) %>%
+         pluck("sigma"), 
+       uniform = extract.samples(m9.1.upd) %>% 
+         pluck("sigma")) %>% 
+  pivot_longer(cols = everything(), 
+               names_to = "model", 
+               values_to = "Sigma") %>% 
+  ggplot(aes(Sigma, fill = model)) +
+  geom_density(colour = grey, 
+               alpha = 0.6) +
+  scale_fill_manual(values = c(blue, red)) +
+  labs(y = NULL, fill = NULL) +
+  theme_minimal()
+```  
+  
+There are basically no differences in the posterior. It seems that there was so much data that the prior was just overwhelmed.  
+  
+
+
+
+  
 
 
 
