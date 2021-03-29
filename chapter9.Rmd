@@ -118,7 +118,7 @@ Note how the chain converges around the mean of 2 and has only small and random 
   
 Now the bad chain:  
   
-```{r 9E6 Figure 2, fig.cap="A bad Markow chain showing bad mixing and non-stationarity".}
+```{r 9E6 Figure 2, fig.cap="A bad Markow chain showing bad mixing and non-stationarity"}
 tibble(mean.val = c(seq(2, 6, length.out = 400),
                 seq(6, 1, length.out = 400), 
                 seq(1, 0.5, length.out = 200)),
@@ -141,7 +141,7 @@ The chain is not stationary around a mean. Instead, it get's stuck at some prett
   
 First, we fit the model from the chapter to compare the differences later on. Note that this model has the `dexp(1)` prior on `sigma`.  
   
-```{r 9M1 model m9.1}
+```{r 9M1 model m9.1, results='hide'}
 data("rugged")
 
 dat_rugged <- rugged %>% 
@@ -164,7 +164,7 @@ m9.1 <- alist(
   
 And now the new model with the updated priors.  
   
-```{r 9M1 model m9.1.upd}
+```{r 9M1 model m9.1.upd, results='hide'}
 m9.1.upd <- alist(
   log_gdp_std ~ dnorm(mu, sigma),
   mu <- a[cid] + b[cid] * (rugged_std - 0.215),
@@ -208,9 +208,113 @@ tibble(exponential = extract.samples(m9.1) %>%
   theme_minimal()
 ```  
   
-There are basically no differences in the posterior. It seems that there was so much data that the prior was just overwhelmed.  
+There are basically no differences in the posterior. It seems that there was so much data that the prior was just overwhelmed. However, the uniform prior results in a broader and less peaky posterior, expressing more uncertainty.  
+  
+  
+## 9M2  
+  
+> Modify the terrain ruggedness model again. This time, change the prior for `b[cid]` to `dexp(0.3)`. What does this do to the posterior distribution? Can you explain it?  
+  
+First, let's take a look at the modified prior distribution:  
+  
+```{r 9M2  Figure 5, fig.cap="Prior distributions on b[cid]"}
+tibble(exponential = rexp(1e3, 0.3))  %>% 
+  ggplot(aes(exponential)) +
+  geom_density(colour = grey, 
+               alpha = 0.8, fill = brown) +
+  labs(y = NULL, fill = NULL) +
+  theme_minimal()
+```  
+  
+And now refit the model.  
+  
+```{r 9m2 m9.1.mod}
+m9.1.mod <- alist(
+  log_gdp_std ~ dnorm(mu, sigma),
+  mu <- a[cid] + b[cid] * (rugged_std - 0.215),
+  a[cid] ~ dnorm(1, 0.1),
+  b[cid] ~ dexp(0.3),
+  sigma ~ dexp(1)) %>% 
+  ulam(data = dat_rugged, chains = 1)
+
+```  
+  
+Looking at the coefficient estimates, we can already see that something happened to `b[2]`.  
+  
+```{r 9m2 coefficient}
+precis(m9.1.mod, depth = 2) %>% 
+  as_tibble(rownames = "coefficient") %>% 
+  knitr::kable(digits = 2)
+```  
+  
+Let's plot the posterior 
+  
+```{r  Figure 6, fig.cap="Posterior distributions for b[2]"}
+extract.samples(m9.1.mod) %>%
+         pluck("b") %>% 
+         .[,1] %>% 
+  as_tibble_col(column_name = "b1") %>% 
+  ggplot(aes(b1)) +
+  geom_density(colour = grey,
+               fill = brown,
+               alpha = 0.8) +
+  labs(y = NULL) +
+  theme_minimal()
+```  
+  
+We can clearly see that the posterior get's cut off at zero and only shows positive numbers. This is because the prior does not allow any numbers below zero.  
+  
+## 9M3  
+  
+> Re-estimate one of the Stan models from the chapter, but at different numbers of `warmup` iterations. Be sure to use the same number of sampling iterations in each case. Compare the `n_eff` values. How much warmup is enough?  
+  
+Let's stick to the model `m9.1`. Let's define a function that fits this model dependent on the `warmup` number, and returns the effective number of samples. Similar to the `update` function from the *brms* package, we can use `ulam` on a fitted model, which makes updating much easier. This is described in the help for `?ulam`.  
+  
+```{r 9M3 refit_m9.1}
+refit_m9.1 <- function(N){
+    ulam(m9.1, chains = 1, warmup = N, iter = 1000,
+       cores = parallel::detectCores()) %>% 
+    precis() %>% 
+    as_tibble() %>% 
+    pull(n_eff)
+}
+
+```  
+  
+Now we can iterate over the `warmup` numbers using `purrr::map`.  
+  
+```{r 9M3 refit_m9.1 tibble, results='hide'}
+n_effective <- seq(1, 500, length.out = 100) %>% 
+  round(0) %>% 
+  map_dbl(refit_m9.1) 
+```  
+  
+Now we just refitted 100 new models with a warmup betwenn 1 and 500. Let's plot the results.  
+  
+```{r 9M3 Figure 7, fig.cap="Effective number of samples (ESS) as a function of warmup."}
+n_effective %>% 
+  as_tibble_col(column_name = "n_eff") %>% 
+  add_column(warmup = seq(1, 500, length.out = 100)) %>% 
+  ggplot(aes(warmup, n_eff)) +
+  geom_line(colour = red, size = 0.9) +
+  labs(x = "Warm-up", y = "ESS") +
+  theme_minimal()
+```  
+  
+With such an easy model, and such a low correlation between parameters, the effective number of samples increases fast. We get a robust estimate for a warm-up bigger than 20. But note that this is not the case for all models.  
   
 
+# Hard practices  
+  
+## 9H1  
+  
+
+
+
+
+
+
+  
 
 
   
