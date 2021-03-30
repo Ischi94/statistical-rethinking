@@ -447,6 +447,126 @@ compare(m5.1, m5.2, m5.3, func = PSIS) %>%
   
 Model `m5.1` with only median age at marriage as a predictor performs best, but is not really distinguishable from model `m5.3`. However, the model with marriage rate only, `m5.2` clearly performs worse than both.  
   
+## 9H3  
+  
+> Sometimes changing a prior for one parameter has unanticipated effects on other parameters. This is because when a parameter is highly correlated with another parameter in the posterior, the prior influences both parameters. Here’s an example to work and think through. Go back to the leg length example in Chapter 5. Here is the code again, which simulates height and leg lengths for 100 imagined individuals:  
+  
+```{r 9H3 set up 1}
+N <- 100 # number of individuals
+height <- rnorm(N,10,2) # sim total height of each 
+leg_prop <- runif(N,0.4,0.5) # leg as proportion of height
+leg_left <- leg_prop*height + # sim left leg as proportion + error
+  rnorm( N , 0 , 0.02 )
+leg_right <- leg_prop*height +    # sim right leg as proportion + error
+  rnorm( N , 0 , 0.02 ) 
+
+# combine into data frame
+d <- data.frame(height,leg_left,leg_right)
+```  
+  
+> And below is the model you fit before, resulting in a highly correlated posterior for the two beta parameters. This time, fit the model using `ulam()`:  
+  
+```{r 9H3 set up 2, results='hide'}
+m5.8s <- ulam(
+  alist(
+    height ~ dnorm( mu , sigma ),
+    mu <- a + bl*leg_left + br*leg_right,
+    a ~ dnorm( 10 , 100 ),
+    bl ~ dnorm( 2 , 10 ),
+    br ~ dnorm( 2 , 10 ),
+    sigma ~ dexp( 1 )),
+  data=d, chains=4, start=list(a=10,bl=0,br=0.1,sigma=1), 
+  log_lik = TRUE)
+```  
+  
+> Compare the posterior distribution produced by the code above to the posterior distribution produced when you change the prior forbrso that it is strictly positive:  
+  
+```{r 9H3 set up 3, results='hide'}
+m5.8s2 <- ulam(
+  alist(
+    height ~ dnorm( mu , sigma ),
+    mu <- a + bl*leg_left + br*leg_right,
+    a ~ dnorm( 10 , 100 ),
+    bl ~ dnorm( 2 , 10 ),
+    br ~ dnorm( 2 , 10 ),
+    sigma ~ dexp( 1 )),
+  data=d, chains=4, 
+  constraints=list(br="lower=0"), 
+  start=list(a=10,bl=0,br=0.1,sigma=1), 
+  log_lik = TRUE)
+```  
+  
+> Note the `constraints` list. What this does is constrain the prior distribution of `br` so that it has positive probability only above zero. In other words, that prior ensures that the posterior distribution for `br` will have no probability mass below zero. Compare the two posterior distributions for `m5.8s` and `m5.8s2`. What has changed in the posterior distribution of both beta parameters? Can you explain the change induced by the change inprior?  
+  
+First let's take a look at both model summaries:  
+  
+```{r 9H3 summaries}
+precis(m5.8s) %>% 
+  as_tibble(rownames = "estimate") %>% 
+  add_column(model = "m5.8s", .before = "estimate") %>% 
+  full_join(
+    
+    precis(m5.8s2) %>%
+      as_tibble(rownames = "estimate") %>%
+      add_column(model = "m5.8s2", .before = "estimate")
+    
+  ) %>% 
+  arrange(estimate) %>% 
+  knitr::kable(digits = 3)
+```  
+  
+We can already see that changing the prior on one parameter (`br`) results in a change in the other parameter (`bl`).    
+  
+We can and should plot the whole posterior distributions:  
+  
+```{r 9H3 Figure 12, fig.cap="Posterior distributions for all estimates of both models."}
+extract.samples(m5.8s) %>% 
+  as_tibble() %>% 
+  add_column(model = "m5.8s") %>% 
+  full_join(
+    
+    extract.samples(m5.8s2) %>%
+      as_tibble() %>%
+      add_column(model = "m5.8s2")
+    
+  ) %>% 
+  pivot_longer(cols = -model, 
+               names_to = "estimate") %>%
+  ggplot(aes(value, fill = model)) +
+  geom_density(colour = grey, alpha = 0.7) +
+  facet_wrap(~estimate, scales = "free") +
+  scale_fill_manual(values = c(red, blue)) +
+  scale_y_continuous(breaks = 0, labels = NULL) +
+  theme_minimal() +
+  labs(y = NULL, fill = "Model", 
+       x = "Posterior estimate") +
+  theme(legend.position = c(0.9, 0.9), 
+        legend.background = element_rect(colour = "white"))
+```  
+  
+We can see that the posterior on the intercept and on sigma remains constant. But forcing `br` to be positive shifts the  posterior for `bl` to the left. That's because `br` and `bl` are negatively correlated in the likelihood (the data) and the model wants to keep this information. And the only way to express this information in the posterior is to shift the estimate for `bl` to the left, when `br` is shifted to the right. It's just a necessity arising from the extreme negative correlation in the data.  
+  
+## 9H4  
+  
+> For the two models fit in the previous problem, use WAIC or PSIS to compare the effective numbers of parameters for each model. You will need to use log_lik=TRUE to instruct ulam() to compute the terms that both WAIC and PSIS need. Which model has more effective parameters? Why?  
+  
+We can just throw both models into the `compare()` function with Pareto smoothed importance sampling (PSIS).  
+  
+```{r 9H4 compare}
+compare(m5.8s, m5.8s2, func = "PSIS") %>% 
+  as_tibble(rownames = "Estimate") %>% 
+  knitr::kable(digits = 2)
+```  
+  
+The important column here is `pPSIS` containing the effective number of parameters given by PSIS, or "the overfitting penalty". There is not much difference in these models, but `m5.8s2` is a bit less flexible as the prior is more informative. At the same time, the model fits the data slightly worse as indicated by the other PSIS estimates.  
+  
+
+
+
+
+
+
+
 
 
 
