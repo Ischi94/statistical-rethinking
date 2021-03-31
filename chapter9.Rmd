@@ -560,6 +560,143 @@ compare(m5.8s, m5.8s2, func = "PSIS") %>%
   
 The important column here is `pPSIS` containing the effective number of parameters given by PSIS, or "the overfitting penalty". There is not much difference in these models, but `m5.8s2` is a bit less flexible as the prior is more informative. At the same time, the model fits the data slightly worse as indicated by the other PSIS estimates.  
   
+  
+## 9H5  
+  
+> Modify the Metropolis algorithm code from the chapter to handle the case that the island populations have a different distribution than the island labels. This means the island’s number will not be the same as its population.  
+  
+Here's the code from the chapter:  
+  
+```{r 9H5 setup, eval=FALSE}
+num_weeks <- 1e5
+positions <- rep(0, num_weeks)
+current <- 10
+
+for (i in 1:num_weeks) {
+  
+  # record current position
+  positions[i] <- current
+  
+  # flip coin to generate proposal
+  proposal <- current + sample(c(-1, 1) , size = 1)
+  
+  # now make sure he loops around the archipelago
+  if (proposal < 1)
+    proposal <- 10
+  if (proposal > 10)
+    proposal <- 1
+  
+  # move?
+  prob_move <- proposal / current
+  current <- ifelse(runif(1) < prob_move , proposal , current)
+  
+}
+```  
+  
+Let's set up a data frame with the number of the islands (1 to 10) and population for each islands.  
+  
+```{r 9H5 island data}
+set.seed(123)
+island <- tibble(current = 1:10, 
+                 population = rpois(10, 10))
+
+island %>% 
+  arrange(desc(population)) %>% 
+  knitr::kable()
+```  
+  
+Island 6 has the highest population, and island 9 the lowest.  
+  
+Now to refit the code, we simply make the probability to move `prob_move` dependent on the population, and not on the number of the island (which was equal to the population in the original code).  
+  
+  
+```{r 9H5 new loop}
+num_weeks <- 1e5
+positions <- rep(0, num_weeks)
+current <- 10
+
+for (i in 1:num_weeks) {
+  
+  # record current position
+  positions[i] <- island$current[current]
+  
+  # flip coin to generate proposal
+  proposal <- island$current[current] + sample(c(-1, 1), size = 1)
+  
+  # now make sure he loops around the archipelago
+  if (proposal < 1)
+    proposal <- 10
+  if (proposal > 10)
+    proposal <- 1
+  
+  # move?
+  prob_move <- island$population[proposal] / island$population[current]
+  current <- ifelse(runif(1) < prob_move , island$current[proposal] , island$current[current])
+  
+}
+```  
+  
+Now we can plot the results. We start by plotting the first 100 weeks:    
+  
+```{r 9H5 Figure 13, fig.cap="Walk-through the first 100 island visits."}
+tibble(positions = positions[1:100], week = 1:100) %>% 
+  ggplot(aes(week, positions)) +
+  geom_point(shape = 21, size = 2,
+             stroke = 1.1, alpha = 0.8,
+             fill = blue, colour = brown) +
+  labs(y = "Island", x = "Week") +
+  scale_y_continuous(breaks = seq(2, 10, by = 2)) +
+  theme_minimal() +
+  theme(panel.grid.major.x = element_blank(), 
+        panel.grid.minor.x = element_blank())
+```  
+  
+The movement looks all good, now we should take a look at the absolute visits for each islands.  
+  
+```{r 9H5 Figure 14, fig.cap="The long-run behaviour of the algorithm."}
+tibble(positions = positions) %>% 
+  count(positions, name = "n_weeks") %>% 
+  mutate(positions = as_factor(positions), 
+         positions = fct_reorder(positions, n_weeks)) %>% 
+  ggplot(aes(positions, n_weeks)) +
+  geom_segment(aes(xend = positions, y = 0, yend = n_weeks), 
+               size = 2, colour = grey) +
+  geom_point(shape = 21, size = 4,
+             stroke = 1.1, alpha = 0.8,
+             fill = blue, colour = brown) +
+  labs(x = "Island", y = "Number of weeks") +
+  theme_minimal() +
+  theme(panel.grid = element_blank(), 
+        axis.ticks.y = element_line())
+```  
+  
+That's a perfect results, with island 9 having the fewest visits, and island 6 the most. Another way to visualise this is to plot the number of weeks for each island against it's population size.  
+  
+```{r 9H5 Figure 15, fig.cap="Population size of each island plotted against the number of weeks each island was visited."}
+island %>% 
+  rename(positions = current) %>% 
+  left_join(
+    
+    tibble(positions = positions) %>% 
+  count(positions, name = "n_weeks")
+    
+  ) %>% 
+  ggplot(aes(n_weeks, population, 
+             label = positions)) +
+  geom_label(colour = brown, size = 6) +
+  labs(x = "Number of weeks", y = "Population") +
+  theme_minimal()
+```  
+  
+
+
+  
+
+
+
+
+
+
 
 
 
