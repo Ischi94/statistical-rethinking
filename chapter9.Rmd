@@ -639,16 +639,17 @@ for (i in 1:num_weeks) {
 Now we can plot the results. We start by plotting the first 100 weeks:    
   
 ```{r 9H5 Figure 13, fig.cap="Walk-through the first 100 island visits."}
-tibble(positions = positions[1:100], week = 1:100) %>% 
+tibble(positions = positions[1:100], week = 1:100) %>%
   ggplot(aes(week, positions)) +
   geom_point(shape = 21, size = 2,
-             stroke = 1.1, alpha = 0.8,
-             fill = blue, colour = brown) +
+    stroke = 1.1,  alpha = 0.8,
+    fill = blue, colour = brown) +
   labs(y = "Island", x = "Week") +
   scale_y_continuous(breaks = seq(2, 10, by = 2)) +
   theme_minimal() +
-  theme(panel.grid.major.x = element_blank(), 
+  theme(panel.grid.major.x = element_blank(),
         panel.grid.minor.x = element_blank())
+
 ```  
   
 The movement looks all good, now we should take a look at the absolute visits for each islands.  
@@ -668,6 +669,7 @@ tibble(positions = positions) %>%
   theme_minimal() +
   theme(panel.grid = element_blank(), 
         axis.ticks.y = element_line())
+
 ```  
   
 That's a perfect results, with island 9 having the fewest visits, and island 6 the most. Another way to visualise this is to plot the number of weeks for each island against it's population size.  
@@ -686,8 +688,113 @@ island %>%
   geom_label(colour = brown, size = 6) +
   labs(x = "Number of weeks", y = "Population") +
   theme_minimal()
+
 ```  
   
+So with these three plots at hand, and some `magick` as well as `gganimate`, we can make a nice Gif with the build-up of the Markov Chain for the first 100 steps.  
+  
+```{r, eval = FALSE}
+library(magick)
+library(gganimate)
+
+# first plot
+walk_through <- tibble(positions = positions[1:100], 
+                       week = 1:100) %>%
+  ggplot(aes(week, positions)) +
+  geom_point(aes(week2, positions2),
+             shape = 21, size = 2,
+    stroke = 1.1,  alpha = 0.3,
+    fill = grey, colour = brown, 
+    data = tibble(positions2 = positions[1:100], 
+                       week2 = 1:100)) +
+  geom_point(shape = 21, size = 4,
+    stroke = 1.1,  alpha = 0.8,
+    fill = blue, colour = brown) +
+  labs(y = "Island", x = "Week") +
+  scale_y_continuous(breaks = seq(2, 10, by = 2)) +
+  theme_minimal() +
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank()) +
+  transition_reveal(week) +
+  ease_aes() 
+
+walk_through_gif <- animate(walk_through, width = 240, height = 240)
+
+
+
+# second plot
+week_counts <- tibble(positions = positions[1:100],  week = 1:100) %>% 
+  count(positions, week) %>% 
+  group_by(positions) %>% 
+  arrange(week) %>% 
+  mutate(n_weeks = cumsum(n)) %>% 
+  ungroup()
+
+
+  
+lollipop <- week_counts %>% 
+  expand(positions, week) %>% 
+  left_join(week_counts) %>% 
+  replace_na(list(n_weeks = 0)) %>% 
+  group_by(positions) %>% 
+  mutate(n_weeks = cumsum(n_weeks), 
+         positions = as_factor(positions)) %>% 
+  ggplot(aes(positions, n_weeks)) +
+  geom_segment(aes(xend = positions, y = 0, yend = n_weeks), 
+               size = 2, colour = grey) +
+  geom_point(shape = 21, size = 4,
+             stroke = 1.1, alpha = 0.8,
+             fill = blue, colour = brown) +
+  labs(x = "Island", y = "Number of weeks") +
+  theme_minimal() +
+  theme(panel.grid = element_blank(), 
+        axis.ticks.y = element_line()) +
+  transition_time(week)
+
+
+lollipop_gif <- animate(lollipop, width = 240/2, height = 240)
+
+
+# third plot
+corr_plot <- island %>% 
+  rename(positions = current) %>% 
+  mutate(positions = as_factor(positions)) %>% 
+  full_join(
+    
+    week_counts %>%
+      expand(positions, week) %>%
+      left_join(week_counts) %>%
+      replace_na(list(n_weeks = 0)) %>%
+      group_by(positions) %>%
+      mutate(n_weeks = cumsum(n_weeks),
+             positions = as_factor(positions))
+    
+  ) %>%  
+  drop_na(week) %>%  
+  ggplot(aes(n_weeks, population)) +
+  geom_smooth(aes(x, y), colour = brown, 
+              method = "lm", se = FALSE, 
+              data = tibble(x = 1:250, 
+                            y = seq(1, 15, length.out = 250))) +
+  geom_label(aes(label = positions), 
+             colour = brown, size = 6) +
+  labs(x = "Number of weeks", y = "Population") +
+  theme_minimal() +
+  transition_time(week)
+
+corr_plot_gif <- animate(corr_plot, width = 240/2, height = 240)
+
+```
+
+![](/home/gregor/Dokumente/Random/statistical-rethinking/walk_through_gif.gif){width=30%}  
+  
+
+![](/home/gregor/Dokumente/Random/statistical-rethinking/lollipop_gif.gif){width=15%}   ![](/home/gregor/Dokumente/Random/statistical-rethinking/corr_plot_gif.gif){width=15%}  
+  
+  
+Here we see the problem of the Metropolis algorithm. After 100 weeks, you start to see a pattern, but it does not really reflect the true posterior. It just needs more time to converge.  
+  
+
 
 
   
