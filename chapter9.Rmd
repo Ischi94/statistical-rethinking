@@ -61,6 +61,7 @@ tibble(colours = c(blue, red, grey, brown),
   theme_void()
 ```   
   
+Note that I did not have time for practive questions 9H6 and 9H7, but I probably manage to add these soon(-ish).
   
 # Easy practices
 
