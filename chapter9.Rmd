@@ -932,6 +932,116 @@ multi_chains %>%
 
   
 
+## 9H6  
+  
+> Can you write your own Hamiltonian Monte Carlo algorithm for the globe tossing data, using the R code in the chapter? You will have to write your own functions for the likelihood and gradient, but you can use the `HMC2` function.  
+  
+So what we need to start with is a function `neg_log_prob` that returns the negative log-probability of the data at the current position (parameter values). We get that by summing the log likelihood to log priors, to get the posterior probability at the current position *q*.  
+
+```{r}
+neg_log_prob <- function(q) {
+  
+  # calculate log-probability at q
+  U <- dbinom(w, n, q, log = TRUE) + dunif(q, log = TRUE)
+  
+  # return negative probability
+  -U
+}
+```  
+  
+Then we need the gradient function, which is the derivative of the logarithm of the binomial. I simply stole this one from McElreath:  
+  
+```{r}
+neg_log_gradient <- function(q) {
+  
+  # calculate the derivative of the binomial log-probability
+  G <- (w - n*q) / (q*(1 - q))
+  
+  # return the negative
+  -G
+  
+}
+```
+
+Now we can simply modify the code from the chapter to run the Hamiltonian Monte Carlo simulation.  
+  
+```{r}
+# the data from chapter 2
+w <- 6
+n <- 9
+
+# set up Q for HMC2
+Q <- list()
+Q$q <- 0.5
+
+# the number of samples
+n_samples <- 1000
+
+# size of the leapfrog step
+epsilon <- 0.03
+
+# number of leapfrog steps
+L <- 10
+
+# initalize empty vectors to store data
+samples <- rep(NA, n_samples)
+accepted <- rep(NA, n_samples)
+
+
+# start the simulation
+for (i in 1:n_samples) {
+  Q <- HMC2(U = neg_log_prob,
+          grad_U = neg_log_gradient,
+          epsilon = epsilon,
+          L = L,
+          current_q = Q$q)
+  
+  samples[i] <- Q$q  
+  accepted[i] <- Q$accept
+}
+
+```  
+  
+We end up with two vectors, one with the actual samples, and the other one indicating whether the focal sample is accepted or not. Let's plot:  
+  
+```{r}
+tibble(samples = samples, 
+       accepted = accepted, 
+       time = 1:1000) %>% 
+  ggplot(aes(time, samples, 
+             colour = as_factor(accepted)), ) +
+  geom_point() +
+  scale_color_manual(values = c(red, blue), 
+                     name = NULL, 
+                     labels = c("rejected", "accepted")) +
+  labs(x = "Step", 
+       y = "Probability water") +
+  theme_minimal()
+  
+```  
+  
+As we can see, we rejected only a tiny bit of samples, indeed `r n_samples - sum(accepted)` out of `r n_samples`. Let's see how the posterior looks:  
+  
+```{r}
+tibble(samples = samples, 
+       accepted = accepted) %>% 
+  filter(accepted == 1) %>% 
+  ggplot() +
+  geom_density(aes(samples), 
+               colour = red, fill = red, 
+               alpha = 0.8) +
+  theme_minimal() +
+  geom_function(fun = dbeta, args = c(shape1 = 7, shape2 = 4),
+       colour = blue, size = 1.5) +
+  scale_y_continuous(breaks = NULL) +
+  labs(x = "Probability water", 
+       y = NULL) 
+```  
+
+We can see that we can get a very good representation of the posterior with a low number of samples, and this in a very fast fasion. 
+
+
+
 
 
 
