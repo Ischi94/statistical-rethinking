@@ -798,7 +798,140 @@ Here we see the problem of the Metropolis algorithm. After 100 weeks, you start 
 
 
 
+## 9H6  
   
+> Modify the Metropolis algorithm code from the chapter to write your own simple MCMC estimator for globe tossing data and model from Chapter 2.  
+  
+So first let's take a look at the model from chapter 6. We were tossing the globe 9 times (*N*) and it landed on water (*w*) 6 times out of these 9. We were assuming that every toss is independent of the other tosses and that the probability of *w* is the same on every toss. So we can describe *w* as being binomial distributed:  $$w~Binomial(N, p)$$, 
+where *N* is the sum of how many times it landed on water and on land. *p* is the probability and is an unobserved parameter: 
+$$p∼Uniform(0,1)$$  
+We give *p* a uniform prior, ranging from zero to one, which is obviously not the best. But we will stick to the chapter. Let's define some parameters: We will run the algorithm for 100,000 steps. Our data is *w* = 6, and *n* = 9. Our starting point for *p* will be 0.5, which is in the middle of our prior on *p*. One proposal step size will be 0.1.  
+Let's transform this into R code: 
+
+```{r, results='hide'}
+# set seed
+set.seed(123)
+# iteration
+n_iter <- 1e4
+# water count
+w <- 6
+# total tosses
+n <- 9
+# starting point
+current <- 0.5
+# empty vector to record data
+positions <- rep(NA, n_iter)
+
+sample_metro <- function() {
+  
+  for (i in 1:n_iter) {
+  
+  # record current position
+  positions[i] <- current
+  
+  # generate proposal 
+  proposal <- current + runif(1, -0.1, 0.1)
+  
+  # make sure that the posterior is bounded between zero and one
+  if (proposal < 0) proposal <- abs(proposal)
+  if (proposal > 1) proposal <- 1-(proposal - 1)
+  
+  # compute likelihoods
+  lkhd_current <- dbinom(w, n, prob = current)
+  lkhd_proposal <- dbinom(w, n, prob = proposal)
+  
+  # compute posteriors
+  prob_current <- lkhd_current * dunif(current)
+  prob_proposal <- lkhd_proposal * dunif(proposal)
+  
+  
+  # move
+  prob_move <- prob_proposal/prob_current
+  current <- if_else(runif(1) < prob_move, proposal, current)
+  }
+  
+  # print positions
+  positions
+}
+
+# run function
+results <- sample_metro()
+
+```  
+  
+Let's recap what we did. We first generated a proposal that is either a bit (0.01) on the left side of the current position (which was 0.5 at the start), or a bit on the right side. This means we treat the continuous posterior space ranging from zero to one as a discrete space with bins of 0.01 width. Think of it like there are 100 islands, each placed next to each other. When the King is at island 50 (the starting point), he can either go at island 49 or island 51 (the proposal), or stay at the current island. What happens when he reaches the first (1) or the last (100) island? He simply moves in the other direction. This is what we did at the section *make sure that the posterior is bounded between zero and one*. This just means that we do not have a circle of islands as in the chapter, but rather a straight line of islands placed next to each other. We then compute the likelihood for both the current position and the proposal, which we defined as being binomial distributed. We then transform the likelihood into the posterior for each, as always by multiplying it with the prior. As the prior is uniform, we multiply the likelihood by one. We then calculate the ratio of the posterior between the proposal and the current position. If this ratio is larger than a randomly sampled number between one and zero, we stay at the current position, if it is smaller we move to the proposal. I moved the for loop into a function, so we can call it repeatedly later and get some results printed.  
+  
+Now let's take a look at the results. Here is each sample from the posterior over time: 
+
+```{r}
+tibble(results = results) %>% 
+  ggplot() +
+  geom_line(aes(x = 1:1e4, results), 
+            colour = red) +
+  labs(y = "Probability water", 
+       x = "Step") +
+  theme_minimal()
+```  
+  
+We can see that the chain is quite autocorrelated, which shouldn't be a big problem for this easy example. We still explore the whole posterior and don't get stuck anywhere. Let's see what the posterior looks like: 
+
+```{r}
+tibble(results = results) %>% 
+  ggplot() +
+  geom_density(aes(results), 
+               colour = red, fill = red, 
+               alpha = 0.8) +
+  theme_minimal() +
+  labs(x = "Probability water", 
+       y = NULL) +
+  scale_y_continuous(breaks = NULL) +
+  geom_function(fun = dbeta, args = c(shape1 = 7, shape2 = 4),
+                colour = blue, size = 1.5)
+```  
+  
+I added the analytically derived posterior for this model in blue. We can see that we get quite a nice fit. We can even improve this by sampling from more chains: 
+
+```{r}
+results2 <- sample_metro()
+results3 <- sample_metro()
+results4 <- sample_metro()
+
+multi_chains <- tibble(p_samples = c(results, results2, 
+                     results3, results4), 
+       chain = as_factor(rep(1:4, each = 1e4)))
+
+multi_chains %>%
+  add_column(steps = rep(1:1e4, 4)) %>% 
+  ggplot() +
+  geom_line(aes(steps, p_samples, 
+                colour = chain), 
+            alpha = 0.8) +
+  scale_colour_manual(values = c(red, blue, brown, grey)) +
+  labs(y = "Probability water", 
+       x = "Step") +
+  theme_minimal()
+
+```  
+
+And here's the posterior with the samples from all 4 chains: 
+ 
+```{r}
+multi_chains %>% 
+  ggplot() +
+  geom_density(aes(p_samples), 
+               colour = red, fill = red, 
+               alpha = 0.8) +
+  theme_minimal() +
+  geom_function(fun = dbeta, args = c(shape1 = 7, shape2 = 4),
+       colour = blue, size = 1.5) +
+  scale_y_continuous(breaks = NULL) +
+  labs(x = "Probability water", 
+       y = NULL) 
+```
+
+
+  
+
 
 
 
